@@ -1,0 +1,3377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heritage Legends Tournament — Live</title>
+<style>
+  :root {
+    --green: #1e5b3a; --green-dark: #123c26; --gold: #c9a227;
+    --bg: #f5f5f0; --card: #ffffff; --border: #d8d8d0;
+    --text: #222; --muted: #777; --error: #b3261e; --ok: #1e5b3a;
+    --win: #e6f4ea; --lose: #fdecea;
+    /* Tie/Halve color — a clear yellow. It used to be a very pale cream
+       (#f5f0e0), which read as almost the same shade as an unscored hole's
+       plain grey (#eee) at a glance, especially in bright outdoor light —
+       Tom flagged this after the first real match-day test. Feeds every tied
+       indicator in the app (the 18-hole progress strip, the Halve pick
+       button, the tie badge on scorecards, the "halved" status badge), not
+       just the one Tom noticed, since they're all the same "this hole/match
+       is tied" signal and should look the same. */
+    --half: #ffd400;
+    /* Overwritten from Settings once loaded (see applyTeamColorVars) — these
+       defaults just match teamColors()'s own JS fallback, for the instant
+       before that runs. */
+    --team-a-color: #ADD8E6; --team-b-color: #F08080;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  header { background: var(--green); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  header h1 { margin: 0; font-size: 1.2rem; }
+  header .sub { font-size: 0.85rem; opacity: 0.85; }
+  nav { display: flex; gap: 4px; padding: 0 20px; background: var(--green-dark); flex-wrap: wrap; }
+  nav button { background: transparent; border: none; color: #fff; opacity: 0.75; padding: 12px 16px; cursor: pointer; font-size: 0.95rem; border-bottom: 3px solid transparent; }
+  nav button.active { opacity: 1; border-bottom-color: var(--gold); font-weight: 600; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+  .card h2 { margin-top: 0; font-size: 1.05rem; color: var(--green-dark); }
+  select, input[type=number] { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .status-line { font-size: 0.9rem; margin: 4px 0; }
+  .status-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+  .status-badge.a { background: var(--win); color: #222; }
+  .status-badge.b { background: var(--lose); color: #222; }
+  .status-badge.half { background: var(--half); color: #7a5b00; }
+  .status-badge.pending { background: #eee; color: var(--muted); }
+  .save-indicator { font-size: 0.85rem; margin-left: 12px; }
+  .save-indicator.saving { color: var(--muted); }
+  .save-indicator.saved { color: var(--ok); }
+  .save-indicator.error { color: var(--error); }
+  .hint { font-size: 0.8rem; color: var(--muted); }
+  .sc-intro-label { font-weight: 700; color: var(--green-dark); font-size: 0.95rem; margin: 10px 0 4px; width: 100%; }
+  /* The actual hole number/letter in "Your match is starting on Hole 14a" —
+     boxed and enlarged so it's the one thing that jumps out of that line,
+     since it's the answer to "which hole do I go stand on." */
+  .start-hole-badge { display: inline-block; font-size: 1.3rem; font-weight: 800; color: var(--green-dark); background: #e8f2ec; border: 1.5px solid var(--green); border-radius: 8px; padding: 2px 12px; margin-left: 4px; vertical-align: middle; }
+  [hidden] { display: none !important; }
+  button.primary { background: var(--green); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; font-weight: 600; }
+  button.secondary { background: #fff; color: var(--green); border: 1px solid var(--green); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  .view-toggle-btn { background: #fff; border: 1.5px solid var(--border); color: var(--green-dark); padding: 7px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+  .view-toggle-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+  .hbh-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .hbh-nav select { flex: 1; }
+  .hbh-nav button { padding: 10px 16px; font-size: 1.1rem; line-height: 1; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; flex-shrink: 0; }
+  .hbh-nav button:disabled { opacity: 0.35; }
+  /* Rides on the same .wpick-row line as the win/tie/win buttons, as the
+     4th button — styled green so it stands out as the "commit" action. */
+  .hbh-save-next { flex: 1 1 140px; padding: 14px 6px; font-size: 0.9rem; font-weight: 700; line-height: 1.2; white-space: normal; border-radius: 8px; background: var(--green); color: #fff; border: none; cursor: pointer; }
+  /* Day 2 Individual Match Play (back 9) only: two matchup blocks (MP1, MP2)
+     render identically — neither's own button row carries the save button —
+     so both matchups look the same; this wraps the save button on its own
+     centered line below the second matchup instead. .hbh-save-next still
+     applies its usual styling, just not stretched to fill the row here. */
+  .hbh-save-standalone { display: flex; justify-content: center; margin-top: 12px; }
+  .hbh-save-standalone .hbh-save-next { flex: 0 1 auto; max-width: 320px; min-width: 220px; }
+  .hbh-seglabel { text-align: center; font-weight: 800; color: var(--green-dark); font-size: 1.08rem; margin: 6px 0 12px; padding: 8px 10px; background: #e8f2ec; border: 1px solid #cfe3d7; border-radius: 8px; }
+  /* 18-hole completion map above the pick buttons — click any dot to jump
+     there. A hole with no result yet is grey; once a winner (or Tie) is
+     picked, the dot's background switches to that team's color (or the tie
+     color) via an inline style set in JS — .hbh-progress-decided just sets
+     the text/border treatment on top of whatever color was applied inline.
+     Save status (entered-but-unconfirmed vs. confirmed-saved) is still shown,
+     via a dashed vs. solid border, since that's independent of who won. */
+  .hbh-progress-strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0 10px; justify-content: center; }
+  .hbh-progress-dot { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; transition: width 0.12s, height 0.12s, font-size 0.12s; }
+  .hbh-progress-empty { background: #eee; color: var(--muted); }
+  .hbh-progress-unsaved { background: #fff3cd; color: #8a6300; border-color: #f0d580; }
+  .hbh-progress-saved { background: var(--win); color: var(--green-dark); }
+  .hbh-progress-decided { color: #222; text-shadow: 0 1px 1px rgba(255,255,255,0.55); }
+  .hbh-progress-decided.hbh-progress-unsaved { border: 2px dashed #8a6300; }
+  .hbh-progress-decided.hbh-progress-saved { border: 1.5px solid rgba(0,0,0,0.25); }
+  /* Bigger, not just outlined, so the hole currently being entered pops out
+     of the row instead of just having a highlighted edge. */
+  .hbh-progress-current { width: 32px; height: 32px; font-size: 0.85rem; border-color: var(--green-dark); border-width: 2.5px; box-shadow: 0 0 0 2px var(--green-dark); z-index: 1; }
+  /* This match's own scorecard, mirrored onto the entry screen below the
+     pick buttons — same progression-strip look as Scoreboard → All Match
+     Scorecards. */
+  .hbh-mirror-scorecard { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .hbh-mirror-title { font-weight: 600; color: var(--green-dark); margin-bottom: 6px; font-size: 0.95rem; }
+  .hbh-stroke-note { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .hbh-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); margin-left: 4px; }
+
+  /* ---- Leaderboard (Scoreboard tab) — modeled on a printed match-play
+     leaderboard: Points | pairing | Match | pairing | Points, winning side
+     highlighted, with each match's segment statuses stacked in the middle
+     column. ---- */
+  .lbx-wrap { overflow-x: auto; }
+  table.lbx-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  table.lbx-table th, table.lbx-table td { padding: 8px 10px; text-align: center; vertical-align: top; border-bottom: 1px solid var(--border); }
+  tr.lbx-head th { background: var(--green-dark); color: #fff; font-weight: 700; border-bottom: none; }
+  tr.lbx-head th.lbx-pair-h { text-align: left; }
+  td.lbx-pair-h, td.lbx-pair { text-align: left; }
+  td.lbx-pts { width: 60px; vertical-align: top; font-variant-numeric: tabular-nums; }
+  .lbx-pts-seg { font-size: 0.78rem; font-weight: 400; margin: 2px 0; color: var(--muted); }
+  .lbx-pts-total { font-weight: 700; font-size: 1rem; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+  td.lbx-final-lead-a .lbx-pts-seg, td.lbx-final-lead-b .lbx-pts-seg { color: rgba(0, 0, 0, 0.6); }
+  td.lbx-final-lead-a .lbx-pts-total, td.lbx-final-lead-b .lbx-pts-total { border-top-color: rgba(0, 0, 0, 0.25); }
+  .lbx-names { font-weight: 600; color: var(--green-dark); }
+  .lbx-matchnum { font-size: 0.72rem; color: var(--muted); }
+  .lbx-match { min-width: 200px; }
+  .lbx-seg { font-size: 0.78rem; margin: 2px 0; text-align: left; }
+  .lbx-seg-label { color: var(--muted); }
+  .lbx-unset { text-align: center; color: var(--muted); font-style: italic; padding: 10px; }
+  /* Who's leading (or has won) a match is shown in THAT team's own color —
+     --team-a-color/--team-b-color are set from Settings once at load (see
+     applyTeamColorVars) — a light tint while still in progress, a solid
+     fill once the match is final. Not a fixed red/green for either side. */
+  td.lbx-lead-a { background: color-mix(in srgb, var(--team-a-color) 35%, white); }
+  td.lbx-lead-b { background: color-mix(in srgb, var(--team-b-color) 35%, white); }
+  td.lbx-final-lead-a { background: var(--team-a-color); color: #222; }
+  td.lbx-final-lead-b { background: var(--team-b-color); color: #222; }
+  td.lbx-final-lead-a .lbx-names, td.lbx-final-lead-b .lbx-names { color: #222; }
+  td.lbx-tied { background: #eee; }
+  tr.lbx-total td { font-weight: 700; background: var(--green-dark); color: #fff; border-bottom: none; }
+  tr.lbx-total td.lbx-pair-h { text-align: left; }
+  /* Two Day Total's per-format detail, tucked behind a single toggle below
+     the pooled-total table — see toggleTdtDetail/formatDetailTableHtml. */
+  .lbx-detail-toggle-row { text-align: center; margin: 14px 0 4px; }
+  .lbx-detail-section { margin-top: 14px; }
+  .lbx-detail-section:first-child { margin-top: 0; }
+
+  /* ---- Individual Results: one table per team, one row per player ---- */
+  .indiv-wrap { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .indiv-table-wrap { flex: 1 1 360px; min-width: 320px; overflow-x: auto; }
+  table.indiv-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+  table.indiv-table th, table.indiv-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+  td.indiv-name { text-align: left; font-weight: 600; }
+  td.indiv-total, tr.indiv-col-row th:last-child { font-weight: 700; }
+  /* Background is set inline per table (see individualTableHtml) to that
+     team's own configured color, not a fixed color shared by both teams. */
+  tr.indiv-team-row th { color: #222; font-size: 1rem; text-align: left; padding: 8px 10px; border-bottom: none; }
+  tr.indiv-daygroup-row th { background: #eef4ee; color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; border-bottom: none; }
+  tr.indiv-total-row td { font-weight: 700; color: #222; border-bottom: none; }
+  tr.indiv-total-row td:first-child { text-align: left; }
+
+  /* ---- Match Scorecards: Progression (collapsed) ---- */
+  .sc-collapsed-match { border-bottom: 1px solid var(--border); padding: 12px 0; }
+  .sc-collapsed-match:last-child { border-bottom: none; }
+  .match-title { font-weight: 600; color: var(--green-dark); margin-bottom: 4px; }
+  .prog-row { margin: 10px 0; }
+  .prog-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .prog-seg-label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+  .prog-strip { display: flex; gap: 3px; overflow-x: auto; }
+  .prog-chip { position: relative; flex-shrink: 0; width: 40px; text-align: center; border-radius: 6px; padding: 3px 2px; font-size: 0.72rem; }
+  .prog-chip.prog-a { background: var(--win); color: #222; }
+  .prog-chip.prog-b { background: var(--lose); color: #222; }
+  .prog-chip.prog-half { background: var(--half); color: #7a5b00; }
+  .prog-chip.prog-pending { background: #eee; color: var(--muted); }
+  .prog-hole { font-size: 0.62rem; opacity: 0.7; }
+  .prog-label { font-weight: 700; }
+  /* Small badge marking a hole that was specifically tied — needed because a
+     halved hole doesn't move the cumulative margin shown by .prog-label, so
+     without this a tie can look identical to the hole before it. */
+  .prog-tie { position: absolute; top: -6px; right: -4px; width: 15px; height: 15px; border-radius: 50%; background: var(--half); color: #7a5b00; border: 1.5px solid #fff; font-size: 0.6rem; font-weight: 800; line-height: 12px; }
+
+  /* ---- Direct hole-winner entry (replaces old gross-score inputs) ---- */
+  .wpick-block { padding: 14px 4px; border-bottom: 1px solid var(--border); }
+  .wpick-block:last-of-type { border-bottom: none; }
+  .wpick-sides { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .wpick-side { font-weight: 600; flex: 1; }
+  .wpick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Team (A/B) pick buttons always show their team's own color as their
+     background (set inline per-button, since the color is per-tournament —
+     see winnerButtonsHtml), not just when picked, so the two sides are easy
+     to tell apart at a glance even before tapping anything. A picked button
+     is marked instead with a bold dark border plus a leading checkmark in
+     its own label text — a color change alone wouldn't show, since the
+     color's already there either way. */
+  .wpick-btn { flex: 1 1 90px; padding: 14px 6px; font-size: 1rem; font-weight: 700; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; cursor: pointer; }
+  .wpick-btn.active { border: 3px solid #1a1a1a; }
+  .wpick-btn.active.wpick-half { background: var(--half); border-color: var(--gold); color: #7a5b00; }
+
+  /* ---- Concede-or-continue banner — shown the moment a segment becomes
+     mathematically decided with holes still left to play. ---- */
+  .concede-banner { background: #fff7e0; border: 1.5px solid var(--gold); border-radius: 10px; padding: 12px 14px; margin: 10px 0 14px; }
+  .concede-banner-title { font-weight: 700; color: #7a5b00; margin-bottom: 4px; }
+  .concede-banner-detail { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+  .concede-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .concede-btn { flex: 1 1 120px; padding: 12px 6px; font-size: 0.92rem; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; }
+  .concede-yes { background: var(--green); color: #fff; }
+  .concede-no { background: #fff; color: var(--green-dark); border: 1.5px solid var(--green); }
+  /* Small badge marking a hole filled in by a concession rather than actually
+     played out — distinct from the tie badge above. */
+  .prog-conceded { position: absolute; top: -6px; right: -4px; width: 15px; height: 15px; border-radius: 50%; background: var(--muted); color: #fff; border: 1.5px solid #fff; font-size: 0.6rem; font-weight: 800; line-height: 12px; }
+  /* Shown once every segment of a match has no holes left blank — final
+     result plus a button to move on to the Scoreboard. Green (not the
+     concede banner's amber) since this is a completed, not a pending,
+     state. */
+  .final-results-banner { background: #e8f2ec; border: 2px solid var(--green); border-radius: 10px; padding: 14px; margin: 10px 0 14px; text-align: center; }
+  .final-results-title { font-weight: 800; color: var(--green-dark); font-size: 1.05rem; margin-bottom: 4px; }
+  .final-results-score { font-size: 1.15rem; font-weight: 700; color: var(--green-dark); margin-bottom: 12px; }
+  .final-results-banner .primary { width: 100%; padding: 14px 10px; font-size: 0.95rem; }
+  /* First-thing-you-see gate: are you keeping score, or just here to watch?
+     Covers the whole page (rather than living inside a tab) so it's the very
+     first thing anyone opening this link sees, before either tab is usable. */
+  .entry-gate { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .entry-gate-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 26px 22px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+  .entry-gate-card h2 { margin: 0 0 4px; color: var(--green-dark); font-size: 1.15rem; }
+  .entry-gate-card .hint { font-size: 0.9rem; margin: 4px 0 18px; }
+  .entry-gate-choice { display: flex; flex-direction: column; gap: 10px; }
+  .entry-gate-choice button { padding: 14px 10px; font-size: 1rem; }
+  .entry-gate-pin .row { justify-content: center; margin-bottom: 8px; }
+  .entry-gate-pin input { font-size: 1.1rem; padding: 10px 12px; width: 130px; text-align: center; }
+  .entry-gate-linklike { background: none; border: none; color: var(--green); text-decoration: underline; cursor: pointer; font-size: 0.85rem; padding: 6px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<!-- ENTRY GATE — shown first, before either tab, so every visitor says up
+     front whether they're keeping score (and gets routed straight to their
+     match by PIN) or just watching (and goes straight to the Scoreboard). -->
+<div id="entryGate" class="entry-gate">
+  <div class="entry-gate-card">
+    <h2>Heritage Legends Tournament</h2>
+    <div id="entryGateChoice">
+      <p class="hint">Are you keeping score for a match, or just checking the Scoreboard?</p>
+      <div class="entry-gate-choice">
+        <button type="button" class="primary" onclick="chooseScorekeeper()">I'm a Scorekeeper</button>
+        <button type="button" class="secondary" onclick="chooseViewer()">Just Viewing the Scoreboard</button>
+      </div>
+    </div>
+    <div id="entryGatePin" class="entry-gate-pin" hidden>
+      <p class="hint">Enter your match's Scorekeeper PIN.</p>
+      <div class="row">
+        <input type="text" inputmode="numeric" id="gatePinInput" placeholder="PIN" maxlength="8">
+        <button type="button" class="primary" onclick="submitGatePin()">Continue</button>
+      </div>
+      <div id="gatePinError" class="hint" style="color:var(--error); min-height:1.2em;"></div>
+      <button type="button" class="entry-gate-linklike" onclick="chooseViewer()">I don't have a PIN — just viewing</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div>
+    <h1 id="tournamentTitle">Heritage Legends Tournament</h1>
+    <div class="sub">Live Scoring &amp; Scoreboard</div>
+  </div>
+  <div class="sub" id="envBadge"></div>
+</header>
+<nav>
+  <button class="tab-btn active" data-tab="scoring">Live Scoring</button>
+  <button class="tab-btn" data-tab="scoreboard">Scoreboard</button>
+</nav>
+
+<main>
+
+  <!-- LIVE SCORING -->
+  <section id="tab-scoring" class="tab-panel">
+    <div class="card">
+      <h2>Enter Scores</h2>
+      <p class="sc-intro-label">1. Pick the day and your match from the drop-down window below.</p>
+      <div class="row">
+        <select id="scDay"><option value="1">Day 1</option><option value="2">Day 2</option></select>
+        <select id="scMatch"></select>
+        <span id="saveIndicator" class="save-indicator"></span>
+      </div>
+      <div class="row" id="scModeToggle" style="margin-top:4px;"></div>
+      <div id="scStatusLines"></div>
+      <div class="row" id="scViewToggle" style="margin-top:4px;"></div>
+      <div id="scGridWrap"></div>
+    </div>
+  </section>
+
+  <!-- SCOREBOARD -->
+  <section id="tab-scoreboard" class="tab-panel" hidden>
+    <div class="card">
+      <div class="row" id="sbViewToggle">
+        <button type="button" class="view-toggle-btn active" data-sbview="leaderboard" onclick="setSbView('leaderboard')">Leaderboard</button>
+        <button type="button" class="view-toggle-btn" data-sbview="scorecards" onclick="setSbView('scorecards')">All Match Scorecards</button>
+        <button type="button" class="view-toggle-btn" data-sbview="individual" onclick="setSbView('individual')">Individual Results</button>
+      </div>
+      <div class="row" style="justify-content:space-between;">
+        <select id="sbDay"></select>
+        <button class="secondary" onclick="loadScoreboard()">Update</button>
+      </div>
+
+      <div id="sbLeaderboard"></div>
+
+      <div id="sbScorecards" hidden>
+        <div id="sbScorecardsBody"></div>
+      </div>
+
+      <div id="sbIndividual" hidden></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ====================== CONFIG ======================
+const CONFIG = {
+  test: { backendUrl: 'https://script.google.com/macros/s/AKfycbzw4xeOOwP09RCrILvt5P9iT9S8mpJXLzggO7NrzvEQy-bR-Qtn1-1tEfbEzeRTpQ/exec', key: '8O`I!r5]Hx26' },
+  live: { backendUrl: 'https://script.google.com/macros/s/AKfycbwHLboebZV_xW_l6BLgK7FlMWucGc0DwU4mg2t3X91sCYpDPWLJV0BScPiM-SPah8gbyg/exec', key: '&wW3d@j>3£56' },
+};
+const envParam = new URLSearchParams(location.search).get('env');
+const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
+const CFG = CONFIG[ENV];
+// Regenerate this from the admin page's "Copy Tournament Snapshot" button
+// (Settings tab) before match day, and paste the whole block — start marker,
+// the const, and end marker — over this one, in BOTH this file and
+// index.html. It's exactly the shape apiGet('getBootData') returns. Once
+// pairings/rosters/PINs are finalized, this lets a phone's very first login
+// paint instantly from data already sitting in the page instead of waiting
+// on Google — the biggest help right at the moment everyone opens the app
+// at once. It only covers settings/roster/pairings/PINs, never live scores,
+// so nothing about mid-round play depends on it, and an out-of-date
+// snapshot isn't harmful — see applySharedSnapshot_/loadShared below, the
+// real fetch that runs alongside it always wins moments later regardless.
+// An empty object here is completely fine (everyone's first load just falls
+// back to fetching live, exactly as it did before this existed).
+// ===== SNAPSHOT START =====
+const EMBEDDED_SNAPSHOT = {
+  "settings": {
+    "TournamentName": "2026 Heritage Legends Tournament",
+    "Day1Date": "2026-09-30",
+    "Day2Date": "2026-10-01",
+    "TeamAName": "CanesIn6",
+    "TeamACaptain": "Kevin Kusilek",
+    "TeamBName": "Birdie Boys",
+    "TeamBCaptain": "Winston Shade",
+    "AdminPIN": 1980,
+    "Day1Locked": "TRUE",
+    "Day2Locked": false,
+    "SuspendScorePins": "FALSE",
+    "TeamAColor": "#add8e6",
+    "TeamBColor": "#bf5700",
+    "ConcedeEnabled": "FALSE"
+  },
+  "roster": [
+    {
+      "PlayerID": 1,
+      "Name": "Alston, Rufus",
+      "Team": "A",
+      "HandicapIndex": 24.1,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 2,
+      "Name": "Anderson, Mike",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 3,
+      "Name": "Bacca, Tom",
+      "Team": "B",
+      "HandicapIndex": 14.2,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 4,
+      "Name": "Buchanan, Buck",
+      "Team": "A",
+      "HandicapIndex": 20.9,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 5,
+      "Name": "Cobb, Randy",
+      "Team": "A",
+      "HandicapIndex": 14.2,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 6,
+      "Name": "Colt, Dave",
+      "Team": "B",
+      "HandicapIndex": 9.9,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 7,
+      "Name": "Davis, Jay",
+      "Team": "B",
+      "HandicapIndex": 24,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 8,
+      "Name": "Davis, Larry",
+      "Team": "B",
+      "HandicapIndex": 16.1,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 9,
+      "Name": "DeLisle, Jeffrey",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 10,
+      "Name": "Dillon, Eric",
+      "Team": "B",
+      "HandicapIndex": 11.8,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 11,
+      "Name": "Dunbar, Bob",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 12,
+      "Name": "Eiloo, Gary",
+      "Team": "B",
+      "HandicapIndex": 21.9,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 13,
+      "Name": "Grosso, Bob",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 14,
+      "Name": "Gurganus, Tommy",
+      "Team": "A",
+      "HandicapIndex": 19.8,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 15,
+      "Name": "Haines, Dan",
+      "Team": "A",
+      "HandicapIndex": 16,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 16,
+      "Name": "Harris, John",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 17,
+      "Name": "Haskell, Ralf",
+      "Team": "A",
+      "HandicapIndex": 20.4,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 18,
+      "Name": "Hood, Chuck",
+      "Team": "A",
+      "HandicapIndex": 24.2,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 19,
+      "Name": "Hope, Bob",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 20,
+      "Name": "Houseworth, Chuck",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 21,
+      "Name": "Kalloway, Ken",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 22,
+      "Name": "Kimball, Charles",
+      "Team": "A",
+      "HandicapIndex": 16.1,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 23,
+      "Name": "Kloepfer, Bill",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 24,
+      "Name": "Kusilek, Kevin",
+      "Team": "A",
+      "HandicapIndex": 8.7,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 25,
+      "Name": "Landry, Paul",
+      "Team": "A",
+      "HandicapIndex": 19.8,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 26,
+      "Name": "Latus, Stephen",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 27,
+      "Name": "Lionelli, Tom",
+      "Team": "A",
+      "HandicapIndex": 9,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 28,
+      "Name": "Luksis, Duke",
+      "Team": "B",
+      "HandicapIndex": 11.9,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 29,
+      "Name": "McCulloch, Wayne",
+      "Team": "B",
+      "HandicapIndex": 12.5,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 30,
+      "Name": "McEver, John",
+      "Team": "A",
+      "HandicapIndex": 29.5,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 31,
+      "Name": "McFarland, Don",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 32,
+      "Name": "McGuffin, Gary",
+      "Team": "A",
+      "HandicapIndex": 13.4,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 33,
+      "Name": "Moreland, Greg",
+      "Team": "B",
+      "HandicapIndex": "13.1",
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 34,
+      "Name": "Nelson, Ellis",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": 15.9,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 35,
+      "Name": "Neumann, Pete",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 36,
+      "Name": "Owens, Bill",
+      "Team": "A",
+      "HandicapIndex": 21.4,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 37,
+      "Name": "Peverill, Lou",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 38,
+      "Name": "Primm, Kirby",
+      "Team": "A",
+      "HandicapIndex": 11.1,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 39,
+      "Name": "Recchia, John",
+      "Team": "B",
+      "HandicapIndex": 12.9,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 40,
+      "Name": "Rich, Ron",
+      "Team": "B",
+      "HandicapIndex": 25.4,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 41,
+      "Name": "Roane, Michael",
+      "Team": "B",
+      "HandicapIndex": 14.4,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 42,
+      "Name": "Rogers, Henry",
+      "Team": "B",
+      "HandicapIndex": 20.1,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 43,
+      "Name": "Rowinski, Al",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 44,
+      "Name": "Salisbury, Jim",
+      "Team": "B",
+      "HandicapIndex": 22.4,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 45,
+      "Name": "Schipani, Ray",
+      "Team": "B",
+      "HandicapIndex": 25.2,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 46,
+      "Name": "Shade, Winston",
+      "Team": "B",
+      "HandicapIndex": 7.3,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 47,
+      "Name": "Simpson, Dave",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 48,
+      "Name": "Smith, Braxton",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 49,
+      "Name": "Stewart, Jeff",
+      "Team": "A",
+      "HandicapIndex": 15.8,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 50,
+      "Name": "Striegel, Scott",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 51,
+      "Name": "Sullivan, Tom",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 52,
+      "Name": "Swinson, Stan",
+      "Team": "A",
+      "HandicapIndex": 24,
+      "Tee": "Gold",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 53,
+      "Name": "Taylor, Percy",
+      "Team": "ON_STANDBY",
+      "HandicapIndex": 8.4,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 54,
+      "Name": "Truszkowski, Mark",
+      "Team": "A",
+      "HandicapIndex": 18.6,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": "true"
+    },
+    {
+      "PlayerID": 55,
+      "Name": "Upfield, Mike",
+      "Team": "B",
+      "HandicapIndex": 21.4,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 56,
+      "Name": "Urban, Irwin",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 57,
+      "Name": "Visser, John",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 58,
+      "Name": "Webster, Wayne",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 59,
+      "Name": "Woloski, John",
+      "Team": "NOT_PLAYING",
+      "HandicapIndex": "",
+      "Tee": "",
+      "Active": "true",
+      "Scorekeeper": ""
+    },
+    {
+      "PlayerID": 60,
+      "Name": "Woodard, Jim",
+      "Team": "B",
+      "HandicapIndex": 30.1,
+      "Tee": "Red",
+      "Active": "true",
+      "Scorekeeper": ""
+    }
+  ],
+  "holeHandicaps": [
+    {
+      "Hole": 1,
+      "StrokeIndex": 15,
+      "Par": 5
+    },
+    {
+      "Hole": 2,
+      "StrokeIndex": 1,
+      "Par": 4
+    },
+    {
+      "Hole": 3,
+      "StrokeIndex": 13,
+      "Par": 4
+    },
+    {
+      "Hole": 4,
+      "StrokeIndex": 3,
+      "Par": 4
+    },
+    {
+      "Hole": 5,
+      "StrokeIndex": 9,
+      "Par": 3
+    },
+    {
+      "Hole": 6,
+      "StrokeIndex": 11,
+      "Par": 5
+    },
+    {
+      "Hole": 7,
+      "StrokeIndex": 5,
+      "Par": 4
+    },
+    {
+      "Hole": 8,
+      "StrokeIndex": 17,
+      "Par": 3
+    },
+    {
+      "Hole": 9,
+      "StrokeIndex": 7,
+      "Par": 4
+    },
+    {
+      "Hole": 10,
+      "StrokeIndex": 4,
+      "Par": 4
+    },
+    {
+      "Hole": 11,
+      "StrokeIndex": 14,
+      "Par": 4
+    },
+    {
+      "Hole": 12,
+      "StrokeIndex": 16,
+      "Par": 3
+    },
+    {
+      "Hole": 13,
+      "StrokeIndex": 8,
+      "Par": 4
+    },
+    {
+      "Hole": 14,
+      "StrokeIndex": 6,
+      "Par": 5
+    },
+    {
+      "Hole": 15,
+      "StrokeIndex": 2,
+      "Par": 4
+    },
+    {
+      "Hole": 16,
+      "StrokeIndex": 12,
+      "Par": 4
+    },
+    {
+      "Hole": 17,
+      "StrokeIndex": 18,
+      "Par": 3
+    },
+    {
+      "Hole": 18,
+      "StrokeIndex": 10,
+      "Par": 5
+    }
+  ],
+  "holeHandicapsRed": [
+    {
+      "Hole": 1,
+      "StrokeIndex": 7
+    },
+    {
+      "Hole": 2,
+      "StrokeIndex": 17
+    },
+    {
+      "Hole": 3,
+      "StrokeIndex": 13
+    },
+    {
+      "Hole": 4,
+      "StrokeIndex": 3
+    },
+    {
+      "Hole": 5,
+      "StrokeIndex": 9
+    },
+    {
+      "Hole": 6,
+      "StrokeIndex": 1
+    },
+    {
+      "Hole": 7,
+      "StrokeIndex": 5
+    },
+    {
+      "Hole": 8,
+      "StrokeIndex": 15
+    },
+    {
+      "Hole": 9,
+      "StrokeIndex": 11
+    },
+    {
+      "Hole": 10,
+      "StrokeIndex": 8
+    },
+    {
+      "Hole": 11,
+      "StrokeIndex": 10
+    },
+    {
+      "Hole": 12,
+      "StrokeIndex": 16
+    },
+    {
+      "Hole": 13,
+      "StrokeIndex": 2
+    },
+    {
+      "Hole": 14,
+      "StrokeIndex": 4
+    },
+    {
+      "Hole": 15,
+      "StrokeIndex": 6
+    },
+    {
+      "Hole": 16,
+      "StrokeIndex": 14
+    },
+    {
+      "Hole": 17,
+      "StrokeIndex": 18
+    },
+    {
+      "Hole": 18,
+      "StrokeIndex": 12
+    }
+  ],
+  "pairings1": [
+    {
+      "MatchNum": 1,
+      "TeamA_P1": "Kusilek, Kevin",
+      "TeamA_P2": "Cobb, Randy",
+      "TeamB_P1": "Colt, Dave",
+      "TeamB_P2": "McCulloch, Wayne",
+      "StartHole": "1A"
+    },
+    {
+      "MatchNum": 2,
+      "TeamA_P1": "Lionelli, Tom",
+      "TeamA_P2": "Primm, Kirby",
+      "TeamB_P1": "Shade, Winston",
+      "TeamB_P2": "Luksis, Duke",
+      "StartHole": "1B"
+    },
+    {
+      "MatchNum": 3,
+      "TeamA_P1": "Stewart, Jeff",
+      "TeamA_P2": "Haines, Dan",
+      "TeamB_P1": "Recchia, John",
+      "TeamB_P2": "Dillon, Eric",
+      "StartHole": "14"
+    },
+    {
+      "MatchNum": 4,
+      "TeamA_P1": "McGuffin, Gary",
+      "TeamA_P2": "Truszkowski, Mark",
+      "TeamB_P1": "Bacca, Tom",
+      "TeamB_P2": "Davis, Jay",
+      "StartHole": "15A"
+    },
+    {
+      "MatchNum": 5,
+      "TeamA_P1": "Kimball, Charles",
+      "TeamA_P2": "Buchanan, Buck",
+      "TeamB_P1": "Salisbury, Jim",
+      "TeamB_P2": "Upfield, Mike",
+      "StartHole": "15B"
+    },
+    {
+      "MatchNum": 6,
+      "TeamA_P1": "Gurganus, Tommy",
+      "TeamA_P2": "Swinson, Stan",
+      "TeamB_P1": "Rogers, Henry",
+      "TeamB_P2": "Roane, Michael",
+      "StartHole": "16"
+    },
+    {
+      "MatchNum": 7,
+      "TeamA_P1": "Haskell, Ralf",
+      "TeamA_P2": "Owens, Bill",
+      "TeamB_P1": "Schipani, Ray",
+      "TeamB_P2": "Rich, Ron",
+      "StartHole": "17A"
+    },
+    {
+      "MatchNum": 8,
+      "TeamA_P1": "Landry, Paul",
+      "TeamA_P2": "McEver, John",
+      "TeamB_P1": "Eiloo, Gary",
+      "TeamB_P2": "Davis, Larry",
+      "StartHole": "17B"
+    },
+    {
+      "MatchNum": 9,
+      "TeamA_P1": "Alston, Rufus",
+      "TeamA_P2": "Hood, Chuck",
+      "TeamB_P1": "Moreland, Greg",
+      "TeamB_P2": "Woodard, Jim",
+      "StartHole": "18"
+    }
+  ],
+  "pairings2": [
+    {
+      "MatchNum": 1,
+      "TeamA_P1": "Lionelli, Tom",
+      "TeamA_P2": "Kusilek, Kevin",
+      "TeamB_P1": "Colt, Dave",
+      "TeamB_P2": "Shade, Winston",
+      "MP1_TeamA": "Lionelli, Tom",
+      "MP1_TeamB": "Colt, Dave",
+      "MP2_TeamA": "Kusilek, Kevin",
+      "MP2_TeamB": "Shade, Winston",
+      "MPSwapped": "",
+      "StartHole": "1A"
+    },
+    {
+      "MatchNum": 2,
+      "TeamA_P1": "Kimball, Charles",
+      "TeamA_P2": "Primm, Kirby",
+      "TeamB_P1": "McCulloch, Wayne",
+      "TeamB_P2": "Luksis, Duke",
+      "MP1_TeamA": "Kimball, Charles",
+      "MP1_TeamB": "McCulloch, Wayne",
+      "MP2_TeamA": "Primm, Kirby",
+      "MP2_TeamB": "Luksis, Duke",
+      "MPSwapped": "",
+      "StartHole": "1B"
+    },
+    {
+      "MatchNum": 3,
+      "TeamA_P1": "Stewart, Jeff",
+      "TeamA_P2": "Owens, Bill",
+      "TeamB_P1": "Recchia, John",
+      "TeamB_P2": "Roane, Michael",
+      "MP1_TeamA": "Stewart, Jeff",
+      "MP1_TeamB": "Recchia, John",
+      "MP2_TeamA": "Owens, Bill",
+      "MP2_TeamB": "Roane, Michael",
+      "MPSwapped": "",
+      "StartHole": "14"
+    },
+    {
+      "MatchNum": 4,
+      "TeamA_P1": "Cobb, Randy",
+      "TeamA_P2": "Haines, Dan",
+      "TeamB_P1": "Bacca, Tom",
+      "TeamB_P2": "Dillon, Eric",
+      "MP1_TeamA": "Cobb, Randy",
+      "MP1_TeamB": "Bacca, Tom",
+      "MP2_TeamA": "Haines, Dan",
+      "MP2_TeamB": "Dillon, Eric",
+      "MPSwapped": "",
+      "StartHole": "15A"
+    },
+    {
+      "MatchNum": 5,
+      "TeamA_P1": "Truszkowski, Mark",
+      "TeamA_P2": "McGuffin, Gary",
+      "TeamB_P1": "Salisbury, Jim",
+      "TeamB_P2": "Davis, Jay",
+      "MP1_TeamA": "Truszkowski, Mark",
+      "MP1_TeamB": "Salisbury, Jim",
+      "MP2_TeamA": "McGuffin, Gary",
+      "MP2_TeamB": "Davis, Jay",
+      "MPSwapped": "",
+      "StartHole": "15B"
+    },
+    {
+      "MatchNum": 6,
+      "TeamA_P1": "Haskell, Ralf",
+      "TeamA_P2": "Alston, Rufus",
+      "TeamB_P1": "Rogers, Henry",
+      "TeamB_P2": "Rich, Ron",
+      "MP1_TeamA": "Haskell, Ralf",
+      "MP1_TeamB": "Rogers, Henry",
+      "MP2_TeamA": "Alston, Rufus",
+      "MP2_TeamB": "Rich, Ron",
+      "MPSwapped": "",
+      "StartHole": "16"
+    },
+    {
+      "MatchNum": 7,
+      "TeamA_P1": "Hood, Chuck",
+      "TeamA_P2": "Landry, Paul",
+      "TeamB_P1": "Schipani, Ray",
+      "TeamB_P2": "Upfield, Mike",
+      "MP1_TeamA": "Hood, Chuck",
+      "MP1_TeamB": "Schipani, Ray",
+      "MP2_TeamA": "Landry, Paul",
+      "MP2_TeamB": "Upfield, Mike",
+      "MPSwapped": "",
+      "StartHole": "17A"
+    },
+    {
+      "MatchNum": 8,
+      "TeamA_P1": "Gurganus, Tommy",
+      "TeamA_P2": "McEver, John",
+      "TeamB_P1": "Eiloo, Gary",
+      "TeamB_P2": "Woodard, Jim",
+      "MP1_TeamA": "Gurganus, Tommy",
+      "MP1_TeamB": "Eiloo, Gary",
+      "MP2_TeamA": "McEver, John",
+      "MP2_TeamB": "Woodard, Jim",
+      "MPSwapped": "",
+      "StartHole": "17B"
+    },
+    {
+      "MatchNum": 9,
+      "TeamA_P1": "Swinson, Stan",
+      "TeamA_P2": "Buchanan, Buck",
+      "TeamB_P1": "Moreland, Greg",
+      "TeamB_P2": "Davis, Larry",
+      "MP1_TeamA": "Swinson, Stan",
+      "MP1_TeamB": "Moreland, Greg",
+      "MP2_TeamA": "Buchanan, Buck",
+      "MP2_TeamB": "Davis, Larry",
+      "MPSwapped": "",
+      "StartHole": "18"
+    }
+  ],
+  "matchPins": [
+    {
+      "MatchNum": 1,
+      "PIN": "1000"
+    },
+    {
+      "MatchNum": 2,
+      "PIN": "2000"
+    },
+    {
+      "MatchNum": 3,
+      "PIN": "3000"
+    },
+    {
+      "MatchNum": 4,
+      "PIN": "4000"
+    },
+    {
+      "MatchNum": 5,
+      "PIN": "5000"
+    },
+    {
+      "MatchNum": 6,
+      "PIN": "6000"
+    },
+    {
+      "MatchNum": 7,
+      "PIN": "7000"
+    },
+    {
+      "MatchNum": 8,
+      "PIN": "8000"
+    },
+    {
+      "MatchNum": 9,
+      "PIN": "9000"
+    }
+  ]
+};
+// ===== SNAPSHOT END — paste this whole block (all three marked lines and
+//   everything between them) over the old SNAPSHOT block, in BOTH
+//   index.html and live.html =====
+// Bumped by hand every time this file changes — see the matching constant in
+// index.html and Code.gs.
+const LIVE_VERSION = '2026-09-30';
+document.getElementById('envBadge').innerHTML = `${ENV.toUpperCase()}<div style="font-size:11px; opacity:0.75;" id="liveVersionBadge">Page: ${LIVE_VERSION} • Backend: …</div>`;
+async function loadVersionBadge() {
+  const el = document.getElementById('liveVersionBadge');
+  try {
+    const res = await apiGet('getVersion');
+    el.textContent = `Page: ${LIVE_VERSION} • Backend: ${res.success ? res.data.version : 'unknown'}`;
+  } catch (err) {
+    el.textContent = `Page: ${LIVE_VERSION} • Backend: unreachable`;
+  }
+}
+
+// ====================== API HELPERS ======================
+// The backend's save_* actions this page calls (saveMatchScores_ chief among
+// them) wait on a shared lock for up to 10s before giving up — a plain,
+// un-timed fetch() can then sit open far longer than that on a weak course
+// connection with no controlled way to react, and either hangs the UI or
+// eventually gets killed by the browser/OS with a bare "Failed to fetch"
+// that's indistinguishable from every other kind of failure. Every call here
+// goes through this instead, with a healthy margin above that 10s, so a
+// stuck request reliably gives up (and can be retried — see
+// saveCurrentMatch) well before that happens.
+const FETCH_TIMEOUT_MS = 20000;
+// Reads (GETs) get their own, longer timeout — see apiGet below for why a
+// tighter one can actually make real concurrent-load slowness worse rather
+// than better.
+const GET_TIMEOUT_MS = 35000;
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs || FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+// GETs never change anything server-side, so — unlike apiPost, which leaves
+// retrying to whichever caller knows it's safe to repeat that particular
+// action (see saveCurrentMatch) — it's always safe for apiGet to quietly
+// retry on its own. loadShared() below fires it (now just once, via
+// getBootData) at boot; a slow answer used to be enough to fail the whole
+// load and leave the entry gate stuck on "Checking…" until the page was
+// reloaded — this closes that gap at the source instead of relying on the
+// person to notice and retry.
+//
+// The timeout here is deliberately longer than a POST's (35s vs. 20s) and
+// the backoff between attempts has some randomness (jitter) mixed in. Both
+// of those are specifically about the tournament-day scenario of several
+// phones loading at once: these reads don't take a lock, so a slow one just
+// means Apps Script itself is busy, not stuck — cutting it off too early and
+// firing a retry doesn't relieve that load, it adds another request
+// competing for the same busy backend. A longer timeout gives an
+// already-in-flight request more room to just finish; jitter keeps several
+// phones that all timed out at the same moment from all retrying in the same
+// instant and re-colliding.
+async function apiGet(action, extra) {
+  const params = new URLSearchParams(Object.assign({ action, key: CFG.key }, extra || {}));
+  const url = CFG.backendUrl + '?' + params.toString();
+  const maxAttempts = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, undefined, GET_TIMEOUT_MS);
+      return await res.json();
+    } catch (e) {
+      lastError = e;
+      if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 500 * attempt + Math.random() * 500));
+    }
+  }
+  throw lastError;
+}
+async function apiPost(action, body) {
+  const res = await fetchWithTimeout(CFG.backendUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, key: CFG.key }, body || {})) });
+  return res.json();
+}
+
+// ====================== TABS ======================
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('main > section').forEach((p) => (p.hidden = true));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).hidden = false;
+    if (btn.dataset.tab === 'scoreboard') loadScoreboard();
+  });
+});
+
+// ====================== SHARED STATE ======================
+// holeHC: two parallel Stroke Index tables — `default` (every tee except Red)
+// and `red` (Red tees only, which play to a different Stroke Index on this
+// course). Each is {hole: strokeIndex}.
+let settings = {}, roster = [], holeHC = { default: {}, red: {} };
+let pairings = { 1: [], 2: [] };
+let matchPins = []; // [{MatchNum, PIN}] x9 — one Scorekeeper PIN per match number, shared by both days
+let rosterByName = {}; // Name -> {HandicapIndex, Tee}
+
+function indexRoster() {
+  rosterByName = {};
+  roster.forEach((p) => { if (p.Name) rosterByName[p.Name] = p; });
+}
+
+// Which Stroke Index table a player's tee should use — Red tees get their own
+// table, everything else (Gold, White, Blue, blank, ...) shares the main one.
+function strokeIndexForTee(tee, hole) {
+  const isRed = (tee || '').trim().toLowerCase() === 'red';
+  const table = isRed ? holeHC.red : holeHC.default;
+  const row = table ? table[hole] : undefined;
+  return row ? row.StrokeIndex : undefined;
+}
+// Par doesn't change by tee, so it only lives in the default table.
+function parForHole(hole) {
+  const row = holeHC.default ? holeHC.default[hole] : undefined;
+  return row ? row.Par : '';
+}
+// Course Handicap = Handicap Index x (Slope/113) + (Course Rating - Par),
+// per this course's own rating/slope for each tee (Par 72 both tees):
+//   Red:  Slope 111, Rating 64.1
+//   Gold: Slope 120, Rating 67.1 (also used for any tee other than Red)
+// This is what actually gets used for strokes everywhere — matches the same
+// formula in index.html so Roster, print, and live scoring never disagree.
+function courseHandicap(handicapIndex, tee) {
+  const idx = parseFloat(handicapIndex);
+  if (isNaN(idx)) return '';
+  const isRed = (tee || '').trim().toLowerCase() === 'red';
+  const ch = isRed ? (idx * 111 / 113 + (64.1 - 72)) : (idx * 120 / 113 + (67.1 - 72));
+  return Math.round(ch);
+}
+
+// strokes a player receives on one hole, from their Course Handicap
+function strokesOnHole(handicapIndex, strokeIndex) {
+  const hc = parseFloat(handicapIndex);
+  const si = parseInt(strokeIndex, 10);
+  if (isNaN(hc) || isNaN(si) || hc <= 0) return 0;
+  const rounded = Math.round(hc);
+  const base = Math.floor(rounded / 18);
+  const extra = (si <= (rounded % 18)) ? 1 : 0;
+  return base + extra;
+}
+// Winner fields are stored directly as 'A' | 'B' | 'Half' | 'Conceded' | ''
+// (not yet entered) — this normalizes that into a
+// 'A'|'B'|'Half'|'Conceded'|'pending' shape so every downstream tally/display
+// helper (buildSegmentResult, progressionStripHtml, …) has a single
+// consistent vocabulary to work with, blank/undefined included. 'Conceded' is
+// the sentinel written into remaining blank holes when a player concedes an
+// already-decided segment (see concedeSegment) — it counts as "decided" for
+// tallying purposes without awarding either side a hole.
+function normalizeWinner(w) {
+  return (w === 'A' || w === 'B' || w === 'Half' || w === 'Conceded') ? w : 'pending';
+}
+// Last-known-good cache for settings/roster/pairings/handicaps/PINs — the
+// slow-changing setup data, never live scores (those always need a real
+// fetch — see onScMatchSelected — since showing a stale score would be worse
+// than a brief wait for a correct one). Deliberately scoped per environment
+// (test vs live) so testing on ?env=test can never leak into, or get
+// overwritten by, the real tournament's cached data or vice versa.
+const SHARED_CACHE_KEY = 'legendsSharedCache_' + ENV;
+function loadCachedShared_() {
+  try {
+    const raw = localStorage.getItem(SHARED_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function saveCachedShared_(bootData) {
+  try {
+    localStorage.setItem(SHARED_CACHE_KEY, JSON.stringify(bootData));
+  } catch (e) { /* storage full/unavailable — page still works, just without an instant paint next load */ }
+}
+// Applies a boot-data snapshot — in the same raw shape apiGet('getBootData')
+// returns — to the shared module state and the bits of UI that don't need
+// anything else to have run first. One function, one shape, used
+// identically no matter which of the three sources it came from: this
+// device's own last-known-good cache, the EMBEDDED_SNAPSHOT baked into this
+// file, or a fresh live fetch (see loadShared below) — so there's exactly
+// one place that knows how to turn boot data into on-screen state.
+function applySharedSnapshot_(d) {
+  if (!d) return;
+  if (d.settings) { settings = d.settings; document.getElementById('tournamentTitle').textContent = settings.TournamentName || 'Heritage Legends Tournament'; applyTeamColorVars(); }
+  if (d.roster) { roster = d.roster; indexRoster(); }
+  if (d.holeHandicaps) {
+    holeHC.default = {};
+    d.holeHandicaps.forEach((row) => { if (row.Hole) holeHC.default[row.Hole] = { StrokeIndex: row.StrokeIndex, Par: row.Par }; });
+  }
+  if (d.holeHandicapsRed) {
+    holeHC.red = {};
+    d.holeHandicapsRed.forEach((row) => { if (row.Hole) holeHC.red[row.Hole] = { StrokeIndex: row.StrokeIndex }; });
+  }
+  if (d.pairings1) pairings['1'] = d.pairings1;
+  if (d.pairings2) pairings['2'] = d.pairings2;
+  if (d.matchPins) matchPins = d.matchPins;
+}
+// Used to fire 7 separate apiGet calls in parallel (getSettings, getRoster,
+// both hole-handicap tables, both days' pairings, getMatchPins) — measured
+// at ~16s on a live test. Each one makes the backend open the Spreadsheet by
+// ID from scratch before it can read anything, and Apps Script's own
+// per-project concurrency limits mean "7 in parallel" isn't really parallel
+// server-side. A single getBootData action (added to Code.gs alongside that
+// change) bundles all 7 into one request/one spreadsheet open, cutting a
+// ~16s load down to roughly what one of those 7 used to take on its own.
+async function loadShared() {
+  const res = await apiGet('getBootData');
+  if (!res.success) throw new Error(res.error || 'Could not load tournament data');
+  applySharedSnapshot_(res.data);
+  // Cache this fresh snapshot for next time — purely a head start for the
+  // NEXT page load (see boot() below); this fetch always runs regardless of
+  // what was painted from cache or EMBEDDED_SNAPSHOT, and its result always
+  // wins over both.
+  saveCachedShared_(res.data);
+}
+
+function teamNames() {
+  return { A: settings.TeamAName || 'Team A', B: settings.TeamBName || 'Team B' };
+}
+function teamColors() {
+  return { A: settings.TeamAColor || '#ADD8E6', B: settings.TeamBColor || '#F08080' };
+}
+// Mirrors teamColors() into CSS custom properties so plain CSS rules (the
+// leaderboard's lead/final-lead highlighting, which needs nested-selector
+// text-color overrides that inline styles can't reach) can use the actual
+// configured team colors too, not just the HTML this file builds directly.
+// Called once settings load, and again any time settings are reloaded.
+function applyTeamColorVars() {
+  const colors = teamColors();
+  document.documentElement.style.setProperty('--team-a-color', colors.A);
+  document.documentElement.style.setProperty('--team-b-color', colors.B);
+}
+// "Team " prefix for a team-level "<name> Wins" pick button — used only for
+// team-vs-team picks (Day 1 both segments, Day 2 Best Ball), never for an
+// Individual Match Play button (those are labeled with a player's own name,
+// not a team name). Whatever a captain names their team next season —
+// singular ("Kusilek Crew") or plural ("Birdie Boys") — "Team <name> Wins"
+// always reads correctly, so there's nothing to fix again year to year.
+function teamWinLabel(name) {
+  return `Team ${name}`;
+}
+// A small colored circle for a team's chosen branding color, meant to sit
+// right before that team's name wherever it's displayed — kept separate from
+// teamNames()'s plain strings so those stay safe to use anywhere, HTML or not.
+function teamDotHtml(color) {
+  const c = escapeHtml(color || '#999999');
+  return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${c}; border:1px solid rgba(0,0,0,0.35); margin-right:5px; vertical-align:middle; flex-shrink:0;"></span>`;
+}
+function teamNameHtml(name, color) {
+  return `${teamDotHtml(color)}${escapeHtml(name)}`;
+}
+// Mirrors isDayLocked_ in Code.gs — the server enforces this on every save
+// regardless, but checking it here too lets the UI show a clear "locked"
+// message instead of scorekeepers hitting a failed-save error after typing.
+function dayIsLocked(day) {
+  const v = settings[day === '2' ? 'Day2Locked' : 'Day1Locked'];
+  return v === true || v === 'TRUE' || v === 'true';
+}
+function matchLabel(day, row) {
+  const has = row.TeamA_P1 || row.TeamA_P2 || row.TeamB_P1 || row.TeamB_P2;
+  if (!has) return `Match ${row.MatchNum} (not set up yet)`;
+  return `Match ${row.MatchNum}: ${row.TeamA_P1 || '?'} / ${row.TeamA_P2 || '?'}  vs  ${row.TeamB_P1 || '?'} / ${row.TeamB_P2 || '?'}`;
+}
+// Roster names are stored "Last, First". Most display spots show just the
+// last name to keep things short — but when two players on the roster share
+// a last name (e.g. two Davises), that alone is ambiguous, so a first
+// initial is appended for BOTH of them: "Davis J" / "Davis L". Anyone whose
+// last name is unique still shows as plain "Davis". Duplicates are computed
+// fresh from the current roster on every call (the roster is small, so this
+// is cheap) rather than cached, so it stays correct if the roster changes.
+// Doesn't further disambiguate two players who'd ALSO share a first initial
+// (e.g. "Davis, Jay" and "Davis, James") — rare enough not to handle here;
+// use a Roster nickname-style edit if that ever comes up.
+function lastNameRaw_(name) {
+  if (!name) return '';
+  const idx = name.indexOf(',');
+  return (idx === -1 ? name : name.slice(0, idx)).trim();
+}
+function duplicateLastNames_() {
+  const counts = {};
+  (roster || []).forEach((p) => {
+    const ln = lastNameRaw_(p.Name);
+    if (!ln) return;
+    const key = ln.toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const dupes = new Set();
+  Object.keys(counts).forEach((k) => { if (counts[k] > 1) dupes.add(k); });
+  return dupes;
+}
+function lastName(name) {
+  if (!name) return '?';
+  const ln = lastNameRaw_(name);
+  if (!ln) return name;
+  if (!duplicateLastNames_().has(ln.toLowerCase())) return ln;
+  const idx = name.indexOf(',');
+  const first = idx === -1 ? '' : name.slice(idx + 1).trim();
+  const initial = first ? first.charAt(0).toUpperCase() : '';
+  return initial ? `${ln} ${initial}` : ln;
+}
+function hasPlayersLb(row) {
+  return !!(row.TeamA_P1 || row.TeamA_P2 || row.TeamB_P1 || row.TeamB_P2);
+}
+// Points are always in 0.5 steps — format drops a trailing ".0" but keeps ".5".
+function formatPts(n) {
+  return (Math.round(n * 2) / 2).toString();
+}
+
+// ====================== LIVE SCORING ======================
+let currentHoles = []; // in-memory grid for the currently selected match
+// Pending autosaves, keyed by "day_matchNum" — a separate timer per match
+// rather than one shared timer, so editing a different match (or just
+// switching which match you're viewing) never cancels or overwrites another
+// match's still-pending save. Each entry captures the day/matchNum/holes it
+// was scheduled for, so it always saves the right data to the right match
+// even after you've navigated away — see scheduleAutosave/saveCurrentMatch.
+let saveTimers = {};
+// Both keyed by "day_matchNum", alongside saveTimers above:
+//  - inFlightSaves[key]: true while a saveMatchScores POST for that match is
+//    actually talking to the server.
+//  - queuedSaves[key]: the newest {day, matchNum, holes} snapshot that came
+//    in WHILE one was in flight — sent as soon as the in-flight one finishes,
+//    instead of firing a second overlapping request whose response could
+//    land first and get overwritten by the earlier one's late-arriving
+//    response (or vice versa), silently losing whichever entry lost that
+//    race. See saveCurrentMatch.
+let inFlightSaves = {};
+let queuedSaves = {};
+let scHoleIndex = 0; // 0-based, 0..17 — which hole the hbh view is showing
+
+// Snapshot (by "day_matchNum") of the hole data as of the last time it was
+// either freshly loaded from the sheet or confirmed written back to it — the
+// "confirmed saved" baseline the per-hole indicator strip compares against,
+// so a hole that's been tapped but not yet confirmed saved reads differently
+// from one that's actually landed in the sheet. See holeSaveState below.
+let lastSavedHolesByMatch = {};
+// Set the instant a segment transitions from "still in doubt" to
+// "mathematically decided" (see the .wpick-btn click handler in
+// renderHoleByHole) — { day, matchNum, field, hole } identifying which
+// segment triggered it. Cleared on Concede, on Continue Playing, on
+// switching matches, or if the segment somehow becomes undecided again
+// (e.g. a pick gets toggled back off). Kept as plain module state rather
+// than anything persisted — it only needs to survive re-renders of the
+// current match, not reloads.
+let concedeBannerFor = null;
+// Matches whose "Accept Results and go to Scoreboard" banner (below) has
+// been dismissed by tapping that button — keyed 'day_matchNum'. Plain
+// in-memory state, not persisted: a fresh page load shows the banner again
+// for any match that's still complete, which is fine (there's nothing left
+// to accidentally re-enter once every hole is final).
+let acceptedMatches = new Set();
+
+// ---- CLOSEST TO THE PIN: placard pickup alert ----
+// Placards sit on the 4 par-3s (5, 8, 12, 17); whichever group plays a given
+// par-3 LAST that day is the one that should collect it and drop it at the
+// pro shop. On a shotgun start every group plays 18 holes starting from its
+// own Start Hole and wrapping back around, so the group that plays hole T
+// last is whichever group's Start Hole is the very next one actually used,
+// going forward from T (wrapping 18 -> 1) — that next hole is the START of
+// their day, which makes T the END of it (their 18th hole played). This
+// works for any shotgun arrangement, including one that skips holes entirely
+// (not every hole has a group teeing off there) and one with a doubled-up
+// tee (e.g. "18a"/"18b" both starting on 18 a few minutes apart) — in the
+// doubled-up case both matches come back as responsible, which just means
+// the alert can pop up for either.
+const CLOSEST_TO_PIN_HOLES = [5, 8, 12, 17];
+// Fires at most once per (day, matchNum, hole) per page load, even if that
+// hole's result gets saved again later (a correction, a retried autosave) —
+// keyed 'day_matchNum_hole'. Plain in-memory state, not persisted; a fresh
+// page load can show it again, which is fine since it only pops up for
+// whichever match is actually responsible, when it actually completes that
+// hole.
+let placardAlerted = new Set();
+function ctpResponsibleMatchNums(day, targetHole) {
+  const starts = (pairings[day] || [])
+    .filter((r) => hasPlayersLb(r) && r.StartHole)
+    .map((r) => ({ matchNum: String(r.MatchNum), start: startHoleNumberOf(r.StartHole) }))
+    .filter((x) => x.start !== null);
+  if (!starts.length) return [];
+  // Steps forward from targetHole to reach start hole s (1..18, never 0 —
+  // a group starting ON targetHole plays it FIRST, not last, so it's
+  // deliberately the worst-ranked candidate, not the best).
+  const distForward = (s) => ((s - targetHole - 1 + 18) % 18) + 1;
+  let best = Infinity;
+  starts.forEach((x) => { const d = distForward(x.start); if (d < best) best = d; });
+  return starts.filter((x) => distForward(x.start) === best).map((x) => x.matchNum);
+}
+// Whether `holeRow` (0-based idx into the 18-hole grid) already carries a
+// real result for CTP purposes — mirrors how each mode actually records a
+// hole: Day 1 and Day 2's front 9 (Best Ball) each have one Winner-style
+// field for the whole group; Day 2's back 9 runs two separate Individual
+// Match Play results (MP1Winner/MP2Winner) for the same physical hole, so
+// either one counts (they're entered together, behind one Save button).
+function holeIsCompletedForCTP(day, holeRow, idx) {
+  if (!holeRow) return false;
+  if (day === '2' || day === 2) {
+    return idx <= 8 ? !!holeRow.BestBallWinner : !!(holeRow.MP1Winner || holeRow.MP2Winner);
+  }
+  return !!holeRow.Winner;
+}
+// Called right after a save of `holes` for (day, matchNum) is confirmed
+// written to the sheet — see saveCurrentMatch. Compares against `prevHoles`
+// (the last confirmed-saved snapshot, from BEFORE this save) so the alert
+// only fires the moment a placard hole newly gets a result, not on every
+// later resave of a match that already finished it.
+function checkPlacardPickup(day, matchNum, prevHoles, holes) {
+  CLOSEST_TO_PIN_HOLES.forEach((hole) => {
+    const idx = hole - 1;
+    const wasDone = holeIsCompletedForCTP(day, (prevHoles || [])[idx], idx);
+    const isDone = holeIsCompletedForCTP(day, holes[idx], idx);
+    if (wasDone || !isDone) return; // not a fresh completion of this hole
+    const key = day + '_' + matchNum + '_' + hole;
+    if (placardAlerted.has(key)) return;
+    if (!ctpResponsibleMatchNums(day, hole).includes(String(matchNum))) return;
+    placardAlerted.add(key);
+    alert(`Pick up the Closest to the Pin marker for hole ${hole}`);
+  });
+}
+// True once every segment of this match has no holes left blank — a played-
+// out or conceded result either way (see buildSegmentResult's `final`).
+// Shared by the "Accept Results" banner in both Hole-by-Hole and Enter Match
+// Winner mode, so "the match is done" means exactly the same thing in both.
+function matchIsComplete(day, pairingRow, holes) {
+  if (!pairingRow) return false;
+  const { segs } = segmentInfoFromHoles(day, pairingRow, holes);
+  return segs.length > 0 && segs.every((s) => s.final);
+}
+function acceptResultsBannerHtml(day, matchNum, pairingRow, holes) {
+  if (acceptedMatches.has(day + '_' + matchNum)) return '';
+  if (!matchIsComplete(day, pairingRow, holes)) return '';
+  const { segs } = segmentInfoFromHoles(day, pairingRow, holes);
+  const names = teamNames();
+  let ptsA = 0, ptsB = 0;
+  segs.forEach((s) => { ptsA += s.points.A; ptsB += s.points.B; });
+  const resultText = ptsA > ptsB
+    ? `${escapeHtml(names.A)} wins, ${formatPts(ptsA)}–${formatPts(ptsB)}`
+    : ptsB > ptsA
+      ? `${escapeHtml(names.B)} wins, ${formatPts(ptsB)}–${formatPts(ptsA)}`
+      : `Match tied, ${formatPts(ptsA)}–${formatPts(ptsB)}`;
+  return `
+    <div class="final-results-banner">
+      <div class="final-results-title">Match ${escapeHtml(String(matchNum))} complete</div>
+      <div class="final-results-score">${resultText}</div>
+      <button type="button" class="primary" onclick="acceptMatchResults('${day}', '${matchNum}')">Accept Results of Match ${escapeHtml(String(matchNum))} and go to Scoreboard</button>
+    </div>
+  `;
+}
+function acceptMatchResults(day, matchNum) {
+  acceptedMatches.add(day + '_' + matchNum);
+  // Land on this match's own day rather than whatever the Scoreboard's day
+  // dropdown last had — one less tap to see the result that was just entered.
+  const sbDaySel = document.getElementById('sbDay');
+  if (sbDaySel) sbDaySel.value = day;
+  document.querySelector('.tab-btn[data-tab="scoreboard"]').click();
+}
+function cloneHoles(holes) { return JSON.parse(JSON.stringify(holes || [])); }
+function fieldsForDay(day) { return day === '2' ? ['BestBallWinner', 'MP1Winner', 'MP2Winner'] : ['Winner']; }
+// 'empty' — no result entered at all; 'saved' — matches the last confirmed-
+// saved snapshot; 'unsaved' — has a result that differs from (or isn't yet
+// in) that snapshot, i.e. entered here but not confirmed written to the
+// sheet yet (still mid-autosave-debounce, or the save hasn't been retried
+// since an error).
+function holeSaveState(day, matchNum, idx) {
+  const holeRow = currentHoles[idx];
+  if (!holeRow) return 'empty';
+  const fields = fieldsForDay(day);
+  const hasValue = fields.some((f) => holeRow[f]);
+  if (!hasValue) return 'empty';
+  const saved = (lastSavedHolesByMatch[day + '_' + matchNum] || [])[idx];
+  const matchesSaved = saved && fields.every((f) => String(saved[f] || '') === String(holeRow[f] || ''));
+  return matchesSaved ? 'saved' : 'unsaved';
+}
+// Compares what was just POSTed against what the server handed back right
+// after writing it (saveMatchScores_ returns the sheet's own post-write rows
+// for this match) — catches the sheet silently not ending up with what we
+// think we sent (a write that got clobbered, a lock/quota hiccup Apps Script
+// swallowed, etc.) instead of trusting a bare "success" from the API call.
+function holesMatchServerRows(day, sentHoles, serverRows) {
+  const byHole = {};
+  (serverRows || []).forEach((r) => { byHole[r.Hole] = r; });
+  const fields = fieldsForDay(day);
+  return sentHoles.every((h) => {
+    const r = byHole[h.Hole] || {};
+    return fields.every((f) => String(r[f] || '') === String(h[f] || ''));
+  });
+}
+
+// ---- per-match PIN gate ----
+// A match's Scorekeeper PIN (set by the admin on the Scorekeeper PINs tab) is
+// optional — blank means anyone with this link can still enter that match's
+// scores, same as before this existed. It's one PIN per match NUMBER, shared
+// by both days, so entering it once unlocks that match on Day 1 and Day 2
+// both. When set, this device has to enter it once; it's then remembered
+// here (localStorage) so the same phone doesn't have to re-enter it every
+// time. This only gates the score-ENTRY UI — the Scoreboard tab is
+// unaffected and stays open/read-only to everyone regardless.
+// A PIN typed with a leading zero (e.g. "0007") can end up mismatching a
+// stored value that lost that zero somewhere upstream — most commonly a PIN
+// typed straight into the Google Sheet's MatchPins tab instead of through
+// this app's own PIN box, where Sheets' own auto-formatting can silently
+// turn "0007" into the number 7 before this app ever reads it back (the
+// String(...) coercion elsewhere just stops that from crashing the page; it
+// can't restore a zero that's already gone). Treating two all-digit PINs as
+// the same whenever they're numerically equal — not just textually
+// identical — means a scorekeeper handed "0007" isn't locked out by that
+// kind of drift, however it happened.
+function pinsMatch(entered, required) {
+  if (!entered || !required) return false;
+  if (entered === required) return true;
+  return /^\d+$/.test(entered) && /^\d+$/.test(required) && Number(entered) === Number(required);
+}
+// A match number's shared PIN, looked up from the MatchPins sheet — the same
+// value applies to that match number on both Day 1 and Day 2.
+function pinForMatch(matchNum) {
+  const row = matchPins.find((r) => String(r.MatchNum) === String(matchNum));
+  return row ? String(row.PIN || '').trim() : '';
+}
+function pinStorageKey(matchNum) { return `legends_pin_${ENV}_${matchNum}`; }
+function getStoredPin(matchNum) {
+  try { return localStorage.getItem(pinStorageKey(matchNum)); } catch (e) { return null; }
+}
+function storePin(matchNum, pin) {
+  try { localStorage.setItem(pinStorageKey(matchNum), pin); } catch (e) {}
+}
+// ---- admin bypass ----
+// Entering the same Admin PIN used to unlock the admin page (Settings →
+// Admin PIN) into ANY match's lock screen unlocks every match on this
+// device, not just that one — so the admin doesn't need each foursome's
+// individual code to jump in and fix or enter a score. Stored once, device-
+// wide, separately from any per-match PIN this device may also remember.
+function adminUnlockKey() { return `legends_admin_${ENV}`; }
+function getAdminUnlocked() {
+  try { return localStorage.getItem(adminUnlockKey()) === '1'; } catch (e) { return false; }
+}
+function setAdminUnlocked(v) {
+  try { v ? localStorage.setItem(adminUnlockKey(), '1') : localStorage.removeItem(adminUnlockKey()); } catch (e) {}
+}
+// Mirrors suspendPinsOn() in index.html.
+function suspendPinsOn() {
+  const v = settings && settings.SuspendScorePins;
+  return v === true || v === 'TRUE' || v === 'true';
+}
+// Mirrors concedeEnabled() in index.html. Defaults ON (existing behavior)
+// unless the admin has explicitly turned it off in Settings.
+function concedeEnabled() {
+  const v = settings && settings.ConcedeEnabled;
+  return !(v === false || v === 'FALSE' || v === 'false');
+}
+function matchIsUnlocked(matchNum) {
+  if (suspendPinsOn()) return true; // testing mode — Settings → Suspend PIN Requirement
+  if (getAdminUnlocked()) return true;
+  const requiredPin = pinForMatch(matchNum);
+  if (!requiredPin) return true; // no PIN set for this match — open to anyone
+  return pinsMatch(getStoredPin(matchNum), requiredPin);
+}
+
+document.getElementById('scDay').addEventListener('change', onScDayOrMatchChange);
+document.getElementById('scMatch').addEventListener('change', onScMatchSelected);
+
+function populateMatchDropdown() {
+  const day = document.getElementById('scDay').value;
+  const sel = document.getElementById('scMatch');
+  sel.innerHTML = '';
+  pairings[day].forEach((row) => {
+    const opt = document.createElement('option');
+    opt.value = row.MatchNum;
+    opt.textContent = matchLabel(day, row);
+    sel.appendChild(opt);
+  });
+}
+// Switching the Day dropdown used to silently reset the Match dropdown back
+// to Match 1 (populateMatchDropdown rebuilds it from scratch, and a rebuilt
+// <select> defaults to its first option) instead of staying on whatever
+// match number was already selected. Since a Scorekeeper PIN now unlocks one
+// match NUMBER across both days, that reset made switching to Day 2 look
+// like it demanded a second PIN — really it had quietly jumped to Match 1
+// (someone else's match, usually still locked), not asked twice for the same
+// one. Restoring the same match number here is what makes "enter it once"
+// actually hold across the Day tab.
+function onScDayOrMatchChange() {
+  const prevMatchNum = document.getElementById('scMatch').value;
+  populateMatchDropdown();
+  const sel = document.getElementById('scMatch');
+  if (prevMatchNum && Array.from(sel.options).some((o) => o.value === prevMatchNum)) {
+    sel.value = prevMatchNum;
+  }
+  onScMatchSelected();
+}
+async function onScMatchSelected() {
+  const day = document.getElementById('scDay').value;
+  const matchNum = document.getElementById('scMatch').value;
+  scHoleIndex = 0;
+  concedeBannerFor = null;
+  if (!matchNum) { currentHoles = []; renderScoringUI(day, matchNum); return; }
+  const res = await apiGet('getScores', { day });
+  const rows = res.success ? res.data.filter((r) => String(r.MatchNum) === String(matchNum)) : [];
+  currentHoles = buildHoleGrid(day, matchNum, rows);
+  // Whatever just came back from the sheet is, by definition, already saved —
+  // seed the baseline the per-hole indicator strip compares against so every
+  // hole loaded this way starts out reading as "saved," not "unsaved."
+  if (res.success) lastSavedHolesByMatch[day + '_' + matchNum] = cloneHoles(currentHoles);
+  const pairingRow = pairings[day].find((r) => String(r.MatchNum) === String(matchNum));
+  // Jump straight to the first hole that still needs a result, so a
+  // scorekeeper picking up mid-round doesn't have to page through
+  // already-entered holes. Search starts at this match's own Start Hole and
+  // wraps around 1..18 — a shotgun match starting at, say, hole 13 lands on
+  // hole 13 (not hole 1, which for that match hasn't been played yet and
+  // never will read as "done"). Falls back to the start hole itself if
+  // everything's blank or everything's already entered.
+  const startNum = startHoleNumberOf(pairingRow && pairingRow.StartHole) || 1;
+  const startIdx = startNum - 1;
+  let firstBlankIdx = startIdx;
+  for (let i = 0; i < 18; i++) {
+    const idx = (startIdx + i) % 18;
+    if (holeIsBlank(day, currentHoles[idx])) { firstBlankIdx = idx; break; }
+  }
+  scHoleIndex = firstBlankIdx;
+  renderScoringUI(day, matchNum);
+}
+
+function holeIsBlank(day, holeRow) {
+  if (day === '2') {
+    return holeRow.Hole <= 9 ? !holeRow.BestBallWinner : !(holeRow.MP1Winner && holeRow.MP2Winner);
+  }
+  return !holeRow.Winner;
+}
+
+function buildHoleGrid(day, matchNum, existingRows) {
+  const byHole = {};
+  existingRows.forEach((r) => { byHole[r.Hole] = r; });
+  const holes = [];
+  for (let h = 1; h <= 18; h++) {
+    const r = byHole[h] || {};
+    if (day === '2') {
+      holes.push({ Hole: h, BestBallWinner: r.BestBallWinner || '', MP1Winner: r.MP1Winner || '', MP2Winner: r.MP2Winner || '' });
+    } else {
+      holes.push({ Hole: h, Winner: r.Winner || '' });
+    }
+  }
+  return holes;
+}
+
+// Top-level dispatcher: once a match is picked and unlocked, shows either the
+// one-hole-at-a-time entry view or the "Enter Match Winner" segment-level
+// view, per scEntryMode (see scModeToggleHtml/setScEntryMode).
+function renderScoringUI(day, matchNum) {
+  const toggleEl = document.getElementById('scViewToggle');
+  const modeEl = document.getElementById('scModeToggle');
+  if (!matchNum) {
+    toggleEl.innerHTML = '';
+    if (modeEl) modeEl.innerHTML = '';
+    document.getElementById('scGridWrap').innerHTML = '<p class="hint">Set up this match\'s pairing first (Admin → Pairings) before entering scores.</p>';
+    document.getElementById('scStatusLines').innerHTML = '';
+    return;
+  }
+  if (!matchIsUnlocked(matchNum)) {
+    toggleEl.innerHTML = '';
+    if (modeEl) modeEl.innerHTML = '';
+    renderPinLock(day, matchNum);
+    return;
+  }
+  if (dayIsLocked(day)) {
+    toggleEl.innerHTML = '';
+    if (modeEl) modeEl.innerHTML = '';
+    document.getElementById('scStatusLines').innerHTML = '';
+    document.getElementById('scGridWrap').innerHTML = `
+      <div class="card" style="margin:0; background:#fdecea; border-color:var(--error);">
+        <p class="hint" style="margin-top:0; color:var(--error); font-weight:600;">Day ${escapeHtml(day)} results are locked by the admin — scores can no longer be changed. Check the Scoreboard tab for final results.${day === '1' ? ' To enter Day 2 results, click on the dropdown window above and select "Day 2."' : ''}</p>
+      </div>
+    `;
+    return;
+  }
+  if (suspendPinsOn()) {
+    // No PIN gate is actually active right now, so there's nothing to "Forget"
+    // or "Exit" — just say so, rather than showing a button that wouldn't do
+    // anything meaningful while this is on.
+    toggleEl.innerHTML = '<span class="hint" style="margin-left:auto; color:#b8860b; font-weight:600;">Testing mode: PIN requirement is suspended for every match</span>';
+  } else {
+    toggleEl.innerHTML = getAdminUnlocked()
+      ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="exitAdminMode('${day}', '${matchNum}')">Exit Admin Mode</button>`
+      : (pinForMatch(matchNum)
+          ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="lockMatch('${matchNum}')">Forget PIN</button>`
+          : '');
+  }
+  if (modeEl) modeEl.innerHTML = scModeToggleHtml();
+  renderCurrentEntryView(day, matchNum);
+}
+
+// Clears this device's remembered PIN for this match and re-shows the lock
+// screen — for handing the phone to a different foursome, or if the wrong
+// code got saved. (If the admin changes a match's PIN, this device is
+// automatically re-locked next time it's selected — no need for this.)
+function lockMatch(matchNum) {
+  try { localStorage.removeItem(pinStorageKey(matchNum)); } catch (e) {}
+  renderScoringUI(document.getElementById('scDay').value, matchNum);
+}
+
+// Turns off this device's admin bypass (see matchIsUnlocked) — every match
+// goes back to needing either its own PIN or the Admin PIN again. Any
+// per-match PINs this device separately remembered are untouched.
+function exitAdminMode(day, matchNum) {
+  setAdminUnlocked(false);
+  renderScoringUI(day, matchNum);
+}
+
+// Shown instead of the scoring UI when this match has a PIN set and this
+// device hasn't unlocked it yet.
+function renderPinLock(day, matchNum) {
+  document.getElementById('scStatusLines').innerHTML = '';
+  const wrap = document.getElementById('scGridWrap');
+  wrap.innerHTML = `
+    <div class="card" style="margin:0; background:#fbf3e4; border-color:var(--gold);">
+      <p class="hint" style="margin-top:0;">This match is protected — enter the PIN given to this foursome to enter scores. (The Scoreboard tab is still open to everyone.)</p>
+      <div class="row">
+        <input type="text" inputmode="numeric" id="matchPinInput" placeholder="PIN" maxlength="8" style="font-size:1.1rem; padding:10px 12px; width:120px;">
+        <button type="button" class="primary" onclick="tryUnlockMatch('${day}', '${matchNum}')">Unlock</button>
+      </div>
+      <div id="pinError" class="hint" style="color:var(--error);"></div>
+    </div>
+  `;
+  const input = document.getElementById('matchPinInput');
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlockMatch(day, matchNum); });
+  input.focus();
+}
+function tryUnlockMatch(day, matchNum) {
+  const entered = document.getElementById('matchPinInput').value.trim();
+  const requiredPin = pinForMatch(matchNum);
+  const adminPin = String((settings && settings.AdminPIN) || '').trim();
+  if (adminPin && pinsMatch(entered, adminPin)) {
+    // The Admin PIN unlocks every match on this device, not just this one.
+    setAdminUnlocked(true);
+    renderScoringUI(day, matchNum);
+  } else if (entered && requiredPin && pinsMatch(entered, requiredPin)) {
+    // One shared PIN per match number, covering both days — storing it once
+    // here unlocks this same match number on the other day too, no matter
+    // which day's screen it was typed into.
+    storePin(matchNum, entered);
+    renderScoringUI(day, matchNum);
+  } else {
+    document.getElementById('pinError').textContent = 'Incorrect PIN — check with your foursome or the admin.';
+  }
+}
+// ---- direct hole-winner tap UI (replaces gross-score entry) ----
+// The scorekeeper works out who actually won the hole (using the stroke
+// hints below each side's name to judge net results fairly) and taps that
+// side, or Tie — no gross strokes are typed in anywhere.
+function lastNameOrUnassigned(name) { return name ? lastName(name) : '(unassigned)'; }
+function playerStrokeNoteHtml(name, hole) {
+  const p = rosterByName[name];
+  if (!p) return '';
+  const si = strokeIndexForTee(p.Tee, hole);
+  const strokes = strokesOnHole(courseHandicap(p.HandicapIndex, p.Tee), si);
+  if (strokes <= 0) return '';
+  return `<div class="hbh-stroke-note">${escapeHtml(lastName(name))}: gets ${strokes} stroke${strokes > 1 ? 's' : ''}<span class="hbh-dot"></span></div>`;
+}
+// Button text: the Tie button just says "Tie"; each side's own button says
+// "<name> Wins" so the row is self-explanatory without a separate label line
+// above it. Each side's own button is always shaded with that team's own
+// color (not just once picked) — easier to tell the two sides apart at a
+// glance for anyone who isn't used to the app; the button that's actually
+// picked is marked with a bold border and a leading checkmark instead, since
+// a color change alone wouldn't be visible against a background that's
+// already colored either way.
+// holeSuffix (optional, e.g. " Hole 5") is appended to every button's label —
+// passed only by the hole-by-hole call sites below (teamWinnerBlockHtml /
+// matchupWinnerBlockHtml), never by matchWinnerBlockHtml's whole-9 segment
+// picks, since "Wins Hole 5" wouldn't make sense for a pick covering 9 holes.
+function winnerButtonsHtml(field, val, aLabel, bLabel, extraBtnHtml, aColor, bColor, holeSuffix) {
+  const suffix = holeSuffix || '';
+  const btn = (v, rawLabel, cls, color) => {
+    const isActive = val === v;
+    const label = (isActive ? '✓ ' : '') + (v === 'Half' ? `${rawLabel}${suffix}` : `${rawLabel} Wins${suffix}`);
+    const style = color ? ` style="background:${escapeHtml(color)};"` : '';
+    return `<button type="button" class="wpick-btn ${isActive ? 'active ' + cls : ''}" data-wfield="${field}" data-wval="${v}"${style}>${escapeHtml(label)}</button>`;
+  };
+  return `<div class="wpick-row">${btn('A', aLabel, 'wpick-a', aColor)}${btn('Half', 'Tie', 'wpick-half')}${btn('B', bLabel, 'wpick-b', bColor)}${extraBtnHtml || ''}</div>`;
+}
+// Team-vs-team pick (Day 1 both segments, Day 2 Best Ball) — just the three
+// buttons, since each button's own "<Team> Wins" text already says who it's
+// for. extraBtnHtml (optional) is appended into the same button row — used
+// to fold the "Save and move to hole N" button onto this line. Only ever
+// used from hole-by-hole entry (renderHoleByHole), so it always labels its
+// buttons with the specific hole (" Hole N") — see winnerButtonsHtml above.
+function teamWinnerBlockHtml(field, holeRow, hole, aLabel, bLabel, extraBtnHtml, aColor, bColor) {
+  const val = holeRow[field] || '';
+  return `<div class="wpick-block">${winnerButtonsHtml(field, val, aLabel, bLabel, extraBtnHtml, aColor, bColor, ` Hole ${hole}`)}</div>`;
+}
+// Player-vs-player pick (Day 2 Individual Match Play, one block per MP slot).
+// extraBtnHtml (optional) is appended into the same button row. aColor/bColor
+// (optional) mark which team each player belongs to with a small dot, since
+// this is otherwise a player-vs-player screen with no team names in sight.
+// Only ever used from hole-by-hole entry, same as teamWinnerBlockHtml above.
+function matchupWinnerBlockHtml(field, holeRow, hole, aName, bName, extraBtnHtml, aColor, bColor) {
+  const val = holeRow[field] || '';
+  const aLabel = lastNameOrUnassigned(aName), bLabel = lastNameOrUnassigned(bName);
+  const aDot = aColor ? teamDotHtml(aColor) : '';
+  const bDot = bColor ? teamDotHtml(bColor) : '';
+  return `<div class="wpick-block"><div class="wpick-sides"><div class="wpick-side">${aDot}${escapeHtml(aLabel)}${playerStrokeNoteHtml(aName, hole)}</div><div class="wpick-side">${bDot}${escapeHtml(bLabel)}${playerStrokeNoteHtml(bName, hole)}</div></div>${winnerButtonsHtml(field, val, aLabel, bLabel, extraBtnHtml, aColor, bColor, ` Hole ${hole}`)}</div>`;
+}
+
+// ---- "Enter Match Winner" mode: one person per team declares each 9's (or
+// each Match Play pairing's) overall outcome directly, with no hole-by-hole
+// entry at all. Implemented without any backend/schema change: picking a
+// winner just writes that same value across every hole in the segment's
+// 9-hole range through the existing per-hole Winner/BestBallWinner/
+// MP#Winner fields, then saves through the same saveMatchScores endpoint
+// hole-by-hole entry already uses — every existing tally/status/scorecard
+// helper reads the result the same way either way, no matter how it got
+// entered.
+let scEntryMode = 'holebyhole'; // 'holebyhole' | 'matchwinner' — page-level UI choice, not saved anywhere
+// Re-renders whichever entry view is currently selected, for a match already
+// known to be picked/unlocked/unlocked-for-editing — used both by the
+// top-level dispatcher (renderScoringUI) and by anything (like a verified
+// save) that needs to refresh the visible entry UI without redoing the
+// PIN/day-lock checks that got it on screen in the first place.
+function renderCurrentEntryView(day, matchNum) {
+  if (scEntryMode === 'matchwinner') {
+    renderMatchWinnerMode(day, matchNum);
+  } else {
+    renderHoleByHole(day, matchNum);
+  }
+}
+function scModeToggleHtml() {
+  return `
+    <p class="sc-intro-label">2. Choose whether you want to enter hole-by-hole scores or just the match winner.</p>
+    <button type="button" class="view-toggle-btn ${scEntryMode === 'holebyhole' ? 'active' : ''}" onclick="setScEntryMode('holebyhole')">Hole-by-Hole</button>
+    <button type="button" class="view-toggle-btn ${scEntryMode === 'matchwinner' ? 'active' : ''}" onclick="setScEntryMode('matchwinner')">Enter Match Winner</button>
+  `;
+}
+function setScEntryMode(mode) {
+  if (scEntryMode === mode) return;
+  scEntryMode = mode;
+  const day = document.getElementById('scDay').value;
+  const matchNum = document.getElementById('scMatch').value;
+  renderScoringUI(day, matchNum);
+}
+// Returns 'A' / 'B' / 'Half' / some other sentinel (e.g. 'Conceded') if every
+// hole in the range already carries that exact same value, blank ('' -> null)
+// if none of them are entered yet, or null if the holes are a genuine mix
+// (real hole-by-hole progress) — which is exactly the case worth warning
+// about before this mode overwrites it.
+function isSegmentUniform(field, startHole, endHole) {
+  let val = null;
+  for (let h = startHole; h <= endHole; h++) {
+    const v = (currentHoles[h - 1] || {})[field] || '';
+    if (h === startHole) { val = v; continue; }
+    if (v !== val) return null;
+  }
+  return val || null;
+}
+function segmentHasAnyEntry(field, startHole, endHole) {
+  for (let h = startHole; h <= endHole; h++) {
+    if ((currentHoles[h - 1] || {})[field]) return true;
+  }
+  return false;
+}
+// Applies a direct match-winner pick across an entire 9-hole segment. Tapping
+// the pick that's already set for the whole segment clears it back to blank
+// (an undo, mirroring the per-hole pick buttons' own toggle-off behavior);
+// tapping anything else overwrites the whole segment — with a confirmation
+// first if there's any existing entry there, real hole-by-hole progress
+// included, so a scorekeeper can't lose that work with one stray tap.
+function pickMatchWinner(day, matchNum, field, startHole, endHole, value) {
+  const current = isSegmentUniform(field, startHole, endHole);
+  if (current === value) {
+    if (!confirm(`Clear this pick and go back to no result for holes ${startHole}–${endHole}?`)) return;
+    for (let h = startHole; h <= endHole; h++) { if (currentHoles[h - 1]) currentHoles[h - 1][field] = ''; }
+  } else {
+    if (segmentHasAnyEntry(field, startHole, endHole)) {
+      if (!confirm(`Holes ${startHole}–${endHole} already have scores entered for this segment. Overwrite them all with this pick?`)) return;
+    }
+    for (let h = startHole; h <= endHole; h++) { if (currentHoles[h - 1]) currentHoles[h - 1][field] = value; }
+  }
+  saveCurrentMatch(day, matchNum, currentHoles);
+  renderScoringUI(day, matchNum);
+}
+function matchWinnerBlockHtml(field, startHole, endHole, label, aLabel, bLabel, aColor, bColor) {
+  const current = isSegmentUniform(field, startHole, endHole);
+  const hasAnyEntry = segmentHasAnyEntry(field, startHole, endHole);
+  const noteHtml = (current === 'A' || current === 'B' || current === 'Half')
+    ? `<span class="hint">Currently set: ${current === 'Half' ? 'Tie' : escapeHtml(current === 'A' ? aLabel : bLabel)} for the whole 9</span>`
+    : hasAnyEntry
+      ? `<span class="hint" style="color:#b8860b; font-weight:600;">This 9 already has scores entered — picking a winner below will overwrite them</span>`
+      : `<span class="hint">Not yet entered</span>`;
+  return `
+    <div class="wpick-block mw-segment-block" data-field="${escapeHtml(field)}" data-start="${startHole}" data-end="${endHole}">
+      <div class="hbh-seglabel">${escapeHtml(label)}</div>
+      ${winnerButtonsHtml(field, current || '', aLabel, bLabel, '', aColor, bColor)}
+      <div style="margin-top:4px;">${noteHtml}</div>
+    </div>
+  `;
+}
+function renderMatchWinnerMode(day, matchNum) {
+  const wrap = document.getElementById('scGridWrap');
+  const pairingRow = pairings[day].find((r) => String(r.MatchNum) === String(matchNum));
+  const names = teamNames();
+  const colors = teamColors();
+  let blocksHtml;
+  if (day === '2') {
+    blocksHtml =
+      matchWinnerBlockHtml('BestBallWinner', 1, 9, 'Front 9: Best Ball', teamWinLabel(names.A), teamWinLabel(names.B), colors.A, colors.B) +
+      matchWinnerBlockHtml('MP1Winner', 10, 18, `Back 9: Match Play — ${lastNameOrUnassigned(pairingRow.MP1_TeamA)} vs ${lastNameOrUnassigned(pairingRow.MP1_TeamB)}`, lastNameOrUnassigned(pairingRow.MP1_TeamA), lastNameOrUnassigned(pairingRow.MP1_TeamB), colors.A, colors.B) +
+      matchWinnerBlockHtml('MP2Winner', 10, 18, `Back 9: Match Play — ${lastNameOrUnassigned(pairingRow.MP2_TeamA)} vs ${lastNameOrUnassigned(pairingRow.MP2_TeamB)}`, lastNameOrUnassigned(pairingRow.MP2_TeamA), lastNameOrUnassigned(pairingRow.MP2_TeamB), colors.A, colors.B);
+  } else {
+    blocksHtml =
+      matchWinnerBlockHtml('Winner', 1, 9, "Front 9: Captain's Choice", teamWinLabel(names.A), teamWinLabel(names.B), colors.A, colors.B) +
+      matchWinnerBlockHtml('Winner', 10, 18, 'Back 9: Modified Alternate Shot', teamWinLabel(names.A), teamWinLabel(names.B), colors.A, colors.B);
+  }
+  // Shown for context even though this mode never navigates hole by hole —
+  // matches the same line in Hole-by-Hole mode (see renderHoleByHole).
+  const startHoleText = pairingRow && pairingRow.StartHole ? escapeHtml(String(pairingRow.StartHole)) : null;
+  wrap.innerHTML = `
+    <p class="sc-intro-label">3. Pick each 9's overall winner below.</p>
+    ${startHoleText ? `<p class="hint" style="font-weight:600; margin:0 0 4px;">Your match is starting on Hole <span class="start-hole-badge">${startHoleText}</span></p>` : ''}
+    <p class="hint" style="margin:0 0 8px;">No need to enter every hole — saves immediately when you tap a pick.</p>
+    ${acceptResultsBannerHtml(day, matchNum, pairingRow, currentHoles)}
+    ${blocksHtml}
+  `;
+  wrap.querySelectorAll('.mw-segment-block .wpick-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const block = btn.closest('.mw-segment-block');
+      pickMatchWinner(day, matchNum, block.dataset.field, parseInt(block.dataset.start, 10), parseInt(block.dataset.end, 10), btn.dataset.wval);
+    });
+  });
+  renderStatusLines(day, matchNum, pairingRow);
+}
+
+// What color (if any) a hole's dot should show, based on who's currently
+// picked to win it — not its save state, which is tracked separately. Day 1
+// and Day 2's front 9 (holes 0-8, 0-based) have a single result field, so
+// this is a direct lookup. Day 2's back 9 (holes 9-17) runs two separate
+// Individual Match Play matchups at once (MP1Winner, MP2Winner) that can
+// have different winners on the same hole — when they agree, one solid
+// color; when they disagree, a diagonal split so neither result is hidden;
+// when only one of the two has been entered so far, that one's color alone.
+function holeResultColor(day, idx) {
+  const holeRow = currentHoles[idx];
+  if (!holeRow) return null;
+  const colors = teamColors();
+  const colorFor = (v) => (v === 'A' ? colors.A : v === 'B' ? colors.B : v === 'Half' ? 'var(--half)' : null);
+  if (day === '2' && idx >= 9) {
+    const c1 = colorFor(holeRow.MP1Winner);
+    const c2 = colorFor(holeRow.MP2Winner);
+    if (c1 && c2) return c1 === c2 ? c1 : `linear-gradient(135deg, ${c1} 50%, ${c2} 50%)`;
+    return c1 || c2 || null;
+  }
+  const field = day === '2' ? 'BestBallWinner' : 'Winner';
+  return colorFor(holeRow[field]);
+}
+
+// Compact 18-dot map of this match's holes — click any dot to jump there,
+// same as the dropdown. Once a hole has a winner (or Tie) picked, its dot is
+// filled with that team's color (see holeResultColor above); a hole with
+// nothing entered yet stays plain grey. Independently, the border shows
+// whether that pick is confirmed saved: dashed/amber for entered-but-not-
+// yet-confirmed (still mid-autosave-debounce, or a save attempt errored),
+// solid for confirmed in the sheet as of the last load or successful save.
+// That's what actually answers "did that stick" at a glance, rather than
+// only the one-line indicator up top which only reflects the very last save
+// attempt.
+function holeCompletionStripHtml(day, matchNum) {
+  const dots = Array.from({ length: 18 }, (_, i) => {
+    const state = holeSaveState(day, matchNum, i);
+    const current = i === scHoleIndex ? ' hbh-progress-current' : '';
+    const resultColor = holeResultColor(day, i);
+    const decidedCls = resultColor ? ' hbh-progress-decided' : '';
+    const style = resultColor ? ` style="background:${resultColor};"` : '';
+    return `<div class="hbh-progress-dot hbh-progress-${state}${decidedCls}${current}"${style} data-hole-idx="${i}" title="Hole ${i + 1}${state === 'saved' ? ' — saved' : state === 'unsaved' ? ' — entered, not yet confirmed saved' : ' — not entered'}">${i + 1}</div>`;
+  });
+  return `<div class="hbh-progress-strip">${dots.join('')}</div>`;
+}
+
+// One hole at a time — just this match's players/teams, big touch-friendly
+// tap targets, no horizontal scrolling. The nav row (‹ and the hole
+// dropdown) sits above the pick buttons; the "Save and move to hole N"
+// button rides on the same line as the last (or only) winner-pick row so
+// all four buttons read as one unit. Picking a result never moves you on
+// by itself — only that explicit button does, so you can review a hole
+// before committing to the next one. Prev (‹) and the dropdown just
+// navigate without forcing a save first.
+function renderHoleByHole(day, matchNum) {
+  const wrap = document.getElementById('scGridWrap');
+  const pairingRow = pairings[day].find((r) => String(r.MatchNum) === String(matchNum));
+  const names = teamNames();
+  const colors = teamColors();
+  const h = scHoleIndex + 1; // 1-based hole number
+  const nextH = (h % 18) + 1; // wraps 18 -> 1, same as stepHole(1)
+  const holeRow = currentHoles[scHoleIndex];
+  const segLabelPlain = h <= 9
+    ? (day === '2' ? 'Best Ball (front 9)' : "Captain's Choice (front 9)")
+    : (day === '2' ? 'Individual Match Play (back 9)' : 'Modified Alternate Shot (back 9)');
+  // On the very first hole of a new segment (hole 1 or hole 10 — the turn),
+  // call out the format change explicitly rather than just naming it, since
+  // that's the one moment a scorekeeper might not realize the rules just
+  // switched (e.g. Captain's Choice giving way to Modified Alternate Shot).
+  const segLabel = (h === 1 || h === 10) ? `You are now playing ${segLabelPlain}` : segLabelPlain;
+  const saveBtnHtml = `<button type="button" class="hbh-save-next" onclick="saveAndAdvance('${day}', '${matchNum}')">Save now and move to hole ${nextH}</button>`;
+  // Day 2 Individual Match Play (back 9) only: one Save covers both MP1 and
+  // MP2 at once (they're saved together, same as every other segment), so
+  // its own label says so explicitly rather than reading like it only
+  // covers the matchup it's visually closest to.
+  const saveBtnHtmlBothMatches = `<button type="button" class="hbh-save-next" onclick="saveAndAdvance('${day}', '${matchNum}')">Save results for both matches now and move to hole ${nextH}</button>`;
+  // The dropdown just below already jumps straight to this match's own Start
+  // Hole (see onScMatchSelected) — this line just says so in plain words,
+  // for anyone who'd otherwise wonder why it's not showing hole 1.
+  const startHoleText = pairingRow && pairingRow.StartHole ? escapeHtml(String(pairingRow.StartHole)) : null;
+
+  let blocksHtml;
+  if (day === '2') {
+    if (h <= 9) {
+      blocksHtml = teamWinnerBlockHtml('BestBallWinner', holeRow, h, teamWinLabel(names.A), teamWinLabel(names.B), saveBtnHtml, colors.A, colors.B);
+    } else {
+      // Both matchups render with the same 3-button row (no extra button on
+      // either one), so MP1 and MP2 look identical — the save button gets
+      // its own centered line below the second matchup instead, labeled to
+      // say it covers both matches since it's not obviously tied to just
+      // the one it sits under.
+      blocksHtml = matchupWinnerBlockHtml('MP1Winner', holeRow, h, pairingRow.MP1_TeamA, pairingRow.MP1_TeamB, null, colors.A, colors.B)
+        + matchupWinnerBlockHtml('MP2Winner', holeRow, h, pairingRow.MP2_TeamA, pairingRow.MP2_TeamB, null, colors.A, colors.B)
+        + `<div class="hbh-save-standalone">${saveBtnHtmlBothMatches}</div>`;
+    }
+  } else {
+    blocksHtml = teamWinnerBlockHtml('Winner', holeRow, h, teamWinLabel(names.A), teamWinLabel(names.B), saveBtnHtml, colors.A, colors.B);
+  }
+
+  // A mirror of this one match's Scoreboard → All Match Scorecards entry,
+  // right here on the entry screen — reads straight off `currentHoles`, the
+  // same in-memory data the pick buttons and status lines use, so it
+  // updates the instant you tap something rather than only after a save.
+  const { segs: mirrorSegs, segNames: mirrorSegNames } = segmentInfoFromHoles(day, pairingRow, currentHoles);
+  const mirrorScorecardHtml = `
+    <div class="hbh-mirror-scorecard">
+      <div class="hbh-mirror-title">This Match's Scorecard</div>
+      ${scorecardProgRowsHtml(day, pairingRow, currentHoles, mirrorSegs, mirrorSegNames)}
+    </div>
+  `;
+
+  // If a segment tapped into "decided, but holes still to enter" earlier and
+  // hasn't been resolved (Concede or Continue Playing) yet, show the banner
+  // on every render of this match — not just the one where it first
+  // triggered — so it isn't easy to miss by navigating to a different hole
+  // in the meantime. Re-checked against live data each render, so if the
+  // segment somehow becomes undecided again (a pick toggled back off) the
+  // banner quietly clears itself instead of lingering stale.
+  let concedeBannerHtml = '';
+  if (!concedeEnabled()) {
+    // Feature turned off in Settings — never show it, and clear out any
+    // pending banner from before it was turned off (e.g. mid-round) so a
+    // stale one can't reappear if it's switched back on later without this
+    // match's outcome changing again first.
+    concedeBannerFor = null;
+  } else if (concedeBannerFor && concedeBannerFor.day === day && String(concedeBannerFor.matchNum) === String(matchNum)) {
+    const segResult = segmentResultForField(day, concedeBannerFor.field, concedeBannerFor.hole, pairingRow, currentHoles);
+    if (segResult.clinched && !segResult.final) {
+      const leaderName = segResult.leader === 'A' ? names.A : segResult.leader === 'B' ? names.B : '';
+      concedeBannerHtml = `
+        <div class="concede-banner">
+          <div class="concede-banner-title">Match outcome determined. Concede or continue playing?</div>
+          <div class="concede-banner-detail">${escapeHtml(leaderName)} ${escapeHtml(segResult.text)}</div>
+          <div class="concede-banner-actions">
+            <button type="button" class="concede-btn concede-yes" onclick="concedeSegment('${day}', '${matchNum}', '${concedeBannerFor.field}')">Concede</button>
+            <button type="button" class="concede-btn concede-no" onclick="dismissConcedeBanner('${day}', '${matchNum}')">Continue Playing</button>
+          </div>
+        </div>
+      `;
+    } else {
+      concedeBannerFor = null;
+    }
+  }
+
+  wrap.innerHTML = `
+    <p class="sc-intro-label">3. Select Winner (or Tie) below and advance to the next hole.</p>
+    ${startHoleText ? `<p class="hint" style="font-weight:600; margin:0 0 8px;">Your match is starting on Hole <span class="start-hole-badge">${startHoleText}</span></p>` : ''}
+    <div class="hbh-nav">
+      <button type="button" onclick="stepHole(-1)">‹</button>
+      <select id="hbhHoleSelect" onchange="jumpToHole(this.value)">
+        ${Array.from({ length: 18 }, (_, i) => {
+          const p = parForHole(i + 1);
+          return `<option value="${i}" ${i === scHoleIndex ? 'selected' : ''}>Hole ${i + 1}${p ? ` (Par ${escapeHtml(String(p))})` : ''}</option>`;
+        }).join('')}
+      </select>
+    </div>
+    ${holeCompletionStripHtml(day, matchNum)}
+    ${concedeBannerHtml}
+    ${acceptResultsBannerHtml(day, matchNum, pairingRow, currentHoles)}
+    <div class="hbh-seglabel">${escapeHtml(segLabel)}</div>
+    ${blocksHtml}
+    <p class="hint" style="margin-top:10px;">Results still autosave a couple seconds after your last tap, or hit "Save now and move to hole ${nextH}" to save right away and move on. On a shotgun start, jump straight to whichever hole your group just finished — Prev and the dropdown just navigate, they don't move any faster than that. The row of hole numbers above shows what's actually confirmed: grey means nothing's entered yet; once a hole has a winner (or Tie), its number fills with that team's color — a dashed border means it's entered here but not yet confirmed saved, a solid border means it's saved — tap any number to jump to that hole.</p>
+    ${mirrorScorecardHtml}
+  `;
+
+  wrap.querySelectorAll('.hbh-progress-dot').forEach((dot) => {
+    dot.addEventListener('click', () => jumpToHole(dot.dataset.holeIdx));
+  });
+
+  wrap.querySelectorAll('.wpick-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const field = btn.dataset.wfield;
+      const val = btn.dataset.wval;
+      const before = segmentResultForField(day, field, h, pairingRow, currentHoles);
+      const current = currentHoles[scHoleIndex][field];
+      // Tapping the already-selected choice clears it back to "not entered".
+      currentHoles[scHoleIndex][field] = current === val ? '' : val;
+      const after = segmentResultForField(day, field, h, pairingRow, currentHoles);
+      // Newly clinched (wasn't decided before this tap, is now, with holes
+      // still left blank) — surface the Concede-or-continue banner. Already
+      // being clinched before this tap doesn't re-trigger it (so re-tapping
+      // other holes in an already-decided segment doesn't keep re-showing
+      // it), and un-clinching it (toggling a pick back off) clears it.
+      if (after.clinched && !after.final) {
+        if (!before.clinched && concedeEnabled()) concedeBannerFor = { day, matchNum, field, hole: h };
+      } else if (concedeBannerFor && concedeBannerFor.day === day && String(concedeBannerFor.matchNum) === String(matchNum) && concedeBannerFor.field === field) {
+        concedeBannerFor = null;
+      }
+      renderHoleByHole(day, matchNum);
+      renderStatusLines(day, matchNum, pairingRow);
+      scheduleAutosave(day, matchNum);
+    });
+  });
+
+  renderStatusLines(day, matchNum, pairingRow);
+}
+
+// "Continue Playing" — just dismiss the banner, no other side effects; the
+// scorer keeps entering real results as normal.
+function dismissConcedeBanner(day, matchNum) {
+  concedeBannerFor = null;
+  renderHoleByHole(day, matchNum);
+}
+
+// "Concede" — fills every not-yet-entered hole in the conceded segment with
+// a 'Conceded' sentinel (the same Winner/BestBallWinner/MP1Winner/MP2Winner
+// column the real picks live in, so no schema change and every existing
+// tally/display helper handles it via normalizeWinner), saves it, and moves
+// on. A front-9 segment (Day 1 Captain's Choice, or Day 2 Best Ball) jumps
+// ahead to hole 10 to start the next segment; a back-9 segment (Day 1
+// Modified Alt Shot, or either Day 2 Match Play sub-match) just stops where
+// it is — it's either the day's last segment, or (Day 2 back 9) the sibling
+// Match Play sub-match is still being played on these same holes.
+function concedeSegment(day, matchNum, field) {
+  const isFrontNine = day === '2' ? field === 'BestBallWinner' : !(concedeBannerFor && concedeBannerFor.hole > 9);
+  const startHole = isFrontNine ? 1 : 10;
+  const endHole = isFrontNine ? 9 : 18;
+  for (let h = startHole; h <= endHole; h++) {
+    const row = currentHoles[h - 1];
+    if (row && !row[field]) row[field] = 'Conceded';
+  }
+  concedeBannerFor = null;
+  saveCurrentMatch(day, matchNum, currentHoles);
+  if (isFrontNine) {
+    jumpToHole(9); // hole 10 (0-based index 9) — start of the next segment
+  } else {
+    renderHoleByHole(day, matchNum);
+  }
+}
+
+// The nav row's primary action — saves whatever's on screen right now
+// (bypassing the autosave debounce) and then moves ahead to the next hole,
+// wrapping 18 -> 1 same as stepHole(1).
+function saveAndAdvance(day, matchNum) {
+  saveCurrentMatch(day, matchNum, currentHoles);
+  stepHole(1);
+}
+
+// Wraps 18 -> 1 and 1 -> 18 rather than stopping at the ends — a shotgun
+// group finishing on hole 18 naturally continues into hole 1 next, and the
+// format flips there (front 9 <-> back 9), which the heading above already
+// makes clear.
+function stepHole(dir) {
+  scHoleIndex = (scHoleIndex + dir + 18) % 18;
+  const day = document.getElementById('scDay').value;
+  const matchNum = document.getElementById('scMatch').value;
+  renderHoleByHole(day, matchNum);
+}
+function jumpToHole(idx) {
+  scHoleIndex = parseInt(idx, 10) || 0;
+  const day = document.getElementById('scDay').value;
+  const matchNum = document.getElementById('scMatch').value;
+  renderHoleByHole(day, matchNum);
+}
+
+function scheduleAutosave(day, matchNum) {
+  setSaveIndicator('saving', 'Saving…');
+  const key = day + '_' + matchNum;
+  clearTimeout(saveTimers[key]);
+  // Capture the array reference now, not just the day/matchNum. Further edits
+  // to this same match before the timer fires keep mutating this same array
+  // (so the save 1.5s from now still includes them) — but if you switch to a
+  // different match, `currentHoles` gets reassigned to a new array for that
+  // match, and this timer's captured reference is unaffected by that, so it
+  // still saves this match's own data, not whatever's now on screen.
+  const holesSnapshot = currentHoles;
+  saveTimers[key] = setTimeout(() => {
+    delete saveTimers[key];
+    saveCurrentMatch(day, matchNum, holesSnapshot);
+  }, 1500);
+}
+function setSaveIndicator(cls, text) {
+  const el = document.getElementById('saveIndicator');
+  el.className = 'save-indicator ' + cls;
+  el.textContent = text;
+}
+// Always called with explicit day/matchNum/holes — by a debounced autosave
+// (see scheduleAutosave) or by the per-hole "Save now and move to hole N"
+// button — so it always saves the specific match/data it was scheduled for,
+// regardless of what's currently selected, and only touches the visible
+// Saving/Saved indicator if that same match still happens to be the one on
+// screen. The day/matchNum/holes fallbacks below (reading straight off the
+// dropdowns/currentHoles) are just defensive — nothing currently calls this
+// without arguments — in case something ever does again.
+//
+// Two safety nets on top of the original single attempt:
+//  - a transient failure (network hiccup, a timeout, or a save that posted
+//    but didn't verify) retries automatically, with a short backoff, before
+//    giving up — so one blip mid-round doesn't permanently lose an entry
+//    behind a small error indicator nobody happens to notice.
+//  - if this SAME match gets saved again (autosave firing, "Save now", or a
+//    retry) while an earlier save for it is still talking to the server,
+//    this doesn't fire a second overlapping request — their responses could
+//    land out of order and let a stale one overwrite what the newer one just
+//    confirmed. The newer snapshot is queued instead and sent the moment the
+//    in-flight one finishes, so no edit is ever silently dropped.
+async function saveCurrentMatch(day, matchNum, holes) {
+  if (day === undefined) day = document.getElementById('scDay').value;
+  if (matchNum === undefined) matchNum = document.getElementById('scMatch').value;
+  if (holes === undefined) holes = currentHoles;
+  if (!matchNum) return;
+  const key = day + '_' + matchNum;
+  clearTimeout(saveTimers[key]);
+  delete saveTimers[key];
+
+  if (inFlightSaves[key]) {
+    queuedSaves[key] = { day, matchNum, holes };
+    return;
+  }
+  inFlightSaves[key] = true;
+  try {
+    await saveCurrentMatchNow_(day, matchNum, holes, key);
+  } finally {
+    delete inFlightSaves[key];
+    const queued = queuedSaves[key];
+    if (queued) {
+      delete queuedSaves[key];
+      saveCurrentMatch(queued.day, queued.matchNum, queued.holes);
+    }
+  }
+}
+
+async function saveCurrentMatchNow_(day, matchNum, holes, key) {
+  const prevHoles = lastSavedHolesByMatch[key]; // snapshot from before this save, for checkPlacardPickup below
+  const isCurrentlyViewed = () => String(document.getElementById('scDay').value) === String(day) && String(document.getElementById('scMatch').value) === String(matchNum);
+  if (isCurrentlyViewed()) setSaveIndicator('saving', 'Saving…');
+  const maxAttempts = 3;
+  let lastErrorText = 'Network error';
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await apiPost('saveMatchScores', { day, matchNum, holes: JSON.stringify(holes) });
+      if (!res.success) {
+        lastErrorText = res.error || 'Save failed';
+      } else if (holesMatchServerRows(day, holes, res.data)) {
+        // Don't just trust "success" from the API call — check what the sheet
+        // actually ended up holding (returned right after the write) matches
+        // what we sent, so a save that silently didn't stick shows as an error
+        // here and now instead of only surfacing later as "the hole came back
+        // blank."
+        lastSavedHolesByMatch[key] = cloneHoles(holes);
+        checkPlacardPickup(day, matchNum, prevHoles, holes);
+        if (isCurrentlyViewed()) { setSaveIndicator('saved', 'Saved ✓'); renderCurrentEntryView(day, matchNum); }
+        return;
+      } else {
+        lastErrorText = 'Save didn’t verify — try again';
+      }
+    } catch (err) {
+      lastErrorText = 'Network error';
+    }
+    if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 600 * attempt));
+  }
+  if (isCurrentlyViewed()) setSaveIndicator('error', lastErrorText);
+}
+
+// live status line(s) shown above the grid as you type, computed entirely client-side
+function renderStatusLines(day, matchNum, pairingRow) {
+  const names = teamNames();
+  const el = document.getElementById('scStatusLines');
+  if (day === '2') {
+    const bb = computeDay2BestBall(pairingRow, currentHoles);
+    const mp1 = computeDay2MatchPlay(pairingRow, currentHoles, 1);
+    const mp2 = computeDay2MatchPlay(pairingRow, currentHoles, 2);
+    el.innerHTML = [
+      statusLineHtml('Best Ball (front 9)', bb, names.A, names.B),
+      statusLineHtml(`Match Play: ${pairingRow.MP1_TeamA || '?'} vs ${pairingRow.MP1_TeamB || '?'}`, mp1, pairingRow.MP1_TeamA, pairingRow.MP1_TeamB),
+      statusLineHtml(`Match Play: ${pairingRow.MP2_TeamA || '?'} vs ${pairingRow.MP2_TeamB || '?'}`, mp2, pairingRow.MP2_TeamA, pairingRow.MP2_TeamB),
+    ].join('');
+  } else {
+    const cc = computeDay1Segment(currentHoles, 1, 9);
+    const asg = computeDay1Segment(currentHoles, 10, 18);
+    el.innerHTML = [
+      statusLineHtml("Captain's Choice (front 9)", cc, names.A, names.B),
+      statusLineHtml('Modified Alternate Shot (back 9)', asg, names.A, names.B),
+    ].join('');
+  }
+}
+
+function statusLineHtml(label, seg, aName, bName) {
+  const cls = seg.leader === 'A' ? 'a' : seg.leader === 'B' ? 'b' : seg.leader === 'Half' ? 'half' : 'pending';
+  return `<div class="status-line"><strong>${escapeHtml(label)}:</strong> <span class="status-badge ${cls}">${escapeHtml(seg.text)}</span></div>`;
+}
+
+// ---- segment computation (shared by scoring page + scoreboard) ----
+
+// Day 1: the scorekeeper records who won each hole directly (row.Winner),
+// one combined field applying across all 18 holes — which segment a hole
+// belongs to (Captain's Choice front 9 vs Modified Alternate Shot back 9)
+// is purely which 9-hole range is being tallied here.
+function computeDay1Segment(holeRows, startHole, endHole) {
+  let aWins = 0, bWins = 0, decided = 0;
+  for (let h = startHole; h <= endHole; h++) {
+    const w = (holeRows[h - 1] || {}).Winner;
+    if (!w) continue;
+    decided++;
+    if (w === 'A') aWins++; else if (w === 'B') bWins++;
+  }
+  const total = endHole - startHole + 1;
+  return buildSegmentResult(aWins - bWins, decided, total - decided, total);
+}
+
+// `clinched` (only meaningful when final is false) means the segment is
+// already mathematically decided — the trailing leader can't be caught even
+// if every remaining hole goes the other way — but there are still blank
+// holes left to enter. That's the exact moment the Concede-or-continue
+// banner offers to stop entering the rest. Once final is true the segment is
+// actually finished either way, so clinched is irrelevant there.
+function buildSegmentResult(up, decided, remaining, total) {
+  if (remaining === 0) {
+    if (up > 0) return { leader: 'A', final: true, points: { A: 1, B: 0 }, text: `Final — ${up} up` };
+    if (up < 0) return { leader: 'B', final: true, points: { A: 0, B: 1 }, text: `Final — ${Math.abs(up)} up` };
+    return { leader: 'Half', final: true, points: { A: 0.5, B: 0.5 }, text: 'Final — Halved' };
+  }
+  if (decided === 0) return { leader: 'pending', final: false, points: null, text: 'Not started', clinched: false };
+  if (up === 0) return { leader: 'pending', final: false, points: null, text: `All Square thru ${decided}`, clinched: false };
+  const leader = up > 0 ? 'A' : 'B';
+  const clinched = Math.abs(up) > remaining;
+  return { leader, final: false, points: null, text: `${Math.abs(up)} up thru ${decided}${clinched ? ' (decided, holes still to enter)' : ''}`, clinched };
+}
+
+// Day 2 Best Ball: team-level result per hole, stored directly (row.BestBallWinner).
+function computeDay2BestBall(pairingRow, holeRows) {
+  let aWins = 0, bWins = 0, decided = 0;
+  for (let h = 1; h <= 9; h++) {
+    const w = (holeRows[h - 1] || {}).BestBallWinner;
+    if (!w) continue;
+    decided++;
+    if (w === 'A') aWins++; else if (w === 'B') bWins++;
+  }
+  return buildSegmentResult(aWins - bWins, decided, 9 - decided, 9);
+}
+
+// Day 2 Individual Match Play: mpNum is 1 or 2 (row.MP1Winner / row.MP2Winner).
+function computeDay2MatchPlay(pairingRow, holeRows, mpNum) {
+  const field = 'MP' + mpNum + 'Winner';
+  let aWins = 0, bWins = 0, decided = 0;
+  for (let h = 10; h <= 18; h++) {
+    const w = (holeRows[h - 1] || {})[field];
+    if (!w) continue;
+    decided++;
+    if (w === 'A') aWins++; else if (w === 'B') bWins++;
+  }
+  return buildSegmentResult(aWins - bWins, decided, 9 - decided, 9);
+}
+
+// Given which winner field was just tapped (plus, for Day 1 where one field
+// covers both 9s, which hole it was tapped on), returns that field's segment
+// result — the one piece shared by the concede/continue transition check and
+// the banner itself, so both always look at exactly the same computation.
+function segmentResultForField(day, field, holeNum, pairingRow, holeRows) {
+  if (day === '2') {
+    if (field === 'BestBallWinner') return computeDay2BestBall(pairingRow, holeRows);
+    if (field === 'MP1Winner') return computeDay2MatchPlay(pairingRow, holeRows, 1);
+    return computeDay2MatchPlay(pairingRow, holeRows, 2);
+  }
+  return holeNum <= 9 ? computeDay1Segment(holeRows, 1, 9) : computeDay1Segment(holeRows, 10, 18);
+}
+
+function playerHandicap(name) {
+  const p = rosterByName[name];
+  return p ? courseHandicap(p.HandicapIndex, p.Tee) : '';
+}
+// ====================== SCOREBOARD HOLE-RESULT HELPERS ======================
+// Shared by the Scoreboard tab's Leaderboard segment computation and its
+// Match Scorecards "Progression" strips.
+
+// Pulls the leading hole number out of a Start Hole value like "18a" or
+// "18b" (or a plain "5") so that hole's column can be highlighted.
+function startHoleNumberOf(startHole) {
+  const m = String(startHole || '').match(/^\s*(\d{1,2})/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return (n >= 1 && n <= 18) ? n : null;
+}
+// ---- per-hole result arrays, shared by the Scoreboard's collapsed
+// progression strips. pairingRow is kept in each signature for call-site
+// compatibility even though the direct-entry model no longer needs it to
+// compute a result. ----
+function day1PerHoleResults(holeRows, startHole, endHole) {
+  const results = [];
+  for (let h = startHole; h <= endHole; h++) {
+    results.push(normalizeWinner((holeRows[h - 1] || {}).Winner));
+  }
+  return results;
+}
+function day2BestBallPerHoleResults(pairingRow, holeRows) {
+  const results = [];
+  for (let h = 1; h <= 9; h++) {
+    results.push(normalizeWinner((holeRows[h - 1] || {}).BestBallWinner));
+  }
+  return results;
+}
+function day2MatchPlayPerHoleResults(pairingRow, holeRows, mpNum) {
+  const field = 'MP' + mpNum + 'Winner';
+  const results = [];
+  for (let h = 10; h <= 18; h++) {
+    results.push(normalizeWinner((holeRows[h - 1] || {})[field]));
+  }
+  return results;
+}
+
+// ====================== SCOREBOARD ======================
+// Two top-level views ("Leaderboard" and "Match Scorecards"), each reading
+// the same sbDay selector — but the day selector's own options differ
+// (Leaderboard adds a "Two Day Total" choice that doesn't make sense for
+// an 18-hole scorecard), so switching views also rebuilds that dropdown.
+let sbView = 'leaderboard';
+
+document.getElementById('sbDay').addEventListener('change', loadScoreboard);
+
+function setSbView(view) {
+  sbView = view;
+  document.querySelectorAll('#sbViewToggle .view-toggle-btn').forEach((b) => b.classList.toggle('active', b.dataset.sbview === view));
+  document.getElementById('sbLeaderboard').hidden = view !== 'leaderboard';
+  document.getElementById('sbScorecards').hidden = view !== 'scorecards';
+  document.getElementById('sbIndividual').hidden = view !== 'individual';
+  // Individual Results always covers the whole two-day tournament at once —
+  // no day to pick, so the dropdown is just hidden rather than repurposed.
+  document.getElementById('sbDay').hidden = view === 'individual';
+  updateSbDayOptions();
+  loadScoreboard();
+}
+function updateSbDayOptions() {
+  const sel = document.getElementById('sbDay');
+  const current = sel.value;
+  const opts = sbView === 'leaderboard'
+    ? [['1', 'Day 1'], ['2', 'Day 2'], ['total', 'Two Day Total']]
+    : [['1', 'Day 1'], ['2', 'Day 2']];
+  sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.value = opts.some(([v]) => v === current) ? current : '1';
+}
+updateSbDayOptions(); // populate the day dropdown up front, before any data loads
+
+function loadScoreboard() {
+  const day = document.getElementById('sbDay').value;
+  if (sbView === 'scorecards') return loadScorecardsView(day);
+  if (sbView === 'individual') return loadIndividualResults();
+  if (day === 'total') return loadTournamentTotal();
+  return loadLeaderboardView(day);
+}
+
+// Last names of a two-player pairing, joined like the pairing columns
+// elsewhere on the leaderboard (e.g. "Stewart + Davis").
+function pairName(p1, p2) {
+  return `${lastName(p1)} + ${lastName(p2)}`;
+}
+// Splices the leading side's name into a segment's status text, right before
+// the margin — "Final — 2 up" becomes "Final — Stewart + Davis 2 up", "2 up
+// thru 5" becomes "Rich 2 up thru 5". Halved/all-square/not-started have no
+// one to name, so those pass through unchanged.
+function segStatusTextWithName(seg, aName, bName) {
+  if (seg.leader !== 'A' && seg.leader !== 'B') return seg.text;
+  const leadName = seg.leader === 'A' ? aName : bName;
+  return seg.text.replace(/(\d+ up)/, `${leadName} $1`);
+}
+// The colored pill by itself (e.g. "Stewart + Davis 2 up") — same look as
+// the Live Scoring status lines, reused anywhere a segment's current
+// leader/margin needs to be named rather than only color-coded: the
+// leaderboard's per-segment badges, the Match Scorecards progression rows,
+// and the mirrored scorecard on the Live Scoring page.
+function segStatusBadgeHtml(seg, aName, bName) {
+  const cls = seg.leader === 'A' ? 'a' : seg.leader === 'B' ? 'b' : seg.leader === 'Half' ? 'half' : 'pending';
+  const text = segStatusTextWithName(seg, aName, bName);
+  // Team A/B badges show that team's own configured color (set in Settings)
+  // instead of a fixed green/red — Half (tie) and pending stay their usual
+  // neutral colors via the CSS classes alone, since neither belongs to a team.
+  const colors = teamColors();
+  const style = cls === 'a' ? ` style="background:${escapeHtml(colors.A)};"` : cls === 'b' ? ` style="background:${escapeHtml(colors.B)};"` : '';
+  return `<span class="status-badge ${cls}"${style}>${escapeHtml(text)}</span>`;
+}
+// One compact badge per segment (e.g. "Captain's Choice: Final — Stewart +
+// Davis 2 up"), stacked in the leaderboard row's middle "Match" column.
+function lbxSegBadgeHtml(label, seg, aName, bName) {
+  return `<div class="lbx-seg"><span class="lbx-seg-label">${escapeHtml(label)}:</span> ${segStatusBadgeHtml(seg, aName, bName)}</div>`;
+}
+// One side's points column as a stack lining up with the segment badges next
+// to it — a line per segment (blank dash until that segment is final, so
+// "not decided yet" never looks like "0 points"), then a bold total line
+// separated by a rule, matching the grand total row at the bottom of the
+// table.
+function lbxPtsStackHtml(segs, side, total) {
+  const segLines = segs.map((s) => `<div class="lbx-pts-seg">${s.final ? formatPts(s.points[side]) : '&ndash;'}</div>`).join('');
+  return `${segLines}<div class="lbx-pts-total">${formatPts(total)}</div>`;
+}
+// Computes segs/segLabels/segNames from an already-built 18-hole grid —
+// split out of matchSegmentInfo below so the same computation can run
+// directly on the Live Scoring page's own `currentHoles` (see
+// scorecardProgRowsHtml's use in renderHoleByHole) without needing a
+// separate fetch of saved scores — it reflects taps as they happen, not
+// just what's been saved. segNames pairs with segs/segLabels — the [A-side
+// name, B-side name] to use when naming who's up.
+function segmentInfoFromHoles(day, row, holeRows) {
+  let segs, segLabels, segNames;
+  if (day === '2') {
+    segs = [computeDay2BestBall(row, holeRows), computeDay2MatchPlay(row, holeRows, 1), computeDay2MatchPlay(row, holeRows, 2)];
+    segLabels = ['Best Ball', `${lastName(row.MP1_TeamA)} vs ${lastName(row.MP1_TeamB)}`, `${lastName(row.MP2_TeamA)} vs ${lastName(row.MP2_TeamB)}`];
+    segNames = [
+      [pairName(row.TeamA_P1, row.TeamA_P2), pairName(row.TeamB_P1, row.TeamB_P2)],
+      [lastName(row.MP1_TeamA), lastName(row.MP1_TeamB)],
+      [lastName(row.MP2_TeamA), lastName(row.MP2_TeamB)],
+    ];
+  } else {
+    segs = [computeDay1Segment(holeRows, 1, 9), computeDay1Segment(holeRows, 10, 18)];
+    segLabels = ["Captain's Choice", 'Modified Alternate Shot'];
+    const pairA = pairName(row.TeamA_P1, row.TeamA_P2), pairB = pairName(row.TeamB_P1, row.TeamB_P2);
+    segNames = [[pairA, pairB], [pairA, pairB]];
+  }
+  return { segs, segLabels, segNames };
+}
+// Per-match segment breakdown, shared by the per-day leaderboard and the
+// Two Day Total's day-by-day totals — returns each segment's result plus
+// that match's points, without touching the DOM.
+function matchSegmentInfo(day, row, scoresByMatch) {
+  const holeRows = buildHoleGrid(day, row.MatchNum, scoresByMatch[row.MatchNum] || []);
+  const { segs, segLabels, segNames } = segmentInfoFromHoles(day, row, holeRows);
+  let ptsA = 0, ptsB = 0;
+  segs.forEach((s) => { if (s.final) { ptsA += s.points.A; ptsB += s.points.B; } });
+  return { holeRows, segs, segLabels, segNames, ptsA, ptsB };
+}
+
+async function loadLeaderboardView(day) {
+  const res = await apiGet('getScores', { day });
+  const scoresByMatch = {};
+  if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
+
+  const names = teamNames();
+  let totalA = 0, totalB = 0;
+  const rowsHtml = (pairings[day] || []).map((row) => {
+    if (!hasPlayersLb(row)) {
+      return `<tr><td colspan="5" class="lbx-unset">Match ${escapeHtml(row.MatchNum)} — not set up yet</td></tr>`;
+    }
+    const { segs, segLabels, segNames, ptsA, ptsB } = matchSegmentInfo(day, row, scoresByMatch);
+    totalA += ptsA; totalB += ptsB;
+    // Solid highlight, in that team's own color, once every segment in the
+    // match is final; a lighter tint of the same color just shows who's
+    // currently ahead while the match is still in progress.
+    const allFinal = segs.every((s) => s.final);
+    const aAhead = ptsA > ptsB, bAhead = ptsB > ptsA;
+    const leadClassA = aAhead ? (allFinal ? 'lbx-final-lead-a' : 'lbx-lead-a') : '';
+    const leadClassB = bAhead ? (allFinal ? 'lbx-final-lead-b' : 'lbx-lead-b') : '';
+    const tiedClass = (!aAhead && !bAhead && allFinal) ? 'lbx-tied' : '';
+    const pairA = `${lastName(row.TeamA_P1)} + ${lastName(row.TeamA_P2)}`;
+    const pairB = `${lastName(row.TeamB_P1)} + ${lastName(row.TeamB_P2)}`;
+    const segBadges = segs.map((s, i) => lbxSegBadgeHtml(segLabels[i], s, segNames[i][0], segNames[i][1])).join('');
+    return `<tr>
+      <td class="lbx-pts ${leadClassA} ${tiedClass}">${lbxPtsStackHtml(segs, 'A', ptsA)}</td>
+      <td class="lbx-pair ${leadClassA} ${tiedClass}"><div class="lbx-names">${escapeHtml(pairA)}</div><div class="lbx-matchnum">Match ${escapeHtml(row.MatchNum)}</div></td>
+      <td class="lbx-match">${segBadges}</td>
+      <td class="lbx-pair ${leadClassB} ${tiedClass}"><div class="lbx-names">${escapeHtml(pairB)}</div><div class="lbx-matchnum">Match ${escapeHtml(row.MatchNum)}</div></td>
+      <td class="lbx-pts ${leadClassB} ${tiedClass}">${lbxPtsStackHtml(segs, 'B', ptsB)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('sbLeaderboard').innerHTML = `
+    <div class="lbx-wrap">
+      <table class="lbx-table">
+        <thead>
+          <tr class="lbx-head"><th>Points</th><th class="lbx-pair-h">${teamNameHtml(names.A, teamColors().A)}</th><th>Match</th><th class="lbx-pair-h">${teamNameHtml(names.B, teamColors().B)}</th><th>Points</th></tr>
+        </thead>
+        <tbody>${rowsHtml || `<tr><td colspan="5" class="hint">No matches set up yet.</td></tr>`}</tbody>
+        ${rowsHtml ? `<tfoot><tr class="lbx-total"><td>${formatPts(totalA)}</td><td class="lbx-pair-h">${teamNameHtml(names.A, teamColors().A)}</td><td>TOTAL</td><td class="lbx-pair-h">${teamNameHtml(names.B, teamColors().B)}</td><td>${formatPts(totalB)}</td></tr></tfoot>` : ''}
+      </table>
+    </div>
+  `;
+}
+
+// Team totals broken out by format, pooling every match on that day together
+// (unlike the per-day Leaderboard's one-row-per-match view) — Day 1 splits
+// into Captain's Choice / Modified Alternate Shot, Day 2 into Best Ball /
+// Individual Match Play (both matchups combined into one figure). Day 1 and
+// Day 2 pairings are entered independently (Match 3 on Day 1 isn't
+// guaranteed to be the same foursome as Match 3 on Day 2), so a combined
+// per-match row isn't meaningful here — only the format-level totals are.
+function formatTotals(day, res) {
+  const scoresByMatch = {};
+  if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
+  const totals = day === '2'
+    ? { bestBall: { A: 0, B: 0 }, matchPlay: { A: 0, B: 0 } }
+    : { captainsChoice: { A: 0, B: 0 }, altShot: { A: 0, B: 0 } };
+  (pairings[day] || []).filter(hasPlayersLb).forEach((row) => {
+    const { segs } = matchSegmentInfo(day, row, scoresByMatch);
+    if (day === '2') {
+      const [bb, mp1, mp2] = segs;
+      if (bb.final) { totals.bestBall.A += bb.points.A; totals.bestBall.B += bb.points.B; }
+      if (mp1.final) { totals.matchPlay.A += mp1.points.A; totals.matchPlay.B += mp1.points.B; }
+      if (mp2.final) { totals.matchPlay.A += mp2.points.A; totals.matchPlay.B += mp2.points.B; }
+    } else {
+      const [cc, altShot] = segs;
+      if (cc.final) { totals.captainsChoice.A += cc.points.A; totals.captainsChoice.B += cc.points.B; }
+      if (altShot.final) { totals.altShot.A += altShot.points.A; totals.altShot.B += altShot.points.B; }
+    }
+  });
+  return totals;
+}
+
+// Same "Points | Team | Match | Team | Points" table as the per-day
+// Leaderboard, but each row is a whole-tournament format total (Captain's
+// Choice, Modified Alternate Shot, Best Ball, Individual Match Play)
+// instead of one specific match — so the middle "Match" column names the
+// format instead of a live status badge, and the pairing columns are blank
+// (there's no one pairing to name once results are pooled across matches).
+// Per-match/matchup rows behind the "Show match detail" toggle below the
+// pooled Two Day Total table — that table pools every match into one number
+// per format (Day 1 and Day 2 pairings aren't guaranteed to be the same
+// foursome from one day to the next, so a single combined per-match row
+// isn't meaningful — see the note on formatTotals above), but people still
+// want to see which specific matches are behind that pooled number.
+// segIndexes lets Day 2's "Individual Match Play" pull in both the MP1 and
+// MP2 matchups as separate rows (each is its own head-to-head, distinct from
+// the Best Ball pairing they're part of) while every other format is a
+// single segIndex.
+function tournamentFormatDetailRows(day, segIndexes, res) {
+  const scoresByMatch = {};
+  if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
+  const out = [];
+  (pairings[day] || []).filter(hasPlayersLb).forEach((row) => {
+    const { segs, segNames } = matchSegmentInfo(day, row, scoresByMatch);
+    segIndexes.forEach((segIndex) => {
+      const seg = segs[segIndex];
+      if (!seg) return;
+      out.push({ matchNum: row.MatchNum, seg, aName: segNames[segIndex][0], bName: segNames[segIndex][1] });
+    });
+  });
+  return out;
+}
+function formatDetailTableHtml(label, day, segIndexes, res) {
+  const rows = tournamentFormatDetailRows(day, segIndexes, res);
+  if (!rows.length) return '';
+  const rowsHtml = rows.map(({ matchNum, seg, aName, bName }) => `<tr>
+    <td class="lbx-pts">${seg.final ? formatPts(seg.points.A) : '&ndash;'}</td>
+    <td class="lbx-pair"><div class="lbx-names">${escapeHtml(aName)}</div><div class="lbx-matchnum">Match ${escapeHtml(matchNum)}</div></td>
+    <td class="lbx-match">${segStatusBadgeHtml(seg, aName, bName)}</td>
+    <td class="lbx-pair"><div class="lbx-names">${escapeHtml(bName)}</div><div class="lbx-matchnum">Match ${escapeHtml(matchNum)}</div></td>
+    <td class="lbx-pts">${seg.final ? formatPts(seg.points.B) : '&ndash;'}</td>
+  </tr>`).join('');
+  return `
+    <div class="lbx-detail-section">
+      <div class="hbh-seglabel">${escapeHtml(label)} &mdash; Day ${escapeHtml(day)}</div>
+      <div class="lbx-wrap">
+        <table class="lbx-table"><tbody>${rowsHtml}</tbody></table>
+      </div>
+    </div>`;
+}
+function toggleTdtDetail() {
+  const el = document.getElementById('tdtDetail');
+  const btn = document.getElementById('tdtToggleBtn');
+  if (!el || !btn) return;
+  el.hidden = !el.hidden;
+  btn.innerHTML = el.hidden ? 'Show match detail &#9662;' : 'Hide match detail &#9652;';
+}
+async function loadTournamentTotal() {
+  const [res1, res2] = await Promise.all([apiGet('getScores', { day: '1' }), apiGet('getScores', { day: '2' })]);
+  const d1 = formatTotals('1', res1), d2 = formatTotals('2', res2);
+  const names = teamNames();
+  const formatRows = [
+    ["Captain's Choice", d1.captainsChoice, '1', [0], res1],
+    ['Modified Alternate Shot', d1.altShot, '1', [1], res1],
+    ['Best Ball', d2.bestBall, '2', [0], res2],
+    ['Individual Match Play', d2.matchPlay, '2', [1, 2], res2],
+  ];
+  const grandA = formatRows.reduce((sum, [, pts]) => sum + pts.A, 0);
+  const grandB = formatRows.reduce((sum, [, pts]) => sum + pts.B, 0);
+  const rowsHtml = formatRows.map(([label, pts]) => {
+    const aAhead = pts.A > pts.B, bAhead = pts.B > pts.A;
+    return `<tr>
+      <td class="lbx-pts ${aAhead ? 'lbx-lead-a' : ''}"><span class="lbx-pts-total" style="border-top:none; margin-top:0; padding-top:0;">${formatPts(pts.A)}</span></td>
+      <td class="lbx-pair"></td>
+      <td class="lbx-match" style="text-align:center; font-weight:600;">${escapeHtml(label)}</td>
+      <td class="lbx-pair"></td>
+      <td class="lbx-pts ${bAhead ? 'lbx-lead-b' : ''}"><span class="lbx-pts-total" style="border-top:none; margin-top:0; padding-top:0;">${formatPts(pts.B)}</span></td>
+    </tr>`;
+  }).join('');
+  const detailHtml = formatRows.map(([label, , day, segIndexes, res]) => formatDetailTableHtml(label, day, segIndexes, res)).join('');
+  document.getElementById('sbLeaderboard').innerHTML = `
+    <div class="lbx-wrap">
+      <table class="lbx-table">
+        <thead>
+          <tr class="lbx-head"><th>Points</th><th class="lbx-pair-h">${teamNameHtml(names.A, teamColors().A)}</th><th>Match</th><th class="lbx-pair-h">${teamNameHtml(names.B, teamColors().B)}</th><th>Points</th></tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot><tr class="lbx-total"><td>${formatPts(grandA)}</td><td class="lbx-pair-h">${teamNameHtml(names.A, teamColors().A)}</td><td>TOTAL</td><td class="lbx-pair-h">${teamNameHtml(names.B, teamColors().B)}</td><td>${formatPts(grandB)}</td></tr></tfoot>
+      </table>
+    </div>
+    <div class="lbx-detail-toggle-row">
+      <button type="button" class="view-toggle-btn" id="tdtToggleBtn" onclick="toggleTdtDetail()">Show match detail &#9662;</button>
+    </div>
+    <div id="tdtDetail" hidden>${detailHtml || '<div class="hint">No match detail yet.</div>'}</div>
+  `;
+}
+
+// ---- Individual Results: each player's own point total, by format ----
+
+// Every player's points for one day, credited from whichever match they
+// actually took part in — Day 1's Captain's Choice/Modified Alternate Shot
+// are a shared team-of-two result, so both teammates get the same figure;
+// Day 2's Best Ball is likewise shared by both teammates, but Individual
+// Match Play is genuinely per-player (MP1_TeamA/MP1_TeamB, MP2_TeamA/
+// MP2_TeamB name exactly which two players faced off). A segment that
+// isn't final yet simply doesn't add anything, same as the Leaderboard.
+function individualPointsFor(day, res) {
+  const scoresByMatch = {};
+  if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
+  const pts = {}; // name -> { cc, altShot, bestBall, matchPlay }
+  const add = (name, field, value) => {
+    if (!name) return;
+    if (!pts[name]) pts[name] = { cc: 0, altShot: 0, bestBall: 0, matchPlay: 0 };
+    pts[name][field] += value;
+  };
+  (pairings[day] || []).filter(hasPlayersLb).forEach((row) => {
+    const holeRows = buildHoleGrid(day, row.MatchNum, scoresByMatch[row.MatchNum] || []);
+    if (day === '2') {
+      const bb = computeDay2BestBall(row, holeRows);
+      const mp1 = computeDay2MatchPlay(row, holeRows, 1);
+      const mp2 = computeDay2MatchPlay(row, holeRows, 2);
+      if (bb.final) {
+        add(row.TeamA_P1, 'bestBall', bb.points.A); add(row.TeamA_P2, 'bestBall', bb.points.A);
+        add(row.TeamB_P1, 'bestBall', bb.points.B); add(row.TeamB_P2, 'bestBall', bb.points.B);
+      }
+      if (mp1.final) { add(row.MP1_TeamA, 'matchPlay', mp1.points.A); add(row.MP1_TeamB, 'matchPlay', mp1.points.B); }
+      if (mp2.final) { add(row.MP2_TeamA, 'matchPlay', mp2.points.A); add(row.MP2_TeamB, 'matchPlay', mp2.points.B); }
+    } else {
+      const cc = computeDay1Segment(holeRows, 1, 9);
+      const altShot = computeDay1Segment(holeRows, 10, 18);
+      if (cc.final) {
+        add(row.TeamA_P1, 'cc', cc.points.A); add(row.TeamA_P2, 'cc', cc.points.A);
+        add(row.TeamB_P1, 'cc', cc.points.B); add(row.TeamB_P2, 'cc', cc.points.B);
+      }
+      if (altShot.final) {
+        add(row.TeamA_P1, 'altShot', altShot.points.A); add(row.TeamA_P2, 'altShot', altShot.points.A);
+        add(row.TeamB_P1, 'altShot', altShot.points.B); add(row.TeamB_P2, 'altShot', altShot.points.B);
+      }
+    }
+  });
+  return pts;
+}
+
+// Points of exactly 0 print as a dash rather than "0", same convention as
+// the reference template — a scorekeeper reads a dash as "shut out on this
+// one," not as missing data.
+function indivCellHtml(n) {
+  return n > 0 ? formatPts(n) : '&ndash;';
+}
+
+function individualTableHtml(teamLabel, teamColor, players, pts) {
+  const color = escapeHtml(teamColor || '#999999');
+  const blank = { cc: 0, altShot: 0, bestBall: 0, matchPlay: 0 };
+  const rowsHtml = players.map((name) => {
+    const p = pts[name] || blank;
+    const total = p.cc + p.altShot + p.bestBall + p.matchPlay;
+    return `<tr><td class="indiv-name">${escapeHtml(name)}</td><td>${indivCellHtml(p.cc)}</td><td>${indivCellHtml(p.altShot)}</td><td>${indivCellHtml(p.bestBall)}</td><td>${indivCellHtml(p.matchPlay)}</td><td class="indiv-total">${indivCellHtml(total)}</td></tr>`;
+  }).join('');
+  const totals = players.reduce((acc, name) => {
+    const p = pts[name] || blank;
+    acc.cc += p.cc; acc.altShot += p.altShot; acc.bestBall += p.bestBall; acc.matchPlay += p.matchPlay;
+    return acc;
+  }, { cc: 0, altShot: 0, bestBall: 0, matchPlay: 0 });
+  const grandTotal = totals.cc + totals.altShot + totals.bestBall + totals.matchPlay;
+  return `
+    <div class="indiv-table-wrap">
+      <table class="indiv-table">
+        <thead>
+          <tr class="indiv-team-row" style="background:${color};"><th colspan="6">${teamNameHtml(teamLabel, teamColor)}</th></tr>
+          <tr class="indiv-daygroup-row"><th></th><th colspan="2">Day 1</th><th colspan="2">Day 2</th><th></th></tr>
+          <tr class="indiv-col-row"><th></th><th>Captain's Choice</th><th>Alternate Shot</th><th>Best Ball</th><th>Match Play</th><th>Total</th></tr>
+        </thead>
+        <tbody>${rowsHtml || `<tr><td colspan="6" class="lbx-unset">No players assigned to this team yet (Admin &rarr; Roster)</td></tr>`}</tbody>
+        ${players.length ? `<tfoot><tr class="indiv-total-row" style="background:${color};"><td>Total</td><td>${formatPts(totals.cc)}</td><td>${formatPts(totals.altShot)}</td><td>${formatPts(totals.bestBall)}</td><td>${formatPts(totals.matchPlay)}</td><td>${formatPts(grandTotal)}</td></tr></tfoot>` : ''}
+      </table>
+    </div>
+  `;
+}
+
+async function loadIndividualResults() {
+  const [res1, res2] = await Promise.all([apiGet('getScores', { day: '1' }), apiGet('getScores', { day: '2' })]);
+  const pts1 = individualPointsFor('1', res1), pts2 = individualPointsFor('2', res2);
+  const pts = {};
+  new Set([...Object.keys(pts1), ...Object.keys(pts2)]).forEach((name) => {
+    pts[name] = {
+      cc: (pts1[name] || {}).cc || 0,
+      altShot: (pts1[name] || {}).altShot || 0,
+      bestBall: (pts2[name] || {}).bestBall || 0,
+      matchPlay: (pts2[name] || {}).matchPlay || 0,
+    };
+  });
+  const names = teamNames();
+  const colors = teamColors();
+  // Grouped by each player's Roster team assignment (Admin → Roster), not by
+  // who they happened to be paired with in any one match.
+  const teamAPlayers = roster.filter((p) => p.Team === 'A' && p.Name).map((p) => p.Name);
+  const teamBPlayers = roster.filter((p) => p.Team === 'B' && p.Name).map((p) => p.Name);
+  document.getElementById('sbIndividual').innerHTML = `
+    <div class="indiv-wrap">
+      ${individualTableHtml(names.A, colors.A, teamAPlayers, pts)}
+      ${individualTableHtml(names.B, colors.B, teamBPlayers, pts)}
+    </div>
+  `;
+}
+
+// ---- Match Scorecards: "Progression" strips, one per format segment ----
+
+// A per-hole strip showing the running match-play margin as holes come in —
+// cumulative net of wins (+1 for A, -1 for B) over whatever's decided so far,
+// left to right. A hole before anything's been decided yet shows as blank
+// rather than "AS", so "not started" and "all square" don't look the same.
+function progressionStripHtml(results, activeStart) {
+  const colors = teamColors();
+  let cum = 0;
+  let cells = '';
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const hole = activeStart + i;
+    // A hole with no result entered yet always reads as "not entered" — even
+    // if an earlier hole in this segment was already decided — rather than
+    // silently carrying forward the running margin from the last decided
+    // hole, which used to make an un-entered hole look identical to a
+    // decided one.
+    if (r === 'pending') {
+      cells += `<div class="prog-chip prog-pending" title="Hole ${hole} — not entered"><div class="prog-hole">${hole}</div><div class="prog-label">&ndash;</div></div>`;
+      continue;
+    }
+    if (r === 'A') cum += 1;
+    else if (r === 'B') cum -= 1;
+    // 'Half' and 'Conceded' both leave cum unchanged — a conceded hole never
+    // happened, so it can't move the margin either.
+    let label, cls;
+    if (cum === 0) { label = 'AS'; cls = 'half'; }
+    else { label = `${Math.abs(cum)} up`; cls = cum > 0 ? 'a' : 'b'; }
+    // A halved hole doesn't move the running margin, so on its own it can
+    // look identical to the hole before it (e.g. "1 up" -> "1 up"). Flag it
+    // explicitly with a small tie mark so a tie is never invisible. A
+    // conceded hole gets its own distinct badge for the same reason — it
+    // also leaves the margin unchanged, but isn't a tie.
+    const tieMark = r === 'Half' ? '<div class="prog-tie" title="Tied this hole">T</div>' : '';
+    const concededMark = r === 'Conceded' ? '<div class="prog-conceded" title="Conceded">C</div>' : '';
+    const titleSuffix = r === 'Half' ? ' — tied' : r === 'Conceded' ? ' — conceded' : '';
+    // Same team-color treatment as segStatusBadgeHtml — 'a'/'b' chips get
+    // that team's own color, 'half' keeps its neutral tie color as-is.
+    const style = cls === 'a' ? ` style="background:${escapeHtml(colors.A)};"` : cls === 'b' ? ` style="background:${escapeHtml(colors.B)};"` : '';
+    cells += `<div class="prog-chip prog-${cls}"${style} title="Hole ${hole}${titleSuffix}"><div class="prog-hole">${hole}</div><div class="prog-label">${label}</div>${tieMark}${concededMark}</div>`;
+  }
+  return cells;
+}
+
+// Shared by the Scoreboard's "All Match Scorecards" and the mirrored
+// per-match scorecard on the Live Scoring page — one strip per format
+// segment, each headed by its label plus a colored, named status badge
+// (e.g. "Kusilek 2 up") so who's up is never color-only.
+function scorecardRowsDef(day, row, holeRows, segs, segNames) {
+  return day === '2'
+    ? [
+        ['Best Ball (front 9)', day2BestBallPerHoleResults(row, holeRows), 1, segs[0], segNames[0]],
+        [`Match Play: ${row.MP1_TeamA || '?'} vs ${row.MP1_TeamB || '?'}`, day2MatchPlayPerHoleResults(row, holeRows, 1), 10, segs[1], segNames[1]],
+        [`Match Play: ${row.MP2_TeamA || '?'} vs ${row.MP2_TeamB || '?'}`, day2MatchPlayPerHoleResults(row, holeRows, 2), 10, segs[2], segNames[2]],
+      ]
+    : [
+        ["Captain's Choice (front 9)", day1PerHoleResults(holeRows, 1, 9), 1, segs[0], segNames[0]],
+        ['Modified Alt Shot (back 9)', day1PerHoleResults(holeRows, 10, 18), 10, segs[1], segNames[1]],
+      ];
+}
+function scorecardProgRowsHtml(day, row, holeRows, segs, segNames) {
+  return scorecardRowsDef(day, row, holeRows, segs, segNames).map(([label, results, start, seg, names]) => `
+    <div class="prog-row">
+      <div class="prog-row-head">
+        <div class="prog-seg-label">${escapeHtml(label)}</div>
+        ${segStatusBadgeHtml(seg, names[0], names[1])}
+      </div>
+      <div class="prog-strip">${progressionStripHtml(results, start)}</div>
+    </div>
+  `).join('');
+}
+function scorecardsCollapsedHtml(day, row, scoresByMatch) {
+  const { holeRows, segs, segNames } = matchSegmentInfo(day, row, scoresByMatch);
+  const progRows = scorecardProgRowsHtml(day, row, holeRows, segs, segNames);
+  return `<div class="sc-collapsed-match"><div class="match-title">${escapeHtml(matchLabel(day, row))}</div>${progRows}</div>`;
+}
+
+async function loadScorecardsView(day) {
+  const res = await apiGet('getScores', { day });
+  const scoresByMatch = {};
+  if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
+
+  const rows = pairings[day] || [];
+  let html;
+  if (!rows.length) {
+    html = '<p class="hint">No matches set up yet.</p>';
+  } else {
+    html = rows.map((row) => hasPlayersLb(row)
+      ? scorecardsCollapsedHtml(day, row, scoresByMatch)
+      : `<div class="sc-collapsed-match"><div class="lbx-unset">Match ${escapeHtml(row.MatchNum)} — not set up yet</div></div>`
+    ).join('');
+  }
+  document.getElementById('sbScorecardsBody').innerHTML = html;
+}
+
+// ====================== UTIL ======================
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ====================== ENTRY GATE ======================
+// See the #entryGate markup near the top of <body>. Kicked off in parallel
+// with loadShared() below (sharedDataPromise) so the "Scorekeeper or
+// Viewing?" question shows up instantly, without waiting on the network —
+// only the PIN lookup itself needs to wait for pairings data to arrive.
+function hideEntryGate() {
+  const el = document.getElementById('entryGate');
+  if (el) el.remove();
+}
+function chooseViewer() {
+  hideEntryGate();
+  document.querySelector('.tab-btn[data-tab="scoreboard"]').click();
+}
+function chooseScorekeeper() {
+  document.getElementById('entryGateChoice').hidden = true;
+  document.getElementById('entryGatePin').hidden = false;
+  document.getElementById('gatePinInput').focus();
+}
+// A match's Scorekeeper PIN is one value per match number, shared by both
+// days, so this just looks up which match number (if any) has this PIN.
+function findMatchNumByPin(pin) {
+  const row = matchPins.find((r) => {
+    const requiredPin = String(r.PIN || '').trim();
+    return requiredPin && pinsMatch(pin, requiredPin);
+  });
+  return row ? String(row.MatchNum) : null;
+}
+// Which day a PIN entry should land on: Day 1 up until Day 2's own date
+// (from Settings), Day 2 from that date on — so a Day-2 scorekeeper typing
+// their PIN on the morning of Day 2 doesn't have to manually switch off of
+// Day 1 first before they can enter anything. Falls back to Day 1 if
+// Day2Date isn't set (or isn't a valid date) yet.
+function defaultGateDay_() {
+  const day2Date = settings && settings.Day2Date ? new Date(settings.Day2Date + 'T00:00:00') : null;
+  if (!day2Date || isNaN(day2Date.getTime())) return '1';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today >= day2Date ? '2' : '1';
+}
+async function submitGatePin() {
+  const input = document.getElementById('gatePinInput');
+  const entered = input.value.trim();
+  const errEl = document.getElementById('gatePinError');
+  if (!entered) { errEl.textContent = 'Enter your PIN, or tap "I don\'t have a PIN" below.'; return; }
+  errEl.textContent = 'Checking…';
+  input.disabled = true;
+  // If cache or the embedded snapshot already gave us real data to check
+  // against (bootDataReady), don't make someone wait on a network round
+  // trip just to check a PIN — that's exactly the wait that was causing
+  // logins to fail outright under real tournament-day load. The live fetch
+  // is already running in the background (kicked off at page load) and will
+  // quietly take over moments later if anything's actually different (a
+  // corrected PIN, a last-minute lineup swap). Only when neither cache nor
+  // snapshot exists yet — this phone's genuine first-ever load, with no
+  // snapshot baked into the file either — does a PIN check have to wait.
+  if (!bootDataReady) {
+    try {
+      await ensureSharedData(); // pairings/matchPins (and AdminPIN, via settings) may still be loading
+    } catch (e) {
+      input.disabled = false;
+      errEl.textContent = 'Could not reach the tournament server — check your connection and try again.';
+      return;
+    }
+  }
+  input.disabled = false;
+  const adminPin = String((settings && settings.AdminPIN) || '').trim();
+  if (adminPin && entered === adminPin) {
+    // The Admin PIN unlocks every match on this device — there's no single
+    // match to route to, so just drop into Live Scoring's normal day/match
+    // dropdowns, everything already unlocked, defaulted to today's day (see
+    // defaultGateDay_).
+    setAdminUnlocked(true);
+    document.getElementById('scDay').value = defaultGateDay_();
+    onScDayOrMatchChange();
+    hideEntryGate();
+    return;
+  }
+  const matchNum = findMatchNumByPin(entered);
+  if (!matchNum) {
+    errEl.textContent = 'PIN not recognized — check with your foursome or the admin.';
+    return;
+  }
+  // One shared PIN covers this match number on both Day 1 and Day 2 — store
+  // it once, then land on today's day (Day 1 before Day 2's date, Day 2 from
+  // then on — see defaultGateDay_) with this match already selected.
+  storePin(matchNum, entered);
+  document.getElementById('scDay').value = defaultGateDay_();
+  populateMatchDropdown();
+  document.getElementById('scMatch').value = matchNum;
+  await onScMatchSelected();
+  hideEntryGate();
+}
+document.getElementById('gatePinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGatePin(); });
+
+// ====================== BOOT ======================
+// Paint instantly from whatever settings/roster/pairings/PINs are already
+// available, while the real fetch below runs in the background — avoids a
+// blank/unusable Day-Match picker (and a PIN check with nothing to check
+// against) on a slow connection. Two possible sources, checked in this
+// order: this device's own last-known-good cache (from a previous
+// successful load — necessarily the most recent of the two, since it's only
+// ever written right after a real fetch succeeds), or, if this device has
+// never loaded successfully before, the EMBEDDED_SNAPSHOT baked into this
+// file. Deliberately excludes match scores either way: those always come
+// from the live fetch in onScMatchSelected below, never from cache/snapshot,
+// since showing a stale score would be actively worse than a brief wait for
+// the real one.
+const cachedShared = loadCachedShared_();
+const bootSeed = cachedShared || (EMBEDDED_SNAPSHOT && Object.keys(EMBEDDED_SNAPSHOT).length ? EMBEDDED_SNAPSHOT : null);
+// Wrapped defensively: this runs synchronously at the top of the page's own
+// script, so an exception here (a hand-edited or malformed paste into
+// EMBEDDED_SNAPSHOT, say) would otherwise abort every statement after it in
+// this file, including kicking off the real fetch below — the one thing
+// that can still recover from a bad snapshot.
+if (bootSeed) { try { applySharedSnapshot_(bootSeed); } catch (e) { console.error('Could not apply boot seed', e); } }
+
+// True once settings/roster/pairings/matchPins reflect SOME real data —
+// cache or the embedded snapshot at boot, or (once it resolves) the live
+// fetch below. submitGatePin uses this to decide whether a PIN check can be
+// answered immediately against whatever's already loaded, instead of making
+// someone wait on a network round trip — see there for why that matters.
+let bootDataReady = !!bootSeed;
+
+// Started immediately (not inside boot() below) so the entry gate's PIN
+// lookup can await this same promise without waiting on loadVersionBadge or
+// the initial default-match render, neither of which it needs.
+//
+// apiGet already retries each of the 7 calls loadShared() fires off, so this
+// only turns up empty on a real outage — but a promise that already
+// rejected stays rejected forever, and both boot() and the entry gate
+// (submitGatePin below) need to await this more than once over the page's
+// life. ensureSharedData() is what they actually await: it re-runs the
+// whole batch one more time on a first failure (a phone that briefly lost
+// signal at the exact wrong moment shouldn't need a manual page reload),
+// and only then leaves the rejection for its caller to show/handle.
+let sharedDataPromise = loadShared();
+sharedDataPromise.then(() => { bootDataReady = true; }, () => {});
+async function ensureSharedData() {
+  try {
+    await sharedDataPromise;
+  } catch (e) {
+    sharedDataPromise = loadShared();
+    await sharedDataPromise;
+  }
+  bootDataReady = true;
+}
+(async function boot() {
+  loadVersionBadge();
+  if (bootSeed) populateMatchDropdown(); // instant paint of the Day/Match picker from cache or the embedded snapshot
+  try {
+    await ensureSharedData();
+  } catch (e) {
+    // Real outage: leave whatever was painted from cache/snapshot (if any)
+    // on screen rather than throwing away a usable-if-stale page. If there
+    // was neither (a phone's first-ever load with no snapshot baked in
+    // either), the Day/Match picker just stays empty — submitGatePin's own
+    // catch below is what tells the person what's wrong when they try to
+    // continue.
+    console.error('Could not load tournament data', e);
+    return;
+  }
+  populateMatchDropdown(); // re-run against the real data — always wins over whatever was painted first
+  await onScMatchSelected();
+})();
+</script>
+</body>
+</html>
