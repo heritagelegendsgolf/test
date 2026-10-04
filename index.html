@@ -80,6 +80,27 @@
     display: inline-block; background: #fff3cd; color: #7a5b00; border-radius: 4px;
     padding: 2px 8px; font-size: 0.75rem; margin-left: 8px;
   }
+  /* readiness checklist */
+  .ready-list { list-style: none; margin: 10px 0 0; padding: 0; }
+  .ready-list li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; display: flex; gap: 10px; align-items: baseline; }
+  .ready-list li:last-child { border-bottom: none; }
+  .ready-mark { font-weight: 700; width: 1.2em; flex: 0 0 auto; text-align: center; }
+  .ready-ok .ready-mark { color: var(--ok); }
+  .ready-warn .ready-mark { color: #b8860b; }
+  .ready-info .ready-mark { color: #1565c0; }
+  .ready-list a { color: #1565c0; cursor: pointer; text-decoration: underline; }
+  .ready-summary { font-weight: 600; margin-top: 6px; }
+  /* TEST site banner */
+  #testBanner { background: #b8860b; color: #fff; text-align: center; font-weight: 700; padding: 6px 10px; letter-spacing: 0.5px; }
+  /* help tab: print only the help text */
+  .help-body h3 { margin: 16px 0 4px; font-size: 1rem; }
+  .help-body p, .help-body li { font-size: 0.9rem; line-height: 1.45; }
+  .help-body ol, .help-body ul { margin: 4px 0 8px 22px; padding: 0; }
+  @media print {
+    body.printing-help #testBanner, body.printing-help header, body.printing-help nav, body.printing-help .no-print { display: none !important; }
+    body.printing-help .tab-panel:not(#tab-help) { display: none !important; }
+    body.printing-help .card { border: none; box-shadow: none; }
+  }
 </style>
 </head>
 <body>
@@ -93,6 +114,7 @@
 </div>
 
 <div id="app" hidden>
+  <div id="testBanner" hidden>TEST SITE — practice data only, nothing here affects the real tournament</div>
   <header>
     <div>
       <h1 id="tournamentTitle">Heritage Legends Tournament</h1>
@@ -112,12 +134,21 @@
     <button class="tab-btn" data-tab="pins">Scorekeeper PINs</button>
     <button class="tab-btn" data-tab="holehc">Hole Handicaps</button>
     <button class="tab-btn" data-tab="print">Print Scorecards</button>
+    <button class="tab-btn" data-tab="help">Help</button>
   </nav>
 
   <main>
 
     <!-- SETTINGS -->
     <section id="tab-settings" class="tab-panel">
+      <div class="card" id="readinessCard" style="border: 1px solid var(--green);">
+        <h2>Ready for tournament?</h2>
+        <p class="hint">A quick check of everything that needs to be in place before play. It reads what's currently on this page (save your edits first) — click a blue link to jump to the tab that fixes it.</p>
+        <div class="ready-summary" id="readySummary"></div>
+        <ul class="ready-list" id="readyList"></ul>
+        <button class="secondary no-print" style="margin-top:10px;" onclick="renderReadiness()">Re-check</button>
+      </div>
+
       <div class="card">
         <h2>Tournament Settings</h2>
         <div class="field-row">
@@ -212,6 +243,14 @@
         <div id="concedeEnabledStatus" class="status"></div>
       </div>
 
+      <div class="card">
+        <h2>Backups</h2>
+        <p class="hint">The Google Sheet automatically keeps hidden snapshot tabs named <code>Backup_&lt;date&gt;-&lt;time&gt;_&lt;tab&gt;</code> — one is taken just before a change is saved, at most once every 2 hours, and the newest 8 are kept. Every change to a score is also recorded in the <code>ScoreLog</code> tab (when, which match and hole, old and new value, and whether it came from a scorekeeper or the admin). To recover something, open the Google Sheet, choose View &gt; Hidden sheets, open the backup from the time you want, and copy its contents back over the live tab (or ask Claude to help).</p>
+        <button class="secondary" onclick="backupNow()">Back up now</button>
+        <button class="secondary" onclick="showBackups()">Show saved backups</button>
+        <div id="backupStatus" class="status"></div>
+      </div>
+
       <div class="card" style="border: 1px solid #c0392b;">
         <h2 style="color:#c0392b;">Start New Season</h2>
         <p class="hint">Once this year's tournament is over and you're ready to set up next year's: this archives everything from this season (settings, roster, pairings, scores) into hidden backup tabs in the Google Sheet, then clears pairings and scores and resets every player's team back to unassigned so you can start fresh. Player names, handicaps and tees stay as they are — no need to re-enter the roster. The Hole Handicaps table also stays as-is (only re-enter it if you're changing courses).</p>
@@ -248,6 +287,23 @@
         </div>
         <div id="rosterStatus" class="status"></div>
       </div>
+
+      <!-- DAY 2 SUBSTITUTION -->
+      <div class="card" id="replacePlayerCard">
+        <h2>Replace a Player on Day 2</h2>
+        <p class="hint">Use this when someone has to drop out before (or on the morning of) Day 2 and a substitute steps in. One click does everything: the player who's out is marked "Not participating" on the Roster, the substitute is put on the same team, and the substitute's name takes the outgoing player's place everywhere on the <strong>Day 2 Pairings</strong> (their foursome, and the individual match-play slot). Day 1 Pairings and Day 1 scores are never touched. The match's Scorekeeper PIN stays exactly as it is, so the foursome keeps the same code. <strong>Save the Roster above first</strong> if you've made other edits there — this reloads the Roster from the saved copy when it finishes.</p>
+        <div class="row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div class="field" style="min-width:220px;"><label>Player who is out</label><select id="rp_outgoing"></select></div>
+          <div class="field" style="min-width:220px;"><label>Substitute (pick from Roster, or type a new name as "Last, First")</label><input type="text" id="rp_incoming" list="rp_incomingList" placeholder="Last, First" autocomplete="off"><datalist id="rp_incomingList"></datalist></div>
+          <div class="field" style="width:130px;"><label>Handicap Index</label><input type="number" step="0.1" id="rp_hi" placeholder="if new"></div>
+          <div class="field" style="width:110px;"><label>Tee</label><input type="text" id="rp_tee" placeholder="Gold / Red"></div>
+        </div>
+        <p class="hint" id="rp_hint" style="margin-top:8px;"></p>
+        <div style="margin-top:8px;">
+          <button class="primary" id="rp_btn" onclick="replacePlayerDay2()">Replace Player on Day 2</button>
+        </div>
+        <div id="rp_status" class="status"></div>
+      </div>
     </section>
 
     <!-- DAY 1 PAIRINGS -->
@@ -262,7 +318,7 @@
           </thead>
           <tbody id="day1Body"></tbody>
         </table>
-        <p class="hint">Each match's Scorekeeper PIN is set on the "Scorekeeper PINs" tab — one PIN per match number, shared by both days.</p>
+        <p class="hint">Each match's Scorekeeper PIN is set on the "Scorekeeper PINs" tab — one PIN per match number, shared by both days unless you set a separate Day 1 or Day 2 PIN there.</p>
         <div style="margin-top:16px;">
           <button class="primary" onclick="savePairings('1')">Save Day 1 Pairings</button>
         </div>
@@ -282,7 +338,7 @@
           </thead>
           <tbody id="day2Body"></tbody>
         </table>
-        <p class="hint">Each match's Scorekeeper PIN is set on the "Scorekeeper PINs" tab — one PIN per match number, shared by both days.</p>
+        <p class="hint">Each match's Scorekeeper PIN is set on the "Scorekeeper PINs" tab — one PIN per match number, shared by both days unless you set a separate Day 1 or Day 2 PIN there.</p>
         <div style="margin-top:16px;">
           <button class="primary" onclick="savePairings('2')">Save Day 2 Pairings</button>
         </div>
@@ -294,9 +350,9 @@
     <section id="tab-pins" class="tab-panel" hidden>
       <div class="card">
         <h2>Scorekeeper PINs</h2>
-        <p class="hint">One PIN per match number, shared by both days — a scorekeeper enters it once on Live Scoring and it unlocks that match number on Day 1 and Day 2 both. This assumes the same foursome plays match number N on both days; if a match's actual players ever differ between the two days, its one PIN still unlocks both, since there's no way to give the two days separate codes anymore. Leave a match blank to leave it open to anyone with the link. Only the scorekeeper should be told the PIN, so pass it along directly (in person, by text) rather than writing it anywhere players in general will see it — it's deliberately left off printed scorecards.</p>
+        <p class="hint">By default each match number has one PIN, shared by both days — a scorekeeper enters it once on Live Scoring and it unlocks that match number on Day 1 and Day 2 both. If you'd rather give a match a different code on one day (say a different foursome plays that match number on Day 2), fill in the optional <em>Day 1 only</em> and/or <em>Day 2 only</em> box: when filled in, it replaces the shared PIN for that day; when left blank, that day just uses the shared PIN. Leave everything blank for a match to leave it open to anyone with the link. Only the scorekeeper should be told the PIN, so pass it along directly (in person, by text) rather than writing it anywhere players in general will see it — it's deliberately left off printed scorecards.</p>
         <table>
-          <thead><tr><th style="width:120px;">Match</th><th>Scorekeeper PIN</th></tr></thead>
+          <thead><tr><th style="width:120px;">Match</th><th>Scorekeeper PIN (both days)</th><th>Day 1 only <span class="hint">(optional)</span></th><th>Day 2 only <span class="hint">(optional)</span></th></tr></thead>
           <tbody id="pinsBody"></tbody>
         </table>
         <div style="margin-top:16px;">
@@ -320,6 +376,38 @@
     </section>
 
     <!-- PRINT SCORECARDS -->
+    <!-- HELP -->
+    <section id="tab-help" class="tab-panel" hidden>
+      <div class="card help-body">
+        <h2>Quick Start for the Tournament Admin</h2>
+        <button class="secondary no-print" onclick="printHelp()">Print this page</button>
+        <h3>Before the tournament (in order)</h3>
+        <ol>
+          <li><strong>Settings</strong> — if this is a new year, first use <em>Start New Season</em> (archives last year). Then enter the tournament name, both dates, team names, captains and colors. Check the "Ready for tournament?" box at the top any time.</li>
+          <li><strong>Roster</strong> — add new players as "Last, First"; fill in Handicap Index and Tee (Gold or Red); pick each player's team; tick <em>Scorekeeper?</em> for volunteers. Save Roster.</li>
+          <li><strong>Day 1 Pairings / Day 2 Pairings</strong> — choose four players per match and the Start Hole (text is fine, e.g. 18a / 18b). Save each day.</li>
+          <li><strong>Scorekeeper PINs</strong> — Generate PINs, optionally set a different Day 1 only or Day 2 only PIN, Save. Tell each scorekeeper only their own match's PIN.</li>
+          <li><strong>Print Scorecards</strong> — print the cards (PINs are not printed on them).</li>
+          <li><strong>Rehearse</strong> on the TEST site first (add <code>?env=test</code> to the page address).</li>
+        </ol>
+        <h3>On tournament days</h3>
+        <ul>
+          <li>Scorekeepers open the public scoring link, choose Scorekeeper, enter their PIN, and tap the winner of each hole (or Tie).</li>
+          <li>Everyone else watches the Scoreboard tab. Add <code>?display=1</code> to the scoring link for a big auto-refreshing screen.</li>
+          <li>To correct a score: type the Admin PIN on any match's lock screen, then edit.</li>
+          <li>A player drops out before Day 2: Roster tab, <em>Replace a Player on Day 2</em>.</li>
+          <li>When a day is finished, lock it in Settings. "Results are locked" is the correct final state.</li>
+        </ul>
+        <h3>If something goes wrong</h3>
+        <ul>
+          <li>Scores not saving: the day is probably locked (Settings), or the phone has no signal — the scoring page shows "waiting to sync" until it reconnects.</li>
+          <li>A scorekeeper can't unlock a match: use Forget PIN on their phone, then re-enter the PIN.</li>
+          <li>Changed or lost data: see Backups in Settings, and the ScoreLog tab in the Google Sheet.</li>
+          <li>Anything else: describe it to Claude with a screenshot — the Handoff Guide explains how.</li>
+        </ul>
+      </div>
+    </section>
+
     <section id="tab-print" class="tab-panel" hidden>
       <div class="card">
         <h2>Print Blank Scorecards</h2>
@@ -1341,7 +1429,7 @@ const EMBEDDED_SNAPSHOT = {
 // the live "Backend:" version (from Code.gs) so you can tell at a glance
 // whether the page you're looking at, and the Apps Script it's talking to,
 // are both up to date.
-const ADMIN_VERSION = '2026-10-04b';
+const ADMIN_VERSION = '2026-10-05a';
 
 // Environment detection: an explicit ?env=test or ?env=live in the URL always
 // wins (use this while testing the raw local file, e.g. index.html?env=test).
@@ -1387,6 +1475,7 @@ async function checkPin() {
   document.getElementById('gate').hidden = true;
   document.getElementById('app').hidden = false;
   document.getElementById('envBadge').textContent = ENV.toUpperCase();
+  document.getElementById('testBanner').hidden = ENV !== 'test';
   // Carry the ?env= override (if any) through to the scoring page, so testing
   // locally with ?env=test from this page also opens the test scoring page.
   document.getElementById('liveLinkBtn').href = 'live.html' + location.search;
@@ -1471,6 +1560,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     document.querySelectorAll('.tab-panel').forEach((p) => (p.hidden = true));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).hidden = false;
+    if (btn.dataset.tab === 'settings') renderReadiness();
   });
 });
 
@@ -1541,6 +1631,7 @@ function applyBootData_(d) {
   renderPairings('1');
   renderPairings('2');
   populatePrintMatchSelect();
+  renderReadiness();
 }
 async function init() {
   loadVersionBadge();
@@ -1850,6 +1941,77 @@ function renderRoster() {
   const body = document.getElementById('rosterBody');
   body.innerHTML = '';
   roster.forEach((p, idx) => body.appendChild(rosterRowEl(p, idx)));
+  renderReplacePlayerForm();
+}
+
+// ---- Day 2 substitution ("Replace a Player on Day 2") ----
+// Outgoing choices: everyone currently named in a Day 2 match. Substitute
+// suggestions: roster players who are NOT in Day 2 right now (standby,
+// not participating, unassigned) — but a brand-new name can just be typed.
+function day2PlayerNames_() {
+  const used = new Set();
+  (pairings['2'] || []).forEach((row) => {
+    ['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].forEach((f) => { if (row[f]) used.add(row[f]); });
+  });
+  return used;
+}
+function renderReplacePlayerForm() {
+  const outSel = document.getElementById('rp_outgoing');
+  const dl = document.getElementById('rp_incomingList');
+  if (!outSel || !dl) return;
+  const prevOut = outSel.value;
+  const inDay2 = day2PlayerNames_();
+  const outNames = Array.from(inDay2).sort((a, b) => a.localeCompare(b));
+  outSel.innerHTML = '<option value="">— select —</option>' +
+    outNames.map((n) => `<option value="${escapeAttr(n)}" ${n === prevOut ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+  const candidates = roster.filter((p) => p.Name && !inDay2.has(p.Name)).map((p) => p.Name).sort((a, b) => a.localeCompare(b));
+  dl.innerHTML = candidates.map((n) => `<option value="${escapeAttr(n)}"></option>`).join('');
+  const hint = document.getElementById('rp_hint');
+  if (hint && !outNames.length) hint.textContent = 'No players are assigned to Day 2 matches yet — set up the Day 2 Pairings first.';
+  else if (hint) hint.textContent = '';
+}
+async function replacePlayerDay2() {
+  const status = 'rp_status';
+  const outgoing = document.getElementById('rp_outgoing').value;
+  const incomingName = document.getElementById('rp_incoming').value.trim();
+  const hiRaw = document.getElementById('rp_hi').value.trim();
+  const tee = document.getElementById('rp_tee').value.trim();
+  if (!outgoing) { showStatus(status, false, 'Choose the player who is out.'); return; }
+  if (!incomingName) { showStatus(status, false, 'Enter or choose the substitute.'); return; }
+  if (incomingName === outgoing) { showStatus(status, false, 'The substitute can’t be the same person.'); return; }
+  if (day2PlayerNames_().has(incomingName)) { showStatus(status, false, incomingName + ' is already playing in a Day 2 match.'); return; }
+  const existing = roster.find((p) => p.Name === incomingName);
+  if (!existing && incomingName.indexOf(',') === -1) {
+    if (!confirm('"' + incomingName + '" is a new player and isn’t in "Last, First" form — the Scoreboard and scorecards show names as Last name, First initial, so it’s best to type it as "Last, First". Use it as typed anyway?')) return;
+  }
+  const outP = roster.find((p) => p.Name === outgoing);
+  const teamName = outP ? teamLabel(outP.Team) : '';
+  if (!confirm('Replace ' + outgoing + ' with ' + incomingName + (teamName ? ' (' + teamName + ')' : '') + ' on Day 2?\n\n' + outgoing + ' will be marked Not participating, and ' + incomingName + ' will take their place on the Day 2 Pairings. Day 1 is not changed.')) return;
+  const btn = document.getElementById('rp_btn');
+  btn.disabled = true;
+  try {
+    const incoming = { Name: incomingName };
+    if (hiRaw !== '') incoming.HandicapIndex = Number(hiRaw);
+    if (tee) incoming.Tee = tee;
+    const res = await apiPost('replacePlayerDay2', { outgoingName: outgoing, incoming: JSON.stringify(incoming) });
+    if (!res.success) { showStatus(status, false, res.error || 'Could not replace the player.'); return; }
+    // Reload both from the server so the screen matches what was saved.
+    const [r, p2] = await Promise.all([apiGet('getRoster'), apiGet('getPairings', { day: '2' })]);
+    if (r && r.success) roster = r.data;
+    if (p2 && p2.success && p2.data.length) pairings['2'] = p2.data;
+    renderRoster();
+    refreshPairingDropdownSources();
+    document.getElementById('rp_incoming').value = '';
+    document.getElementById('rp_hi').value = '';
+    document.getElementById('rp_tee').value = '';
+    const d = res.data || {};
+    const matches = (d.matchesUpdated || []).length ? ' Day 2 Match ' + d.matchesUpdated.join(', ') + ' updated.' : ' (They weren’t found in any Day 2 match.)';
+    showStatus(status, true, outgoing + ' → ' + incomingName + ' done.' + matches);
+  } catch (err) {
+    showStatus(status, false, 'Network error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function teamLabel(key) {
@@ -2266,6 +2428,135 @@ async function savePairings(day) {
   }
 }
 
+// ====================== READINESS CHECKLIST ======================
+// Reads only the in-memory state already on this page (settings, roster,
+// pairings, PINs, hole handicaps) — so save edits first for an accurate
+// check. Each item is { level: 'ok'|'warn'|'info', text, tab? }.
+function gotoTab(name) {
+  const b = document.querySelector('.tab-btn[data-tab="' + name + '"]');
+  if (b) b.click();
+}
+function computeReadiness() {
+  const items = [];
+  const add = (level, text, tab) => items.push({ level, text: text.replace(/\.\.$/, '.'), tab });
+  const isTrue = (v) => v === true || v === 'TRUE' || v === 'true';
+
+  // Settings
+  const settingsGaps = [];
+  if (!settings.TournamentName) settingsGaps.push('tournament name');
+  if (!settings.Day1Date) settingsGaps.push('Day 1 date');
+  if (!settings.Day2Date) settingsGaps.push('Day 2 date');
+  if (!settings.TeamAName || settings.TeamAName === 'Team A') settingsGaps.push('Team A name');
+  if (!settings.TeamBName || settings.TeamBName === 'Team B') settingsGaps.push('Team B name');
+  if (!settings.TeamACaptain || settings.TeamACaptain === 'TBD') settingsGaps.push('Team A captain');
+  if (!settings.TeamBCaptain || settings.TeamBCaptain === 'TBD') settingsGaps.push('Team B captain');
+  settingsGaps.length
+    ? add('warn', 'Settings still missing: ' + settingsGaps.join(', ') + '.', 'settings')
+    : add('ok', 'Settings: name, dates, team names and captains are filled in.');
+
+  // Roster
+  const onTeam = roster.filter((p) => p.Name && (p.Team === 'A' || p.Team === 'B'));
+  const aCount = onTeam.filter((p) => p.Team === 'A').length;
+  const bCount = onTeam.filter((p) => p.Team === 'B').length;
+  if (!onTeam.length) add('warn', 'No players are assigned to Team A or Team B yet.', 'roster');
+  else if (aCount !== bCount) add('warn', 'Teams are uneven: ' + aCount + ' on Team A, ' + bCount + ' on Team B.', 'roster');
+  else add('ok', 'Roster: ' + aCount + ' players on each team.');
+  const noHcp = onTeam.filter((p) => p.HandicapIndex === '' || p.HandicapIndex === null || p.HandicapIndex === undefined || !p.Tee);
+  if (onTeam.length) {
+    noHcp.length
+      ? add('warn', noHcp.length + ' playing ' + (noHcp.length === 1 ? 'player is' : 'players are') + ' missing a Handicap Index or Tee (needed for Day 2): ' + noHcp.slice(0, 6).map((p) => nameLastInitial(p.Name)).join('; ') + (noHcp.length > 6 ? '…' : '') + '.', 'roster')
+      : add('ok', 'Every playing player has a Handicap Index and Tee.');
+  }
+
+  // Pairings, scorekeepers, PINs
+  const full = (r) => r.TeamA_P1 && r.TeamA_P2 && r.TeamB_P1 && r.TeamB_P2;
+  const rosterNames = new Set(roster.map((p) => p.Name));
+  const notPlaying = new Set(roster.filter((p) => p.Team !== 'A' && p.Team !== 'B').map((p) => p.Name));
+  ['1', '2'].forEach((day) => {
+    const rows = pairings[day] || [];
+    const total = rows.length;
+    const staffed = rows.filter(full);
+    const tab = day === '1' ? 'day1' : 'day2';
+    if (!total || staffed.length < total) {
+      add('warn', 'Day ' + day + ': ' + staffed.length + ' of ' + total + ' matches have all four players.', tab);
+    } else {
+      add('ok', 'Day ' + day + ': all ' + total + ' matches have four players.');
+    }
+    const noStart = staffed.filter((r) => !String(r.StartHole || '').trim());
+    if (noStart.length) add('warn', 'Day ' + day + ': Start Hole missing for match ' + noStart.map((r) => r.MatchNum).join(', ') + '.', tab);
+    if (day === '2') {
+      const noMp = staffed.filter((r) => !(r.MP1_TeamA && r.MP1_TeamB && r.MP2_TeamA && r.MP2_TeamB));
+      if (noMp.length) add('warn', 'Day 2: individual match-play pairings missing for match ' + noMp.map((r) => r.MatchNum).join(', ') + '.', tab);
+    }
+    const names = [];
+    rows.forEach((r) => ['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].forEach((f) => { if (r[f]) names.push(r[f]); }));
+    const stale = names.filter((n) => !rosterNames.has(n) || notPlaying.has(n));
+    if (stale.length) add('warn', 'Day ' + day + ' pairings include ' + Array.from(new Set(stale)).map(nameLastInitial).join('; ') + ', who ' + (stale.length === 1 ? 'is' : 'are') + ' not an active player on the Roster.', tab);
+    const noSk = staffed.filter((r) => !['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].some((f) => { const pl = roster.find((p) => p.Name === r[f]); return pl && isScorekeeper(pl); }));
+    if (staffed.length) {
+      noSk.length
+        ? add('warn', 'Day ' + day + ': no scorekeeper volunteer in match ' + noSk.map((r) => r.MatchNum).join(', ') + '.', 'roster')
+        : add('ok', 'Day ' + day + ': every match has a scorekeeper volunteer.');
+    }
+    const noPin = staffed.filter((r) => !pinForMatch(r.MatchNum, day));
+    if (staffed.length) {
+      noPin.length
+        ? add('warn', 'Day ' + day + ': no Scorekeeper PIN for match ' + noPin.map((r) => r.MatchNum).join(', ') + ' (anyone with the link could score it).', 'pins')
+        : add('ok', 'Day ' + day + ': every match has a Scorekeeper PIN.');
+    }
+  });
+
+  // Hole handicaps
+  const hcMissing = (rows) => { const have = new Set((rows || []).filter((r) => r.StrokeIndex !== '' && r.StrokeIndex != null).map((r) => String(r.Hole))); let n = 0; for (let h = 1; h <= 18; h++) if (!have.has(String(h))) n++; return n; };
+  const gMiss = hcMissing(holeHandicaps), rMiss = hcMissing(holeHandicapsRed);
+  (gMiss || rMiss)
+    ? add('warn', 'Hole Handicaps incomplete (' + gMiss + ' Gold, ' + rMiss + ' Red holes missing) — Day 2 scoring needs all 18.', 'holehc')
+    : add('ok', 'Hole Handicaps are filled in for all 18 holes (Gold and Red).');
+
+  // Switches
+  if (isTrue(settings.SuspendScorePins)) add('warn', 'Testing mode is ON: scorekeeper PINs are suspended — turn it off before the tournament (Settings).', 'settings');
+  ['1', '2'].forEach((d) => { if (isTrue(settings['Day' + d + 'Locked'])) add('info', 'Day ' + d + ' is locked — scorekeepers cannot enter or change scores for it.', 'settings'); });
+  return items;
+}
+function renderReadiness() {
+  const list = document.getElementById('readyList');
+  const sum = document.getElementById('readySummary');
+  if (!list || !sum) return;
+  let items;
+  try { items = computeReadiness(); } catch (e) { sum.textContent = 'Could not run the check yet (data still loading).'; list.innerHTML = ''; return; }
+  const warns = items.filter((i) => i.level === 'warn').length;
+  sum.textContent = warns ? warns + ' item' + (warns === 1 ? '' : 's') + ' need attention.' : 'All set — nothing needs attention.';
+  sum.style.color = warns ? '#b8860b' : 'var(--ok)';
+  const mark = { ok: '✓', warn: '⚠', info: 'i' };
+  list.innerHTML = items.map((i) =>
+    '<li class="ready-' + i.level + '"><span class="ready-mark">' + mark[i.level] + '</span><span>' + escapeHtml(i.text) +
+    (i.tab ? ' <a onclick="gotoTab(\'' + i.tab + '\')">Go to tab</a>' : '') + '</span></li>').join('');
+}
+
+// ====================== BACKUPS / HELP ======================
+async function backupNow() {
+  showStatus('backupStatus', true, 'Backing up…');
+  try {
+    const res = await apiPost('backupNow', {});
+    if (res.success) showStatus('backupStatus', true, 'Backed up (' + res.data.label + '). ' + res.data.kept.length + ' snapshot' + (res.data.kept.length === 1 ? '' : 's') + ' kept.');
+    else showStatus('backupStatus', false, res.error);
+  } catch (err) { showStatus('backupStatus', false, 'Network error: ' + err.message); }
+}
+async function showBackups() {
+  try {
+    const res = await apiGet('listBackups');
+    if (!res.success) { showStatus('backupStatus', false, res.error); return; }
+    showStatus('backupStatus', true, res.data.length
+      ? 'Saved backups (newest first, date-time): ' + res.data.join(', ')
+      : 'No backups yet — one is taken automatically the next time something is saved, or click Back up now.');
+  } catch (err) { showStatus('backupStatus', false, 'Network error: ' + err.message); }
+}
+function printHelp() {
+  document.body.classList.add('printing-help');
+  window.addEventListener('afterprint', () => document.body.classList.remove('printing-help'), { once: true });
+  window.print();
+}
+
 // ====================== SCOREKEEPER PINS (one per match, shared by both days) ======================
 function defaultMatchPinRows() {
   const rows = [];
@@ -2273,9 +2564,17 @@ function defaultMatchPinRows() {
   return rows;
 }
 
-function pinForMatch(matchNum) {
+// The PIN in effect for a match on a given day ('1' or '2'): that day's
+// optional override if filled in, else the shared PIN. With no day, just the
+// shared PIN.
+function pinForMatch(matchNum, day) {
   const row = matchPins.find((r) => String(r.MatchNum) === String(matchNum));
-  return row ? row.PIN || '' : '';
+  if (!row) return '';
+  if (day === '1' || day === '2') {
+    const over = String(row['Day' + day + 'PIN'] == null ? '' : row['Day' + day + 'PIN']).trim();
+    if (over) return over;
+  }
+  return String(row.PIN == null ? '' : row.PIN).trim();
 }
 
 function renderMatchPins() {
@@ -2288,22 +2587,34 @@ function renderMatchPins() {
       <td class="match-label">Match ${row.MatchNum}</td>
       <td>
         <input type="text" value="${escapeAttr(row.PIN || '')}" data-idx="${idx}" data-field="PIN" maxlength="8" placeholder="open" style="width:70px;">
-        <button type="button" class="link" data-genpin-idx="${idx}" style="font-size:0.75rem; padding:0;">generate</button>
+        <button type="button" class="link" data-genpin-idx="${idx}" data-genpin-field="PIN" style="font-size:0.75rem; padding:0;">generate</button>
+      </td>
+      <td>
+        <input type="text" value="${escapeAttr(row.Day1PIN || '')}" data-idx="${idx}" data-field="Day1PIN" maxlength="8" placeholder="same" style="width:70px;">
+        <button type="button" class="link" data-genpin-idx="${idx}" data-genpin-field="Day1PIN" style="font-size:0.75rem; padding:0;">generate</button>
+      </td>
+      <td>
+        <input type="text" value="${escapeAttr(row.Day2PIN || '')}" data-idx="${idx}" data-field="Day2PIN" maxlength="8" placeholder="same" style="width:70px;">
+        <button type="button" class="link" data-genpin-idx="${idx}" data-genpin-field="Day2PIN" style="font-size:0.75rem; padding:0;">generate</button>
       </td>
     `;
-    tr.querySelector('[data-field]').addEventListener('change', (e) => {
-      matchPins[idx].PIN = e.target.value;
+    tr.querySelectorAll('[data-field]').forEach((inp) => {
+      inp.addEventListener('change', (e) => {
+        matchPins[idx][inp.dataset.field] = e.target.value.trim();
+      });
     });
-    tr.querySelector('[data-genpin-idx]').addEventListener('click', () => {
-      matchPins[idx].PIN = randomPin4();
-      renderMatchPins();
+    tr.querySelectorAll('[data-genpin-field]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        matchPins[idx][btn.dataset.genpinField] = randomPin4();
+        renderMatchPins();
+      });
     });
     body.appendChild(tr);
   });
 }
 
 function generateMissingMatchPins() {
-  matchPins.forEach((row) => { if (!row.PIN) row.PIN = randomPin4(); });
+  matchPins.forEach((row) => { if (!row.PIN && !(row.Day1PIN && row.Day2PIN)) row.PIN = randomPin4(); });
   renderMatchPins();
 }
 
@@ -2569,16 +2880,13 @@ const COMPACT_PRINT_CSS = `
   .cc-day1 .cc-seg-title { font-size: 9pt; }
   .cc-day1 .cc-teams { font-size: 13pt; }
   .cc-day1 .cc-meta { font-size: 9pt; }
-  /* Drives Used: same column grid as the segments above (name column, 9
-     equal hole columns, then a borderless blank cell standing in for the
-     Winner column), so every box lines up with the hole columns above it. */
-  table.cc-drive-table td.cc-name { width: 21%; }
-  .cc-day1 table.cc-table.cc-drive-table tbody tr.cc-drive-row { height: 0.19in !important; }
-  .cc-day1 table.cc-table.cc-drive-table tbody tr.cc-drive-row td { padding-top: 0 !important; padding-bottom: 0 !important; }
-  .cc-day1 table.cc-table.cc-drive-table td.cc-name { font-size: 8.4pt; }
-  table.cc-drive-table td.cc-drive-cell { position: relative; }
-  table.cc-drive-table .cc-hole-tag { position: absolute; top: 0; left: 2px; font-size: 6pt; font-weight: 400; color: #888; line-height: 1; }
-  table.cc-drive-table td.cc-drive-end { width: 9%; border: none; background: none; }
+  /* Day 1 card: the header sits at the top and the two grids (Captain's
+     Choice, Modified Alternate Shot) split ALL the remaining height equally,
+     each with its table at the top — so the blank space under each grid
+     (room for notes, e.g. which player's drive was used) is the same. */
+  .cc-card.cc-day1 { display: flex; flex-direction: column; }
+  .cc-card.cc-day1 .cc-segment { flex: 1 1 0; min-height: 0; }
+  .cc-card.cc-day1 .cc-segment + .cc-segment { margin-top: 0; }
   .sc-tee { font-weight: 400; color: #666; font-size: 0.9em; }
   .sc-players { font-weight: 400; font-size: 0.88em; }
   .sc-start-hole { background: #fff176; }
@@ -2834,32 +3142,6 @@ function scorecardCardHtmlDay1Compact(row, rosterList, isSample) {
   const frontSegment = printSegmentHtmlCompact("Front 9: Captain's Choice", instruction, 1, 9, startHoleNum, frontRows);
   const backSegment = printSegmentHtmlCompact('Back 9: Modified Alternate Shot', instruction, 10, 18, startHoleNum, backRows);
 
-  // Each player must use three drives over the round, so each team also gets
-  // boxes to write the initial of whoever's drive was used. 18 boxes at the
-  // same width as the hole columns above can't fit on one line, so this block
-  // reuses the card's own 9-hole column grid: one row per team for holes 1-9
-  // and another for holes 10-18, with each box carrying its hole number in
-  // the corner (no repeated header rows, which keeps the block short).
-  const driveRow = (teamName, color, startHole, endHole) => {
-    let cells = '';
-    for (let h = startHole; h <= endHole; h++) {
-      const startClass = h === startHoleNum ? ' sc-start-hole' : '';
-      cells += `<td class="cc-drive-cell${startClass}"><span class="cc-hole-tag">${h}</span></td>`;
-    }
-    return `<tr class="cc-drive-row"><td class="cc-name"${teamCellStyleAttr(color)}>${escapeHtml(teamName)} <span class="sc-players">&middot; holes ${startHole}&ndash;${endHole}</span></td>${cells}<td class="cc-drive-end"></td></tr>`;
-  };
-  const driveSegment = `
-    <div class="cc-segment cc-drives">
-      <div class="cc-seg-title">Drives Used <span class="cc-seg-instr">&mdash; write the initial of the player whose drive was used on each hole (each player must use 3)</span></div>
-      <table class="cc-table cc-drive-table">
-        <tbody>
-          ${driveRow(names.A, settings.TeamAColor, 1, 9)}
-          ${driveRow(names.B, settings.TeamBColor, 1, 9)}
-          ${driveRow(names.A, settings.TeamAColor, 10, 18)}
-          ${driveRow(names.B, settings.TeamBColor, 10, 18)}
-        </tbody>
-      </table>
-    </div>`;
   const metaLine = `${escapeHtml(settings.TournamentName || 'Heritage Legends Tournament')} &middot; Day 1, ${escapeHtml(formatDateNice(settings.Day1Date))} &middot; Match ${row.MatchNum} &middot; Start Hole ${escapeHtml(row.StartHole || 'TBD')} &middot; no handicap strokes apply Day 1`;
 
   return `
@@ -2867,7 +3149,6 @@ function scorecardCardHtmlDay1Compact(row, rosterList, isSample) {
       ${ccCardHeaderHtml(names, isSample, metaLine)}
       ${frontSegment}
       ${backSegment}
-      ${driveSegment}
     </div>
   `;
 }
@@ -2958,7 +3239,9 @@ function openScorecardWindowCompact(cardHtmlArray) {
 // now per-match-number rather than per-day) before the print window opens, so
 // the admin never has to remember a separate "generate PINs" step first.
 async function ensurePinsForPrint(matchNums) {
-  const missing = matchPins.filter((r) => matchNums.includes(String(r.MatchNum)) && !r.PIN);
+  // A match counts as covered if it has a shared PIN, or has its own PIN set
+  // for BOTH days (so there's no day left open).
+  const missing = matchPins.filter((r) => matchNums.includes(String(r.MatchNum)) && !r.PIN && !(r.Day1PIN && r.Day2PIN));
   if (!missing.length) return { ok: true, generated: 0 };
   missing.forEach((r) => { r.PIN = randomPin4(); });
   try {

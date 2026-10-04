@@ -47,6 +47,13 @@
   .save-indicator.saving { color: var(--muted); }
   .save-indicator.saved { color: var(--ok); }
   .save-indicator.error { color: var(--error); }
+  #syncBanner { position: sticky; top: 0; z-index: 50; background: #fff3cd; color: #7a5b00; border-bottom: 2px solid #b8860b; padding: 8px 12px; font-size: 0.9rem; font-weight: 600; text-align: center; }
+  #syncBanner button { margin-left: 8px; padding: 3px 10px; font-size: 0.8rem; }
+  #testBanner { background: #b8860b; color: #fff; text-align: center; font-weight: 700; padding: 4px 10px; font-size: 0.8rem; letter-spacing: 0.5px; }
+  .sb-auto { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+  /* ?display=1 — big clubhouse-screen scoreboard */
+  body.display-mode nav, body.display-mode #tab-scoring { display: none !important; }
+  body.display-mode main { zoom: 1.25; }
   .hint { font-size: 0.8rem; color: var(--muted); }
   .sc-intro-label { font-weight: 700; color: var(--green-dark); font-size: 0.95rem; margin: 10px 0 4px; width: 100%; }
   /* The actual hole number/letter in "Your match is starting on Hole 14a" —
@@ -257,6 +264,8 @@
   </div>
 </div>
 
+<div id="testBanner" hidden>TEST SITE — practice data only</div>
+<div id="syncBanner" hidden></div>
 <header>
   <div>
     <h1 id="tournamentTitle">Heritage Legends Tournament</h1>
@@ -291,6 +300,11 @@
   <!-- SCOREBOARD -->
   <section id="tab-scoreboard" class="tab-panel" hidden>
     <div class="card">
+      <div class="row" id="sbYearRow" hidden style="align-items:center; gap:8px;">
+        <label for="sbYear" style="font-weight:600;">Tournament year:</label>
+        <select id="sbYear" onchange="onSbYearChange()"></select>
+      </div>
+      <div id="sbYearBanner" hidden style="background:#fbf3e4; border:1px solid var(--gold); border-radius:8px; padding:8px 12px; margin:8px 0; font-weight:600;"></div>
       <div class="row" id="sbViewToggle">
         <button type="button" class="view-toggle-btn active" data-sbview="leaderboard" onclick="setSbView('leaderboard')">Leaderboard</button>
         <button type="button" class="view-toggle-btn" data-sbview="scorecards" onclick="setSbView('scorecards')">All Match Scorecards</button>
@@ -298,6 +312,7 @@
       </div>
       <div class="row" style="justify-content:space-between;">
         <select id="sbDay"></select>
+        <label class="sb-auto"><input type="checkbox" id="sbAuto" onchange="onSbAutoChange()"> Auto-refresh (30s)</label>
         <button class="secondary" onclick="loadScoreboard()">Update</button>
       </div>
 
@@ -1298,7 +1313,7 @@ const EMBEDDED_SNAPSHOT = {
 //   index.html and live.html =====
 // Bumped by hand every time this file changes — see the matching constant in
 // index.html and Code.gs.
-const LIVE_VERSION = '2026-10-04a';
+const LIVE_VERSION = '2026-10-05a';
 document.getElementById('envBadge').innerHTML = `${ENV.toUpperCase()}<div style="font-size:11px; opacity:0.75;" id="liveVersionBadge">Page: ${LIVE_VERSION} • Backend: …</div>`;
 async function loadVersionBadge() {
   const el = document.getElementById('liveVersionBadge');
@@ -1381,7 +1396,8 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     document.querySelectorAll('main > section').forEach((p) => (p.hidden = true));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).hidden = false;
-    if (btn.dataset.tab === 'scoreboard') loadScoreboard();
+    if (btn.dataset.tab !== 'scoreboard' && sbArchive) leaveArchiveView_(false);
+    if (btn.dataset.tab === 'scoreboard') { loadYearOptionsOnce_(); loadScoreboard(); }
   });
 });
 
@@ -1393,6 +1409,11 @@ let settings = {}, roster = [], holeHC = { default: {}, red: {} };
 let pairings = { 1: [], 2: [] };
 let matchPins = []; // [{MatchNum, PIN}] x9 — one Scorekeeper PIN per match number, shared by both days
 let rosterByName = {}; // Name -> {HandicapIndex, Tee}
+// Scoreboard year picker: while a past tournament year is being viewed,
+// sbArchive holds that year's data (read-only) and sbLiveBackup holds the
+// current season's settings/roster/pairings so they can be put back.
+let sbArchive = null;
+let sbLiveBackup = null;
 
 function indexRoster() {
   rosterByName = {};
@@ -1474,8 +1495,18 @@ function saveCachedShared_(bootData) {
 // one place that knows how to turn boot data into on-screen state.
 function applySharedSnapshot_(d) {
   if (!d) return;
-  if (d.settings) { settings = d.settings; document.getElementById('tournamentTitle').textContent = settings.TournamentName || 'Heritage Legends Tournament'; applyTeamColorVars(); }
-  if (d.roster) { roster = d.roster; indexRoster(); }
+  if (sbArchive && sbLiveBackup) {
+    // An archived year is on screen right now (see the Scoreboard's year
+    // picker) — park the fresh current-season data until it's put back,
+    // instead of letting it overwrite the archived view mid-read.
+    if (d.settings) sbLiveBackup.settings = d.settings;
+    if (d.roster) sbLiveBackup.roster = d.roster;
+    if (d.pairings1) sbLiveBackup.pairings1 = d.pairings1;
+    if (d.pairings2) sbLiveBackup.pairings2 = d.pairings2;
+  } else {
+    if (d.settings) { settings = d.settings; document.getElementById('tournamentTitle').textContent = settings.TournamentName || 'Heritage Legends Tournament'; applyTeamColorVars(); }
+    if (d.roster) { roster = d.roster; indexRoster(); }
+  }
   if (d.holeHandicaps) {
     holeHC.default = {};
     d.holeHandicaps.forEach((row) => { if (row.Hole) holeHC.default[row.Hole] = { StrokeIndex: row.StrokeIndex, Par: row.Par }; });
@@ -1484,8 +1515,10 @@ function applySharedSnapshot_(d) {
     holeHC.red = {};
     d.holeHandicapsRed.forEach((row) => { if (row.Hole) holeHC.red[row.Hole] = { StrokeIndex: row.StrokeIndex }; });
   }
-  if (d.pairings1) pairings['1'] = d.pairings1;
-  if (d.pairings2) pairings['2'] = d.pairings2;
+  if (!(sbArchive && sbLiveBackup)) {
+    if (d.pairings1) pairings['1'] = d.pairings1;
+    if (d.pairings2) pairings['2'] = d.pairings2;
+  }
   if (d.matchPins) matchPins = d.matchPins;
 }
 // Used to fire 7 separate apiGet calls in parallel (getSettings, getRoster,
@@ -1814,18 +1847,37 @@ function pinsMatch(entered, required) {
   if (entered === required) return true;
   return /^\d+$/.test(entered) && /^\d+$/.test(required) && Number(entered) === Number(required);
 }
-// A match number's shared PIN, looked up from the MatchPins sheet — the same
-// value applies to that match number on both Day 1 and Day 2.
-function pinForMatch(matchNum) {
+// A match number's PIN, looked up from the MatchPins sheet. By default one
+// shared PIN (column PIN) covers that match number on both days; the admin
+// may OPTIONALLY set a different Day1PIN and/or Day2PIN, which — when filled
+// in — replaces the shared PIN for that day only. `day` is '1' or '2'; with
+// no day given, the shared PIN is returned.
+function pinForMatch(matchNum, day) {
   const row = matchPins.find((r) => String(r.MatchNum) === String(matchNum));
-  return row ? String(row.PIN || '').trim() : '';
+  if (!row) return '';
+  const shared = String(row.PIN == null ? '' : row.PIN).trim();
+  if (day === '1' || day === '2' || day === 1 || day === 2) {
+    const over = String(row['Day' + day + 'PIN'] == null ? '' : row['Day' + day + 'PIN']).trim();
+    if (over) return over;
+  }
+  return shared;
 }
-function pinStorageKey(matchNum) { return `legends_pin_${ENV}_${matchNum}`; }
-function getStoredPin(matchNum) {
-  try { return localStorage.getItem(pinStorageKey(matchNum)); } catch (e) { return null; }
+// Remembered PINs are stored per match AND per day, so a device can hold a
+// Day 1 PIN and a different Day 2 PIN for the same match at once. The old
+// day-less key (written by earlier versions of this page) is still honored
+// as a fallback, so devices that already unlocked a match keep working.
+function pinStorageKey(matchNum, day) { return `legends_pin_${ENV}_${matchNum}` + (day ? `_d${day}` : ''); }
+function getStoredPin(matchNum, day) {
+  try {
+    return (day ? localStorage.getItem(pinStorageKey(matchNum, day)) : null) || localStorage.getItem(pinStorageKey(matchNum));
+  } catch (e) { return null; }
 }
-function storePin(matchNum, pin) {
-  try { localStorage.setItem(pinStorageKey(matchNum), pin); } catch (e) {}
+// With no day given, remembers the PIN for both days.
+function storePin(matchNum, pin, day) {
+  try {
+    if (day) localStorage.setItem(pinStorageKey(matchNum, day), pin);
+    else { localStorage.setItem(pinStorageKey(matchNum, '1'), pin); localStorage.setItem(pinStorageKey(matchNum, '2'), pin); }
+  } catch (e) {}
 }
 // ---- admin bypass ----
 // Entering the same Admin PIN used to unlock the admin page (Settings →
@@ -1851,12 +1903,12 @@ function concedeEnabled() {
   const v = settings && settings.ConcedeEnabled;
   return !(v === false || v === 'FALSE' || v === 'false');
 }
-function matchIsUnlocked(matchNum) {
+function matchIsUnlocked(matchNum, day) {
   if (suspendPinsOn()) return true; // testing mode — Settings → Suspend PIN Requirement
   if (getAdminUnlocked()) return true;
-  const requiredPin = pinForMatch(matchNum);
-  if (!requiredPin) return true; // no PIN set for this match — open to anyone
-  return pinsMatch(getStoredPin(matchNum), requiredPin);
+  const requiredPin = pinForMatch(matchNum, day);
+  if (!requiredPin) return true; // no PIN set for this match/day — open to anyone
+  return pinsMatch(getStoredPin(matchNum, day), requiredPin);
 }
 
 document.getElementById('scDay').addEventListener('change', onScDayOrMatchChange);
@@ -1958,7 +2010,7 @@ function renderScoringUI(day, matchNum) {
     document.getElementById('scStatusLines').innerHTML = '';
     return;
   }
-  if (!matchIsUnlocked(matchNum)) {
+  if (!matchIsUnlocked(matchNum, day)) {
     toggleEl.innerHTML = '';
     if (modeEl) modeEl.innerHTML = '';
     renderPinLock(day, matchNum);
@@ -1983,7 +2035,7 @@ function renderScoringUI(day, matchNum) {
   } else {
     toggleEl.innerHTML = getAdminUnlocked()
       ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="exitAdminMode('${day}', '${matchNum}')">Exit Admin Mode</button>`
-      : (pinForMatch(matchNum)
+      : (pinForMatch(matchNum, day)
           ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="lockMatch('${matchNum}')">Forget PIN</button>`
           : '');
   }
@@ -1996,7 +2048,11 @@ function renderScoringUI(day, matchNum) {
 // code got saved. (If the admin changes a match's PIN, this device is
 // automatically re-locked next time it's selected — no need for this.)
 function lockMatch(matchNum) {
-  try { localStorage.removeItem(pinStorageKey(matchNum)); } catch (e) {}
+  try {
+    localStorage.removeItem(pinStorageKey(matchNum));
+    localStorage.removeItem(pinStorageKey(matchNum, '1'));
+    localStorage.removeItem(pinStorageKey(matchNum, '2'));
+  } catch (e) {}
   renderScoringUI(document.getElementById('scDay').value, matchNum);
 }
 
@@ -2029,17 +2085,18 @@ function renderPinLock(day, matchNum) {
 }
 function tryUnlockMatch(day, matchNum) {
   const entered = document.getElementById('matchPinInput').value.trim();
-  const requiredPin = pinForMatch(matchNum);
+  const requiredPin = pinForMatch(matchNum, day);
   const adminPin = String((settings && settings.AdminPIN) || '').trim();
   if (adminPin && pinsMatch(entered, adminPin)) {
     // The Admin PIN unlocks every match on this device, not just this one.
     setAdminUnlocked(true);
     renderScoringUI(day, matchNum);
   } else if (entered && requiredPin && pinsMatch(entered, requiredPin)) {
-    // One shared PIN per match number, covering both days — storing it once
-    // here unlocks this same match number on the other day too, no matter
-    // which day's screen it was typed into.
-    storePin(matchNum, entered);
+    // Remember it for the day it was typed into; if the other day uses the
+    // very same PIN (the usual shared-PIN case), remember it there too.
+    storePin(matchNum, entered, day);
+    const otherDay = day === '1' ? '2' : '1';
+    if (pinsMatch(entered, pinForMatch(matchNum, otherDay))) storePin(matchNum, entered, otherDay);
     renderScoringUI(day, matchNum);
   } else {
     document.getElementById('pinError').textContent = 'Incorrect PIN — check with your foursome or the admin.';
@@ -2557,11 +2614,13 @@ async function saveCurrentMatchNow_(day, matchNum, holes, key) {
   if (isCurrentlyViewed()) setSaveIndicator('saving', 'Saving…');
   const maxAttempts = 3;
   let lastErrorText = 'Network error';
+  let permanentFailure = false; // e.g. the day is locked — retrying later won't help
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await apiPost('saveMatchScores', { day, matchNum, holes: JSON.stringify(holes) });
+      const res = await apiPost('saveMatchScores', { day, matchNum, holes: JSON.stringify(holes), source: getAdminUnlocked() ? 'Admin' : 'Scorekeeper' });
       if (!res.success) {
         lastErrorText = res.error || 'Save failed';
+        if (/locked/i.test(lastErrorText)) { permanentFailure = true; break; }
       } else if (holesMatchServerRows(day, holes, res.data)) {
         // Don't just trust "success" from the API call — check what the sheet
         // actually ended up holding (returned right after the write) matches
@@ -2569,6 +2628,7 @@ async function saveCurrentMatchNow_(day, matchNum, holes, key) {
         // here and now instead of only surfacing later as "the hole came back
         // blank."
         lastSavedHolesByMatch[key] = cloneHoles(holes);
+        clearPendingSave_(key);
         checkPlacardPickup(day, matchNum, prevHoles, holes);
         if (isCurrentlyViewed()) { setSaveIndicator('saved', 'Saved ✓'); renderCurrentEntryView(day, matchNum); }
         return;
@@ -2580,8 +2640,70 @@ async function saveCurrentMatchNow_(day, matchNum, holes, key) {
     }
     if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 600 * attempt));
   }
-  if (isCurrentlyViewed()) setSaveIndicator('error', lastErrorText);
+  if (permanentFailure) {
+    clearPendingSave_(key);
+    if (isCurrentlyViewed()) setSaveIndicator('error', lastErrorText);
+    return;
+  }
+  // Couldn't reach the server (no signal, timeout, …). Keep the newest
+  // snapshot on this device — it survives closing the page — and keep
+  // retrying in the background until it goes through.
+  markPendingSave_(key, day, matchNum, holes);
+  if (isCurrentlyViewed()) setSaveIndicator('error', 'Not sent yet — will keep retrying');
 }
+
+// ---- unsynced-score queue ----
+// A save that fails after its retries isn't just reported: the newest
+// snapshot of that match is parked here (and mirrored to localStorage so it
+// survives a reload) and re-sent every 20 seconds, whenever the phone comes
+// back online, and on the next page load, until the server confirms it. A
+// sticky banner shows how many matches are still waiting. Scores are never
+// replayed for a locked day (that failure is final and is shown as an error).
+const PENDING_KEY = 'legends_pending_' + ENV;
+let pendingSaves = {}; // key "day_matchNum" -> { day, matchNum, holes }
+function persistPending_() {
+  try {
+    if (Object.keys(pendingSaves).length) localStorage.setItem(PENDING_KEY, JSON.stringify(pendingSaves));
+    else localStorage.removeItem(PENDING_KEY);
+  } catch (e) {}
+}
+function renderSyncBanner_() {
+  const el = document.getElementById('syncBanner');
+  if (!el) return;
+  const n = Object.keys(pendingSaves).length;
+  if (!n) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `⏳ ${n} match${n === 1 ? '' : 'es'} with scores waiting to sync — keep this page open; they send automatically when you have signal. <button type="button" class="secondary" onclick="retryPendingSaves_()">Retry now</button>`;
+}
+function markPendingSave_(key, day, matchNum, holes) {
+  pendingSaves[key] = { day, matchNum, holes: cloneHoles(holes) };
+  persistPending_();
+  renderSyncBanner_();
+}
+function clearPendingSave_(key) {
+  if (!pendingSaves[key]) return;
+  delete pendingSaves[key];
+  persistPending_();
+  renderSyncBanner_();
+}
+function retryPendingSaves_() {
+  Object.keys(pendingSaves).forEach((key) => {
+    const p = pendingSaves[key];
+    if (!p || inFlightSaves[key]) return;
+    saveCurrentMatch(p.day, p.matchNum, p.holes);
+  });
+}
+function loadPendingSaves_() {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    pendingSaves = raw ? JSON.parse(raw) || {} : {};
+  } catch (e) { pendingSaves = {}; }
+  renderSyncBanner_();
+}
+loadPendingSaves_();
+setInterval(retryPendingSaves_, 20000);
+window.addEventListener('online', retryPendingSaves_);
+setTimeout(retryPendingSaves_, 4000); // anything left over from a previous visit
 
 // live status line(s) shown above the grid as you type, computed entirely client-side
 function renderStatusLines(day, matchNum, pairingRow) {
@@ -2761,6 +2883,76 @@ function updateSbDayOptions() {
 }
 updateSbDayOptions(); // populate the day dropdown up front, before any data loads
 
+// ---- Tournament year picker (public, read-only) ----
+// Past years come from the "Archive_<year>_*" tabs the admin's Start New
+// Season button creates. The picker stays hidden until at least one archived
+// year exists (so in a tournament's first year nobody sees it). Picking a
+// year swaps that year's settings/roster/pairings/scores in for display only;
+// nothing is ever written, and leaving the Scoreboard tab (or choosing
+// "Current season") puts the real current data back.
+let sbYearsLoaded = false;
+async function loadYearOptionsOnce_() {
+  if (sbYearsLoaded) return;
+  try {
+    const res = await apiGet('listArchivedSeasons');
+    sbYearsLoaded = true;
+    if (!res.success || !Array.isArray(res.data) || !res.data.length) return;
+    const sel = document.getElementById('sbYear');
+    sel.innerHTML = '<option value="">Current season</option>' +
+      res.data.map((l) => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+    document.getElementById('sbYearRow').hidden = false;
+  } catch (e) { /* picker just stays hidden; retried next visit */ }
+}
+async function getScoresFor(day) {
+  if (sbArchive) return { success: true, data: (day === '2' ? sbArchive.scores2 : sbArchive.scores1) || [] };
+  return apiGet('getScores', { day });
+}
+async function onSbYearChange() {
+  const sel = document.getElementById('sbYear');
+  const label = sel.value;
+  if (!label) { leaveArchiveView_(true); return; }
+  const banner = document.getElementById('sbYearBanner');
+  banner.hidden = false;
+  banner.textContent = 'Loading ' + label + '…';
+  try {
+    const res = await apiGet('getArchivedSeason', { label });
+    if (!res.success) throw new Error(res.error || 'Could not load that year.');
+    if (sel.value !== label) return; // picker moved on while this was loading
+    if (!sbLiveBackup) sbLiveBackup = { settings, roster, pairings1: pairings['1'], pairings2: pairings['2'] };
+    sbArchive = res.data;
+    settings = sbArchive.settings || {};
+    roster = sbArchive.roster || [];
+    indexRoster();
+    pairings['1'] = sbArchive.pairings1 || [];
+    pairings['2'] = sbArchive.pairings2 || [];
+    applyTeamColorVars();
+    banner.textContent = 'Viewing the ' + label + ' tournament — past results, read-only.';
+    loadScoreboard();
+  } catch (e) {
+    banner.textContent = 'Could not load ' + label + ': ' + e.message;
+    sel.value = sbArchive ? sbArchive.label : '';
+  }
+}
+// Puts the current season's data back. `refresh` re-renders the Scoreboard
+// (skipped when the person is already leaving it for another tab).
+function leaveArchiveView_(refresh) {
+  if (sbLiveBackup) {
+    settings = sbLiveBackup.settings;
+    roster = sbLiveBackup.roster;
+    indexRoster();
+    pairings['1'] = sbLiveBackup.pairings1;
+    pairings['2'] = sbLiveBackup.pairings2;
+    applyTeamColorVars();
+  }
+  sbArchive = null;
+  sbLiveBackup = null;
+  const sel = document.getElementById('sbYear');
+  if (sel) sel.value = '';
+  const banner = document.getElementById('sbYearBanner');
+  if (banner) banner.hidden = true;
+  if (refresh) loadScoreboard();
+}
+
 function loadScoreboard() {
   const day = document.getElementById('sbDay').value;
   if (sbView === 'scorecards') return loadScorecardsView(day);
@@ -2769,6 +2961,18 @@ function loadScoreboard() {
   return loadLeaderboardView(day);
 }
 
+// ---- Scoreboard auto-refresh / display mode ----
+let sbAutoTimer = null;
+function onSbAutoChange() {
+  const on = document.getElementById('sbAuto').checked;
+  if (sbAutoTimer) { clearInterval(sbAutoTimer); sbAutoTimer = null; }
+  if (on) {
+    sbAutoTimer = setInterval(() => {
+      if (document.hidden || document.getElementById('tab-scoreboard').hidden) return;
+      loadScoreboard();
+    }, 30000);
+  }
+}
 // Last names of a two-player pairing, joined like the pairing columns
 // elsewhere on the leaderboard (e.g. "Stewart + Davis").
 function pairName(p1, p2) {
@@ -2849,7 +3053,7 @@ function matchSegmentInfo(day, row, scoresByMatch) {
 }
 
 async function loadLeaderboardView(day) {
-  const res = await apiGet('getScores', { day });
+  const res = await getScoresFor(day);
   const scoresByMatch = {};
   if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
 
@@ -2979,7 +3183,7 @@ function toggleTdtDetail() {
   btn.innerHTML = el.hidden ? 'Show match detail &#9662;' : 'Hide match detail &#9652;';
 }
 async function loadTournamentTotal() {
-  const [res1, res2] = await Promise.all([apiGet('getScores', { day: '1' }), apiGet('getScores', { day: '2' })]);
+  const [res1, res2] = await Promise.all([getScoresFor('1'), getScoresFor('2')]);
   const d1 = formatTotals('1', res1), d2 = formatTotals('2', res2);
   const names = teamNames();
   const formatRows = [
@@ -3148,7 +3352,7 @@ function renderIndividualResults() {
 }
 
 async function loadIndividualResults() {
-  const [res1, res2] = await Promise.all([apiGet('getScores', { day: '1' }), apiGet('getScores', { day: '2' })]);
+  const [res1, res2] = await Promise.all([getScoresFor('1'), getScoresFor('2')]);
   const pts1 = individualPointsFor('1', res1), pts2 = individualPointsFor('2', res2);
   const pts = {};
   new Set([...Object.keys(pts1), ...Object.keys(pts2)]).forEach((name) => {
@@ -3248,7 +3452,7 @@ function scorecardsCollapsedHtml(day, row, scoresByMatch) {
 }
 
 async function loadScorecardsView(day) {
-  const res = await apiGet('getScores', { day });
+  const res = await getScoresFor(day);
   const scoresByMatch = {};
   if (res.success) res.data.forEach((r) => { (scoresByMatch[r.MatchNum] = scoresByMatch[r.MatchNum] || []).push(r); });
 
@@ -3288,14 +3492,19 @@ function chooseScorekeeper() {
   document.getElementById('entryGatePin').hidden = false;
   document.getElementById('gatePinInput').focus();
 }
-// A match's Scorekeeper PIN is one value per match number, shared by both
-// days, so this just looks up which match number (if any) has this PIN.
+// Looks up which match (if any) has this PIN, and for which day(s) it works
+// — usually both (one shared PIN), but just one if the admin gave that match
+// separate Day 1 / Day 2 PINs. Returns { matchNum, days: ['1','2'] } or null.
 function findMatchNumByPin(pin) {
-  const row = matchPins.find((r) => {
-    const requiredPin = String(r.PIN || '').trim();
-    return requiredPin && pinsMatch(pin, requiredPin);
-  });
-  return row ? String(row.MatchNum) : null;
+  for (const r of matchPins) {
+    const matchNum = String(r.MatchNum);
+    const days = ['1', '2'].filter((d) => {
+      const req = pinForMatch(matchNum, d);
+      return req && pinsMatch(pin, req);
+    });
+    if (days.length) return { matchNum, days };
+  }
+  return null;
 }
 // Which day a PIN entry should land on: Day 1 up until Day 2's own date
 // (from Settings), Day 2 from that date on — so a Day-2 scorekeeper typing
@@ -3347,16 +3556,19 @@ async function submitGatePin() {
     hideEntryGate();
     return;
   }
-  const matchNum = findMatchNumByPin(entered);
-  if (!matchNum) {
+  const found = findMatchNumByPin(entered);
+  if (!found) {
     errEl.textContent = 'PIN not recognized — check with your foursome or the admin.';
     return;
   }
-  // One shared PIN covers this match number on both Day 1 and Day 2 — store
-  // it once, then land on today's day (Day 1 before Day 2's date, Day 2 from
-  // then on — see defaultGateDay_) with this match already selected.
-  storePin(matchNum, entered);
-  document.getElementById('scDay').value = defaultGateDay_();
+  const matchNum = found.matchNum;
+  // Remember the PIN for each day it actually works on, then land on today's
+  // day (Day 1 before Day 2's date, Day 2 from then on — see defaultGateDay_),
+  // or on the one day this PIN is valid for if the match has separate
+  // Day 1 / Day 2 PINs.
+  found.days.forEach((d) => storePin(matchNum, entered, d));
+  const landDay = found.days.includes(defaultGateDay_()) ? defaultGateDay_() : found.days[0];
+  document.getElementById('scDay').value = landDay;
   populateMatchDropdown();
   document.getElementById('scMatch').value = matchNum;
   await onScMatchSelected();
@@ -3418,6 +3630,16 @@ async function ensureSharedData() {
 }
 (async function boot() {
   loadVersionBadge();
+  document.getElementById('testBanner').hidden = ENV !== 'test';
+  if (new URLSearchParams(location.search).get('display') === '1') {
+    // Clubhouse-screen mode: skip the entry gate, show only the Scoreboard,
+    // larger, refreshing itself every 30 seconds.
+    document.body.classList.add('display-mode');
+    hideEntryGate();
+    document.querySelector('.tab-btn[data-tab="scoreboard"]').click();
+    document.getElementById('sbAuto').checked = true;
+    onSbAutoChange();
+  }
   if (bootSeed) populateMatchDropdown(); // instant paint of the Day/Match picker from cache or the embedded snapshot
   try {
     await ensureSharedData();
