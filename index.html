@@ -123,6 +123,7 @@
     <div class="sub" style="text-align:right;">
       <div id="envBadge"></div>
       <div id="versionBadge" style="font-size:11px; opacity:0.7;"></div>
+      <div id="adminWho" style="font-size:12px; margin-top:2px;"></div>
       <div style="margin-top:6px;"><a id="liveLinkBtn" href="live.html" target="_blank" style="color:#fff;">Open Scoring Page (live.html) ↗</a></div>
     </div>
   </header>
@@ -134,6 +135,7 @@
     <button class="tab-btn" data-tab="pins">Scorekeeper PINs</button>
     <button class="tab-btn" data-tab="holehc">Hole Handicaps</button>
     <button class="tab-btn" data-tab="print">Print Scorecards</button>
+    <button class="tab-btn" data-tab="activity">Activity</button>
     <button class="tab-btn" data-tab="help">Help</button>
   </nav>
 
@@ -191,13 +193,17 @@
       </div>
 
       <div class="card">
-        <h2>Admin PIN</h2>
-        <p class="hint">This is the PIN this page asks for on the gate screen you just got past. Changing it here updates it for anyone using this link — test and live can have different PINs, since each has its own PIN stored in its own Google Sheet.</p>
-        <div class="field-row">
-          <div class="field" style="max-width:200px;"><label>New PIN</label><input id="s_AdminPIN" type="text" inputmode="numeric" placeholder="e.g. 1234"></div>
+        <h2>Admin users</h2>
+        <p class="hint">Each person who runs the tournament gets their own name and PIN. Everyone signs in on the gate screen with their own PIN, and every change they make (settings, roster, pairings, PINs, score corrections, and so on) is recorded under their name on the <strong>Activity</strong> tab. PINs are 4 to 8 digits and must be different for each person. Untick <em>Active</em> to stop someone from signing in without losing their history. These PINs are checked on the server and are separate from the match Scorekeeper PINs (an admin PIN also unlocks every match on the scoring page). Test and live each keep their own admin list.</p>
+        <table>
+          <thead><tr><th>Name</th><th style="width:130px;">PIN</th><th style="width:70px;">Active</th><th style="width:70px;"></th></tr></thead>
+          <tbody id="adminsBody"></tbody>
+        </table>
+        <div style="margin-top:12px;">
+          <button class="secondary" onclick="addAdminRow()">+ Add admin</button>
+          <button class="primary" onclick="saveAdmins()">Save admin users</button>
         </div>
-        <button class="primary" onclick="saveAdminPin()">Change PIN</button>
-        <div id="adminPinStatus" class="status"></div>
+        <div id="adminsStatus" class="status"></div>
       </div>
 
       <div class="card">
@@ -376,6 +382,24 @@
     </section>
 
     <!-- PRINT SCORECARDS -->
+    <!-- ACTIVITY -->
+    <section id="tab-activity" class="tab-panel" hidden>
+      <div class="card">
+        <h2>Activity</h2>
+        <p class="hint">What each admin has done, newest first: sign-ins, settings and roster changes, pairings, PIN changes (the PIN values themselves are never logged), Day 2 substitutions, backups, season starts, and score corrections made with an admin PIN. Individual hole-by-hole changes are also in the <code>ScoreLog</code> tab of the Google Sheet. The full history is in the <code>ActivityLog</code> tab.</p>
+        <div class="row" style="align-items:center; gap:10px; flex-wrap:wrap;">
+          <label for="activityWho"><strong>Person:</strong></label>
+          <select id="activityWho" onchange="renderActivity()"><option value="">Everyone</option></select>
+          <button class="secondary" onclick="loadActivity()">Refresh</button>
+        </div>
+        <div id="activityStatus" class="status"></div>
+        <table style="margin-top:8px;">
+          <thead><tr><th style="width:150px;">When</th><th style="width:130px;">Who</th><th style="width:200px;">What</th><th>Details</th></tr></thead>
+          <tbody id="activityBody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- HELP -->
     <section id="tab-help" class="tab-panel" hidden>
       <div class="card help-body">
@@ -394,7 +418,7 @@
         <ul>
           <li>Scorekeepers open the public scoring link, choose Scorekeeper, enter their PIN, and tap the winner of each hole (or Tie).</li>
           <li>Everyone else watches the Scoreboard tab. Add <code>?display=1</code> to the scoring link for a big auto-refreshing screen.</li>
-          <li>To correct a score: type the Admin PIN on any match's lock screen, then edit.</li>
+          <li>To correct a score: type your own admin PIN on any match's lock screen, then edit. Your name is recorded on the Activity tab.</li>
           <li>A player drops out before Day 2: Roster tab, <em>Replace a Player on Day 2</em>.</li>
           <li>When a day is finished, lock it in Settings. "Results are locked" is the correct final state.</li>
         </ul>
@@ -474,7 +498,6 @@ const EMBEDDED_SNAPSHOT = {
     "TeamACaptain": "Kevin Kusilek",
     "TeamBName": "Birdie Boys",
     "TeamBCaptain": "Winston Shade",
-    "AdminPIN": 1980,
     "Day1Locked": "TRUE",
     "Day2Locked": false,
     "SuspendScorePins": "FALSE",
@@ -1429,7 +1452,7 @@ const EMBEDDED_SNAPSHOT = {
 // the live "Backend:" version (from Code.gs) so you can tell at a glance
 // whether the page you're looking at, and the Apps Script it's talking to,
 // are both up to date.
-const ADMIN_VERSION = '2026-10-05a';
+const ADMIN_VERSION = '2026-10-06a';
 
 // Environment detection: an explicit ?env=test or ?env=live in the URL always
 // wins (use this while testing the raw local file, e.g. index.html?env=test).
@@ -1443,10 +1466,8 @@ const CFG = CONFIG[ENV];
 const CFG_IS_PLACEHOLDER = !CFG.backendUrl || CFG.backendUrl.startsWith('PASTE_');
 
 // ====================== GATE ======================
-// The admin PIN lives in the Settings sheet (AdminPIN) rather than hardcoded
-// here, so it can be changed from the Settings tab (see saveAdminPin below)
-// without editing this file. Defaults to '1234' the first time the backend
-// creates that row — change it once you're set up.
+// Admin sign-in: each admin has their own PIN (Settings > Admin users), checked
+// on the server — see checkPin below.
 async function checkPin() {
   if (CFG_IS_PLACEHOLDER) {
     document.getElementById('gateStatus').textContent =
@@ -1456,9 +1477,14 @@ async function checkPin() {
   }
   const val = document.getElementById('pinInput').value.trim();
   document.getElementById('gateStatus').textContent = '';
+  if (!val) { document.getElementById('gateStatus').textContent = 'Enter your admin PIN.'; return; }
+  document.getElementById('gateStatus').textContent = 'Checking…';
   let res;
   try {
-    res = await apiGet('getSettings');
+    // The PIN is checked on the server (it is never sent down to this page),
+    // which also tells us whose PIN it is — shown in the header and used to
+    // label everything this person changes in the Activity log.
+    res = await apiPost('verifyAdminPin', { pin: val, where: 'admin page' });
   } catch (err) {
     document.getElementById('gateStatus').textContent = 'Network error checking PIN: ' + err.message;
     return;
@@ -1467,11 +1493,9 @@ async function checkPin() {
     document.getElementById('gateStatus').textContent = res.error || 'Could not check PIN.';
     return;
   }
-  settings = res.data; // reuse this fetch — init() below won't need to re-fetch it
-  if (val !== String(settings.AdminPIN || '1234')) {
-    document.getElementById('gateStatus').textContent = 'Incorrect PIN.';
-    return;
-  }
+  adminSession = { name: res.data.name, pin: val };
+  document.getElementById('adminWho').textContent = 'Signed in as ' + res.data.name;
+  document.getElementById('gateStatus').textContent = '';
   document.getElementById('gate').hidden = true;
   document.getElementById('app').hidden = false;
   document.getElementById('envBadge').textContent = ENV.toUpperCase();
@@ -1540,10 +1564,13 @@ async function apiGet(action, extra) {
   }
   throw lastError;
 }
+// Who is signed in on this page (set by the gate). Every request carries the
+// admin's PIN so the server can check it and log the change under their name.
+let adminSession = { name: '', pin: '' };
 async function apiPost(action, body) {
   const res = await fetchWithTimeout(CFG.backendUrl, {
     method: 'POST',
-    body: JSON.stringify(Object.assign({ action, key: CFG.key }, body || {})),
+    body: JSON.stringify(Object.assign({ action, key: CFG.key, adminPin: adminSession.pin }, body || {})),
   });
   return res.json();
 }
@@ -1560,7 +1587,8 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     document.querySelectorAll('.tab-panel').forEach((p) => (p.hidden = true));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).hidden = false;
-    if (btn.dataset.tab === 'settings') renderReadiness();
+    if (btn.dataset.tab === 'settings') { renderReadiness(); loadAdmins(); }
+    if (btn.dataset.tab === 'activity') loadActivity();
   });
 });
 
@@ -1698,7 +1726,6 @@ function populateSettingsForm() {
   document.getElementById('s_TeamBName').value = settings.TeamBName || 'Team B';
   document.getElementById('s_TeamBCaptain').value = settings.TeamBCaptain || '';
   document.getElementById('s_TeamBColor').value = settings.TeamBColor || '#F08080';
-  document.getElementById('s_AdminPIN').value = settings.AdminPIN || '';
   document.getElementById('tournamentTitle').textContent = settings.TournamentName || 'Heritage Legends Tournament';
   updateDayLockUI();
   updateSuspendPinsUI();
@@ -1720,7 +1747,7 @@ function updateDayLockUI() {
     document.getElementById(`day${day}LockBtn`).textContent = locked ? `Unlock Day ${day}` : `Lock Day ${day}`;
   });
 }
-// Only the one Locked key is included, same pattern as saveAdminPin — leaves
+// Only the one Locked key is included — leaves
 // every other setting (including the other day's lock) untouched.
 async function toggleDayLock(day) {
   const key = day === '2' ? 'Day2Locked' : 'Day1Locked';
@@ -1871,27 +1898,6 @@ async function copyTournamentSnapshot() {
   }
 }
 
-async function saveAdminPin() {
-  const newPin = document.getElementById('s_AdminPIN').value.trim();
-  if (!newPin) {
-    showStatus('adminPinStatus', false, 'Enter a PIN before saving.');
-    return;
-  }
-  try {
-    // Only AdminPIN is included, so this leaves every other setting untouched —
-    // saveSettings_ on the backend only writes keys it's given.
-    const res = await apiPost('saveSettings', { settings: JSON.stringify({ AdminPIN: newPin }) });
-    if (res.success) {
-      settings = res.data;
-      populateSettingsForm();
-      showStatus('adminPinStatus', true, 'PIN changed — use the new one next time you (or anyone else) load this page.');
-    } else {
-      showStatus('adminPinStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('adminPinStatus', false, 'Network error: ' + err.message);
-  }
-}
 
 async function startNewSeason() {
   const defaultLabel = new Date().getFullYear().toString();
@@ -2533,6 +2539,80 @@ function renderReadiness() {
     (i.tab ? ' <a onclick="gotoTab(\'' + i.tab + '\')">Go to tab</a>' : '') + '</span></li>').join('');
 }
 
+// ====================== ADMIN USERS / ACTIVITY ======================
+let adminUsers = []; // [{Name, PIN, Active}]
+async function loadAdmins() {
+  try {
+    const res = await apiPost('getAdmins', {});
+    if (res.success) { adminUsers = res.data; renderAdmins(); }
+    else showStatus('adminsStatus', false, res.error);
+  } catch (err) { showStatus('adminsStatus', false, 'Network error: ' + err.message); }
+}
+function renderAdmins() {
+  const body = document.getElementById('adminsBody');
+  if (!body) return;
+  body.innerHTML = '';
+  adminUsers.forEach((a, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" value="${escapeAttr(a.Name || '')}" data-f="Name" placeholder="Name"></td>
+      <td><input type="text" inputmode="numeric" maxlength="8" value="${escapeAttr(a.PIN || '')}" data-f="PIN" placeholder="PIN" style="width:100px;"></td>
+      <td style="text-align:center;"><input type="checkbox" data-f="Active" ${a.Active === 'TRUE' || a.Active === true ? 'checked' : ''}></td>
+      <td><button class="link" type="button" data-rm="1">Remove</button></td>`;
+    tr.querySelectorAll('[data-f]').forEach((el) => {
+      el.addEventListener('change', () => {
+        adminUsers[idx][el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value.trim();
+      });
+    });
+    tr.querySelector('[data-rm]').addEventListener('click', () => { adminUsers.splice(idx, 1); renderAdmins(); });
+    body.appendChild(tr);
+  });
+}
+function addAdminRow() {
+  adminUsers.push({ Name: '', PIN: randomPin4(), Active: 'TRUE' });
+  renderAdmins();
+}
+async function saveAdmins() {
+  try {
+    const res = await apiPost('saveAdmins', { admins: JSON.stringify(adminUsers) });
+    if (res.success) {
+      adminUsers = res.data;
+      renderAdmins();
+      // If the person who is signed in just changed their own name or PIN,
+      // keep this session working under the new values.
+      const mine = adminUsers.find((a) => a.Name.toLowerCase() === adminSession.name.toLowerCase());
+      if (mine) { adminSession.pin = mine.PIN; adminSession.name = mine.Name; document.getElementById('adminWho').textContent = 'Signed in as ' + mine.Name; }
+      showStatus('adminsStatus', true, 'Saved.');
+    } else {
+      showStatus('adminsStatus', false, res.error);
+    }
+  } catch (err) { showStatus('adminsStatus', false, 'Network error: ' + err.message); }
+}
+
+let activityRows = [];
+async function loadActivity() {
+  showStatus('activityStatus', true, 'Loading…');
+  try {
+    const res = await apiPost('getActivityLog', { limit: 500 });
+    if (!res.success) { showStatus('activityStatus', false, res.error); return; }
+    activityRows = res.data;
+    const sel = document.getElementById('activityWho');
+    const keep = sel.value;
+    const names = Array.from(new Set(activityRows.map((r) => r.Admin).filter(Boolean))).sort();
+    sel.innerHTML = '<option value="">Everyone</option>' + names.map((n) => `<option value="${escapeAttr(n)}" ${n === keep ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+    showStatus('activityStatus', true, '');
+    renderActivity();
+  } catch (err) { showStatus('activityStatus', false, 'Network error: ' + err.message); }
+}
+function renderActivity() {
+  const who = document.getElementById('activityWho').value;
+  const rows = activityRows.filter((r) => !who || r.Admin === who);
+  const body = document.getElementById('activityBody');
+  body.innerHTML = rows.length
+    ? rows.map((r) => `<tr><td>${escapeHtml(r.Timestamp)}</td><td>${escapeHtml(r.Admin || '(unknown)')}</td><td>${escapeHtml(r.Action)}</td><td>${escapeHtml(r.Detail)}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="hint">Nothing recorded yet.</td></tr>';
+}
+
 // ====================== BACKUPS / HELP ======================
 async function backupNow() {
   showStatus('backupStatus', true, 'Backing up…');
@@ -2544,7 +2624,7 @@ async function backupNow() {
 }
 async function showBackups() {
   try {
-    const res = await apiGet('listBackups');
+    const res = await apiPost('listBackups', {});
     if (!res.success) { showStatus('backupStatus', false, res.error); return; }
     showStatus('backupStatus', true, res.data.length
       ? 'Saved backups (newest first, date-time): ' + res.data.join(', ')

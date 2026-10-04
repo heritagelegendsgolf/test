@@ -360,7 +360,6 @@ const EMBEDDED_SNAPSHOT = {
     "TeamACaptain": "Kevin Kusilek",
     "TeamBName": "Birdie Boys",
     "TeamBCaptain": "Winston Shade",
-    "AdminPIN": 1980,
     "Day1Locked": "TRUE",
     "Day2Locked": false,
     "SuspendScorePins": "FALSE",
@@ -1313,7 +1312,7 @@ const EMBEDDED_SNAPSHOT = {
 //   index.html and live.html =====
 // Bumped by hand every time this file changes — see the matching constant in
 // index.html and Code.gs.
-const LIVE_VERSION = '2026-10-05a';
+const LIVE_VERSION = '2026-10-06a';
 document.getElementById('envBadge').innerHTML = `${ENV.toUpperCase()}<div style="font-size:11px; opacity:0.75;" id="liveVersionBadge">Page: ${LIVE_VERSION} • Backend: …</div>`;
 async function loadVersionBadge() {
   const el = document.getElementById('liveVersionBadge');
@@ -1889,8 +1888,32 @@ function adminUnlockKey() { return `legends_admin_${ENV}`; }
 function getAdminUnlocked() {
   try { return localStorage.getItem(adminUnlockKey()) === '1'; } catch (e) { return false; }
 }
-function setAdminUnlocked(v) {
-  try { v ? localStorage.setItem(adminUnlockKey(), '1') : localStorage.removeItem(adminUnlockKey()); } catch (e) {}
+function adminNameKey() { return `legends_adminname_${ENV}`; }
+function getAdminName() {
+  try { return localStorage.getItem(adminNameKey()) || ''; } catch (e) { return ''; }
+}
+// `name` is the admin whose PIN unlocked this device (from the server), kept
+// so changes made in admin mode are attributed to that person in the log.
+function setAdminUnlocked(v, name) {
+  try {
+    if (v) {
+      localStorage.setItem(adminUnlockKey(), '1');
+      localStorage.setItem(adminNameKey(), name || '');
+    } else {
+      localStorage.removeItem(adminUnlockKey());
+      localStorage.removeItem(adminNameKey());
+    }
+  } catch (e) {}
+}
+// Admin PINs are checked on the server (they are never sent to this page).
+// Resolves { ok:true, name } or { ok:false, error }.
+async function verifyAdminOnServer_(pin, where) {
+  try {
+    const res = await apiPost('verifyAdminPin', { pin, where });
+    return res.success ? { ok: true, name: res.data.name } : { ok: false, error: res.error || 'Incorrect PIN.' };
+  } catch (e) {
+    return { ok: false, error: 'Could not reach the server — check your connection and try again.' };
+  }
 }
 // Mirrors suspendPinsOn() in index.html.
 function suspendPinsOn() {
@@ -2034,7 +2057,7 @@ function renderScoringUI(day, matchNum) {
     toggleEl.innerHTML = '<span class="hint" style="margin-left:auto; color:#b8860b; font-weight:600;">Testing mode: PIN requirement is suspended for every match</span>';
   } else {
     toggleEl.innerHTML = getAdminUnlocked()
-      ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="exitAdminMode('${day}', '${matchNum}')">Exit Admin Mode</button>`
+      ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="exitAdminMode('${day}', '${matchNum}')">Exit Admin Mode${getAdminName() ? ' (' + escapeHtml(getAdminName()) + ')' : ''}</button>`
       : (pinForMatch(matchNum, day)
           ? `<button type="button" class="secondary" style="margin-left:auto;" onclick="lockMatch('${matchNum}')">Forget PIN</button>`
           : '');
@@ -2083,23 +2106,31 @@ function renderPinLock(day, matchNum) {
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlockMatch(day, matchNum); });
   input.focus();
 }
-function tryUnlockMatch(day, matchNum) {
+async function tryUnlockMatch(day, matchNum) {
   const entered = document.getElementById('matchPinInput').value.trim();
   const requiredPin = pinForMatch(matchNum, day);
-  const adminPin = String((settings && settings.AdminPIN) || '').trim();
-  if (adminPin && pinsMatch(entered, adminPin)) {
-    // The Admin PIN unlocks every match on this device, not just this one.
-    setAdminUnlocked(true);
-    renderScoringUI(day, matchNum);
-  } else if (entered && requiredPin && pinsMatch(entered, requiredPin)) {
+  if (!(entered && requiredPin && pinsMatch(entered, requiredPin))) {
+    // Not this match's PIN — it may be an admin's own PIN, which unlocks every
+    // match on this device (checked on the server).
+    const errEl = document.getElementById('pinError');
+    if (!entered) { errEl.textContent = 'Enter the PIN.'; return; }
+    errEl.textContent = 'Checking…';
+    const v = await verifyAdminOnServer_(entered, 'scoring page');
+    if (v.ok) {
+      setAdminUnlocked(true, v.name);
+      renderScoringUI(day, matchNum);
+    } else {
+      errEl.textContent = /too many/i.test(v.error) ? v.error : (/reach the server/i.test(v.error) ? v.error : 'Incorrect PIN — check with your foursome or the admin.');
+    }
+    return;
+  }
+  if (true) {
     // Remember it for the day it was typed into; if the other day uses the
     // very same PIN (the usual shared-PIN case), remember it there too.
     storePin(matchNum, entered, day);
     const otherDay = day === '1' ? '2' : '1';
     if (pinsMatch(entered, pinForMatch(matchNum, otherDay))) storePin(matchNum, entered, otherDay);
     renderScoringUI(day, matchNum);
-  } else {
-    document.getElementById('pinError').textContent = 'Incorrect PIN — check with your foursome or the admin.';
   }
 }
 // ---- direct hole-winner tap UI (replaces gross-score entry) ----
@@ -2617,7 +2648,7 @@ async function saveCurrentMatchNow_(day, matchNum, holes, key) {
   let permanentFailure = false; // e.g. the day is locked — retrying later won't help
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await apiPost('saveMatchScores', { day, matchNum, holes: JSON.stringify(holes), source: getAdminUnlocked() ? 'Admin' : 'Scorekeeper' });
+      const res = await apiPost('saveMatchScores', { day, matchNum, holes: JSON.stringify(holes), source: getAdminUnlocked() ? ('Admin' + (getAdminName() ? ': ' + getAdminName() : '')) : 'Scorekeeper' });
       if (!res.success) {
         lastErrorText = res.error || 'Save failed';
         if (/locked/i.test(lastErrorText)) { permanentFailure = true; break; }
@@ -3536,7 +3567,7 @@ async function submitGatePin() {
   // snapshot baked into the file either — does a PIN check have to wait.
   if (!bootDataReady) {
     try {
-      await ensureSharedData(); // pairings/matchPins (and AdminPIN, via settings) may still be loading
+      await ensureSharedData(); // pairings and match PINs may still be loading
     } catch (e) {
       input.disabled = false;
       errEl.textContent = 'Could not reach the tournament server — check your connection and try again.';
@@ -3544,21 +3575,25 @@ async function submitGatePin() {
     }
   }
   input.disabled = false;
-  const adminPin = String((settings && settings.AdminPIN) || '').trim();
-  if (adminPin && entered === adminPin) {
-    // The Admin PIN unlocks every match on this device — there's no single
-    // match to route to, so just drop into Live Scoring's normal day/match
-    // dropdowns, everything already unlocked, defaulted to today's day (see
-    // defaultGateDay_).
-    setAdminUnlocked(true);
-    document.getElementById('scDay').value = defaultGateDay_();
-    onScDayOrMatchChange();
-    hideEntryGate();
-    return;
-  }
+  // A match's own PIN is checked right here, instantly, with no network round
+  // trip. Anything else may be an admin's personal PIN, which the server checks.
   const found = findMatchNumByPin(entered);
   if (!found) {
-    errEl.textContent = 'PIN not recognized — check with your foursome or the admin.';
+    input.disabled = true;
+    const v = await verifyAdminOnServer_(entered, 'scoring page');
+    input.disabled = false;
+    if (v.ok) {
+      // An admin PIN unlocks every match on this device — there's no single
+      // match to route to, so just drop into Live Scoring's normal day/match
+      // dropdowns, everything already unlocked, defaulted to today's day (see
+      // defaultGateDay_).
+      setAdminUnlocked(true, v.name);
+      document.getElementById('scDay').value = defaultGateDay_();
+      onScDayOrMatchChange();
+      hideEntryGate();
+      return;
+    }
+    errEl.textContent = (/too many/i.test(v.error) || /reach the server/i.test(v.error)) ? v.error : 'PIN not recognized — check with your foursome or the admin.';
     return;
   }
   const matchNum = found.matchNum;
