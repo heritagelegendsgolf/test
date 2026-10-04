@@ -101,6 +101,9 @@
     body.printing-help .tab-panel:not(#tab-help) { display: none !important; }
     body.printing-help .card { border: none; box-shadow: none; }
   }
+  .subtabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .subtab-btn { padding:8px 16px; border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--text); font:inherit; cursor:pointer; }
+  .subtab-btn.active { background:var(--green); border-color:var(--green); color:#fff; font-weight:600; }
 </style>
 </head>
 <body>
@@ -267,7 +270,11 @@
 
     <!-- ROSTER -->
     <section id="tab-roster" class="tab-panel" hidden>
-      <div class="card">
+      <div class="subtabs" role="tablist" aria-label="Roster sections">
+        <button type="button" class="subtab-btn active" id="rosterSub_roster" onclick="showRosterSub('roster')">Roster</button>
+        <button type="button" class="subtab-btn" id="rosterSub_replace" onclick="showRosterSub('replace')">Replace a Player on Day 2</button>
+      </div>
+      <div class="card" id="rosterCard">
         <h2>Roster</h2>
         <p class="hint">Add every player and which team they're on. Handicap Index and Tee are used for Day 2 net scoring — fill them in whenever you have them, they're not required to set up pairings. <strong>Course Handicap</strong> is calculated automatically from those two (Red: Slope 111 / Rating 64.1; Gold: Slope 120 / Rating 67.1; Par 72 both) and is what's actually used for strokes on scorecards and during matches — it's read-only here, just type in Handicap Index and Tee and it fills itself in. Check <strong>Scorekeeper?</strong> for every volunteer willing to keep score for their own match — once checked here, the Day 1/Day 2 Pairings tables will flag any match whose four players don't include at least one.</p>
         <p class="hint">The number of matches on the Day 1/Day 2 Pairings tabs and the Scorekeeper PINs tab is kept in sync with this roster automatically: it's always (Team A size)/2, so adding or removing 4 players (2 per team) adds or removes one match the moment you hit Save Roster below. Growing adds a new blank match at the end for you to fill in; shrinking only removes a trailing match that has no players in it yet — if the match that would need to go still has players assigned, you'll be told to clear them first.</p>
@@ -295,7 +302,7 @@
       </div>
 
       <!-- DAY 2 SUBSTITUTION -->
-      <div class="card" id="replacePlayerCard">
+      <div class="card" id="replacePlayerCard" hidden>
         <h2>Replace a Player on Day 2</h2>
         <p class="hint">Use this when someone has to drop out before (or on the morning of) Day 2 and a substitute steps in. One click does everything: the player who's out is marked "Not participating" on the Roster, the substitute is put on the same team, and the substitute's name takes the outgoing player's place everywhere on the <strong>Day 2 Pairings</strong> (their foursome, and the individual match-play slot). Day 1 Pairings and Day 1 scores are never touched. The match's Scorekeeper PIN stays exactly as it is, so the foursome keeps the same code. <strong>Save the Roster above first</strong> if you've made other edits there — this reloads the Roster from the saved copy when it finishes.</p>
         <div class="row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
@@ -419,7 +426,7 @@
           <li>Scorekeepers open the public scoring link, choose Scorekeeper, enter their PIN, and tap the winner of each hole (or Tie).</li>
           <li>Everyone else watches the Scoreboard tab. Add <code>?display=1</code> to the scoring link for a big auto-refreshing screen.</li>
           <li>To correct a score: type your own admin PIN on any match's lock screen, then edit. Your name is recorded on the Activity tab.</li>
-          <li>A player drops out before Day 2: Roster tab, <em>Replace a Player on Day 2</em>.</li>
+          <li>A player drops out before Day 2: Roster tab, then the <em>Replace a Player on Day 2</em> button at the top.</li>
           <li>When a day is finished, lock it in Settings. "Results are locked" is the correct final state.</li>
         </ul>
         <h3>If something goes wrong</h3>
@@ -1452,7 +1459,7 @@ const EMBEDDED_SNAPSHOT = {
 // the live "Backend:" version (from Code.gs) so you can tell at a glance
 // whether the page you're looking at, and the Apps Script it's talking to,
 // are both up to date.
-const ADMIN_VERSION = '2026-10-06a';
+const ADMIN_VERSION = '2026-10-06b';
 
 // Environment detection: an explicit ?env=test or ?env=live in the URL always
 // wins (use this while testing the raw local file, e.g. index.html?env=test).
@@ -1975,6 +1982,16 @@ function renderReplacePlayerForm() {
   const hint = document.getElementById('rp_hint');
   if (hint && !outNames.length) hint.textContent = 'No players are assigned to Day 2 matches yet — set up the Day 2 Pairings first.';
   else if (hint) hint.textContent = '';
+}
+// The Roster tab has two views: the roster table (default) and the Day 2
+// substitute form. Switching to the form refreshes its player lists.
+function showRosterSub(which) {
+  const isReplace = which === 'replace';
+  document.getElementById('rosterCard').hidden = isReplace;
+  document.getElementById('replacePlayerCard').hidden = !isReplace;
+  document.getElementById('rosterSub_roster').classList.toggle('active', !isReplace);
+  document.getElementById('rosterSub_replace').classList.toggle('active', isReplace);
+  if (isReplace) renderReplacePlayerForm();
 }
 async function replacePlayerDay2() {
   const status = 'rp_status';
