@@ -1341,7 +1341,7 @@ const EMBEDDED_SNAPSHOT = {
 // the live "Backend:" version (from Code.gs) so you can tell at a glance
 // whether the page you're looking at, and the Apps Script it's talking to,
 // are both up to date.
-const ADMIN_VERSION = '2026-10-04a';
+const ADMIN_VERSION = '2026-10-04b';
 
 // Environment detection: an explicit ?env=test or ?env=live in the URL always
 // wins (use this while testing the raw local file, e.g. index.html?env=test).
@@ -2564,14 +2564,21 @@ const COMPACT_PRINT_CSS = `
   .cc-day1 table.cc-table { font-size: 9.2pt; }
   .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child) td { padding: 1.5px 2px; }
   .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child) td.cc-name { padding: 1.5px 5px; }
-  .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child):not(.cc-spacer) { height: 0.27in; }
+  .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child):not(.cc-spacer) { height: 0.31in; }
   .cc-day1 tr.cc-tie-row td { font-size: 9.2pt; }
   .cc-day1 .cc-seg-title { font-size: 9pt; }
   .cc-day1 .cc-teams { font-size: 13pt; }
   .cc-day1 .cc-meta { font-size: 9pt; }
-  .cc-day1 table.cc-drive-table tbody tr:not(:first-child) { height: 0.27in; }
-  .cc-day1 table.cc-drive-table th { font-size: 8.4pt; }
-  .cc-day1 table.cc-drive-table th.cc-name, .cc-day1 table.cc-drive-table td.cc-name { width: 17%; }
+  /* Drives Used: same column grid as the segments above (name column, 9
+     equal hole columns, then a borderless blank cell standing in for the
+     Winner column), so every box lines up with the hole columns above it. */
+  table.cc-drive-table td.cc-name { width: 21%; }
+  .cc-day1 table.cc-table.cc-drive-table tbody tr.cc-drive-row { height: 0.19in !important; }
+  .cc-day1 table.cc-table.cc-drive-table tbody tr.cc-drive-row td { padding-top: 0 !important; padding-bottom: 0 !important; }
+  .cc-day1 table.cc-table.cc-drive-table td.cc-name { font-size: 8.4pt; }
+  table.cc-drive-table td.cc-drive-cell { position: relative; }
+  table.cc-drive-table .cc-hole-tag { position: absolute; top: 0; left: 2px; font-size: 6pt; font-weight: 400; color: #888; line-height: 1; }
+  table.cc-drive-table td.cc-drive-end { width: 9%; border: none; background: none; }
   .sc-tee { font-weight: 400; color: #666; font-size: 0.9em; }
   .sc-players { font-weight: 400; font-size: 0.88em; }
   .sc-start-hole { background: #fff176; }
@@ -2828,25 +2835,28 @@ function scorecardCardHtmlDay1Compact(row, rosterList, isSample) {
   const backSegment = printSegmentHtmlCompact('Back 9: Modified Alternate Shot', instruction, 10, 18, startHoleNum, backRows);
 
   // Each player must use three drives over the round, so each team also gets
-  // a row of 18 boxes to write the initial of whoever's drive was used.
-  let driveHeaderCells = '', driveBlankCells = '';
-  for (let h = 1; h <= 18; h++) {
-    const startClass = h === startHoleNum ? ' sc-start-hole' : '';
-    driveHeaderCells += `<th class="${startClass}">${h}</th>`;
-    driveBlankCells += `<td class="${startClass}"></td>`;
-  }
-  const driveRow = (teamName, color, p1, p2) => {
-    const who = (p1 || p2) ? `<br><span class="sc-players">${escapeHtml(nameLastInitial(p1) || '?')} + ${escapeHtml(nameLastInitial(p2) || '?')}</span>` : '';
-    return `<tr><td class="cc-name"${teamCellStyleAttr(color)}>${escapeHtml(teamName)}${who}</td>${driveBlankCells}</tr>`;
+  // boxes to write the initial of whoever's drive was used. 18 boxes at the
+  // same width as the hole columns above can't fit on one line, so this block
+  // reuses the card's own 9-hole column grid: one row per team for holes 1-9
+  // and another for holes 10-18, with each box carrying its hole number in
+  // the corner (no repeated header rows, which keeps the block short).
+  const driveRow = (teamName, color, startHole, endHole) => {
+    let cells = '';
+    for (let h = startHole; h <= endHole; h++) {
+      const startClass = h === startHoleNum ? ' sc-start-hole' : '';
+      cells += `<td class="cc-drive-cell${startClass}"><span class="cc-hole-tag">${h}</span></td>`;
+    }
+    return `<tr class="cc-drive-row"><td class="cc-name"${teamCellStyleAttr(color)}>${escapeHtml(teamName)} <span class="sc-players">&middot; holes ${startHole}&ndash;${endHole}</span></td>${cells}<td class="cc-drive-end"></td></tr>`;
   };
   const driveSegment = `
     <div class="cc-segment cc-drives">
       <div class="cc-seg-title">Drives Used <span class="cc-seg-instr">&mdash; write the initial of the player whose drive was used on each hole (each player must use 3)</span></div>
       <table class="cc-table cc-drive-table">
         <tbody>
-          <tr><th class="cc-name">Hole</th>${driveHeaderCells}</tr>
-          ${driveRow(names.A, settings.TeamAColor, row.TeamA_P1, row.TeamA_P2)}
-          ${driveRow(names.B, settings.TeamBColor, row.TeamB_P1, row.TeamB_P2)}
+          ${driveRow(names.A, settings.TeamAColor, 1, 9)}
+          ${driveRow(names.B, settings.TeamBColor, 1, 9)}
+          ${driveRow(names.A, settings.TeamAColor, 10, 18)}
+          ${driveRow(names.B, settings.TeamBColor, 10, 18)}
         </tbody>
       </table>
     </div>`;
