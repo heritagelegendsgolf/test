@@ -143,7 +143,14 @@
   .indiv-table-wrap { flex: 1 1 360px; min-width: 320px; overflow-x: auto; }
   table.indiv-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
   table.indiv-table th, table.indiv-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
-  td.indiv-name { text-align: left; font-weight: 600; }
+  td.indiv-name { text-align: left; font-weight: 600; white-space: nowrap; }
+  /* Every player row the same height — a fixed row height (rather than
+     whatever each row's content happens to need) keeps the two team tables
+     lined up and stops a longer name from making one row taller. */
+  table.indiv-table tbody tr { height: 38px; }
+  table.indiv-table tbody td { vertical-align: middle; }
+  th.indiv-sortable { cursor: pointer; user-select: none; }
+  th.indiv-sortable:hover { text-decoration: underline; }
   td.indiv-total, tr.indiv-col-row th:last-child { font-weight: 700; }
   /* Background is set inline per table (see individualTableHtml) to that
      team's own configured color, not a fixed color shared by both teams. */
@@ -1291,7 +1298,7 @@ const EMBEDDED_SNAPSHOT = {
 //   index.html and live.html =====
 // Bumped by hand every time this file changes — see the matching constant in
 // index.html and Code.gs.
-const LIVE_VERSION = '2026-09-30';
+const LIVE_VERSION = '2026-10-04a';
 document.getElementById('envBadge').innerHTML = `${ENV.toUpperCase()}<div style="font-size:11px; opacity:0.75;" id="liveVersionBadge">Page: ${LIVE_VERSION} • Backend: …</div>`;
 async function loadVersionBadge() {
   const el = document.getElementById('liveVersionBadge');
@@ -1583,6 +1590,18 @@ function lastName(name) {
   const first = idx === -1 ? '' : name.slice(idx + 1).trim();
   const initial = first ? first.charAt(0).toUpperCase() : '';
   return initial ? `${ln} ${initial}` : ln;
+}
+// "Last, F." — last name plus first initial only. Used everywhere on the
+// Scoreboard tab so every player reads the same way. Roster names are stored
+// "Last, First"; a name with no comma is returned unchanged, and an empty
+// slot shows "?" like lastName() does.
+function nameLastInitial(name) {
+  if (!name) return '?';
+  const idx = name.indexOf(',');
+  if (idx === -1) return String(name).trim();
+  const ln = name.slice(0, idx).trim();
+  const first = name.slice(idx + 1).trim();
+  return first ? `${ln}, ${first.charAt(0).toUpperCase()}.` : ln;
 }
 function hasPlayersLb(row) {
   return !!(row.TeamA_P1 || row.TeamA_P2 || row.TeamB_P1 || row.TeamB_P2);
@@ -2753,7 +2772,7 @@ function loadScoreboard() {
 // Last names of a two-player pairing, joined like the pairing columns
 // elsewhere on the leaderboard (e.g. "Stewart + Davis").
 function pairName(p1, p2) {
-  return `${lastName(p1)} + ${lastName(p2)}`;
+  return `${nameLastInitial(p1)} + ${nameLastInitial(p2)}`;
 }
 // Splices the leading side's name into a segment's status text, right before
 // the margin — "Final — 2 up" becomes "Final — Stewart + Davis 2 up", "2 up
@@ -2804,11 +2823,11 @@ function segmentInfoFromHoles(day, row, holeRows) {
   let segs, segLabels, segNames;
   if (day === '2') {
     segs = [computeDay2BestBall(row, holeRows), computeDay2MatchPlay(row, holeRows, 1), computeDay2MatchPlay(row, holeRows, 2)];
-    segLabels = ['Best Ball', `${lastName(row.MP1_TeamA)} vs ${lastName(row.MP1_TeamB)}`, `${lastName(row.MP2_TeamA)} vs ${lastName(row.MP2_TeamB)}`];
+    segLabels = ['Best Ball', `${nameLastInitial(row.MP1_TeamA)} vs ${nameLastInitial(row.MP1_TeamB)}`, `${nameLastInitial(row.MP2_TeamA)} vs ${nameLastInitial(row.MP2_TeamB)}`];
     segNames = [
       [pairName(row.TeamA_P1, row.TeamA_P2), pairName(row.TeamB_P1, row.TeamB_P2)],
-      [lastName(row.MP1_TeamA), lastName(row.MP1_TeamB)],
-      [lastName(row.MP2_TeamA), lastName(row.MP2_TeamB)],
+      [nameLastInitial(row.MP1_TeamA), nameLastInitial(row.MP1_TeamB)],
+      [nameLastInitial(row.MP2_TeamA), nameLastInitial(row.MP2_TeamB)],
     ];
   } else {
     segs = [computeDay1Segment(holeRows, 1, 9), computeDay1Segment(holeRows, 10, 18)];
@@ -2850,8 +2869,8 @@ async function loadLeaderboardView(day) {
     const leadClassA = aAhead ? (allFinal ? 'lbx-final-lead-a' : 'lbx-lead-a') : '';
     const leadClassB = bAhead ? (allFinal ? 'lbx-final-lead-b' : 'lbx-lead-b') : '';
     const tiedClass = (!aAhead && !bAhead && allFinal) ? 'lbx-tied' : '';
-    const pairA = `${lastName(row.TeamA_P1)} + ${lastName(row.TeamA_P2)}`;
-    const pairB = `${lastName(row.TeamB_P1)} + ${lastName(row.TeamB_P2)}`;
+    const pairA = `${nameLastInitial(row.TeamA_P1)} + ${nameLastInitial(row.TeamA_P2)}`;
+    const pairB = `${nameLastInitial(row.TeamB_P1)} + ${nameLastInitial(row.TeamB_P2)}`;
     const segBadges = segs.map((s, i) => lbxSegBadgeHtml(segLabels[i], s, segNames[i][0], segNames[i][1])).join('');
     return `<tr>
       <td class="lbx-pts ${leadClassA} ${tiedClass}">${lbxPtsStackHtml(segs, 'A', ptsA)}</td>
@@ -3052,13 +3071,49 @@ function indivCellHtml(n) {
   return n > 0 ? formatPts(n) : '&ndash;';
 }
 
+// Individual Results sort state — shared by both team tables so they always
+// stay in the same order. key: 'name' (by last name, then first) or 'total'.
+let indivSort = { key: 'name', dir: 'asc' };
+let indivData = null; // { names, colors, teamAPlayers, teamBPlayers, pts } from the last load
+
+function setIndivSort(key) {
+  if (indivSort.key === key) {
+    indivSort.dir = indivSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    // Names read naturally A→Z first; totals read best highest-first.
+    indivSort = { key, dir: key === 'total' ? 'desc' : 'asc' };
+  }
+  renderIndividualResults();
+}
+
+function sortIndivPlayers(players, pts) {
+  const blank = { cc: 0, altShot: 0, bestBall: 0, matchPlay: 0 };
+  const totalOf = (n) => { const p = pts[n] || blank; return p.cc + p.altShot + p.bestBall + p.matchPlay; };
+  const lastOf = (n) => lastNameRaw_(n).toLowerCase();
+  const firstOf = (n) => { const i = n.indexOf(','); return (i === -1 ? '' : n.slice(i + 1)).trim().toLowerCase(); };
+  const byName = (a, b) => lastOf(a).localeCompare(lastOf(b)) || firstOf(a).localeCompare(firstOf(b));
+  const sorted = players.slice();
+  sorted.sort((a, b) => {
+    let c;
+    if (indivSort.key === 'total') c = totalOf(a) - totalOf(b) || byName(a, b) * (indivSort.dir === 'desc' ? -1 : 1);
+    else c = byName(a, b);
+    return indivSort.dir === 'desc' ? -c : c;
+  });
+  return sorted;
+}
+
+function indivSortArrow(key) {
+  if (indivSort.key !== key) return '';
+  return indivSort.dir === 'asc' ? ' &#9650;' : ' &#9660;';
+}
+
 function individualTableHtml(teamLabel, teamColor, players, pts) {
   const color = escapeHtml(teamColor || '#999999');
   const blank = { cc: 0, altShot: 0, bestBall: 0, matchPlay: 0 };
-  const rowsHtml = players.map((name) => {
+  const rowsHtml = sortIndivPlayers(players, pts).map((name) => {
     const p = pts[name] || blank;
     const total = p.cc + p.altShot + p.bestBall + p.matchPlay;
-    return `<tr><td class="indiv-name">${escapeHtml(name)}</td><td>${indivCellHtml(p.cc)}</td><td>${indivCellHtml(p.altShot)}</td><td>${indivCellHtml(p.bestBall)}</td><td>${indivCellHtml(p.matchPlay)}</td><td class="indiv-total">${indivCellHtml(total)}</td></tr>`;
+    return `<tr><td class="indiv-name">${escapeHtml(nameLastInitial(name))}</td><td>${indivCellHtml(p.cc)}</td><td>${indivCellHtml(p.altShot)}</td><td>${indivCellHtml(p.bestBall)}</td><td>${indivCellHtml(p.matchPlay)}</td><td class="indiv-total">${indivCellHtml(total)}</td></tr>`;
   }).join('');
   const totals = players.reduce((acc, name) => {
     const p = pts[name] || blank;
@@ -3072,11 +3127,22 @@ function individualTableHtml(teamLabel, teamColor, players, pts) {
         <thead>
           <tr class="indiv-team-row" style="background:${color};"><th colspan="6">${teamNameHtml(teamLabel, teamColor)}</th></tr>
           <tr class="indiv-daygroup-row"><th></th><th colspan="2">Day 1</th><th colspan="2">Day 2</th><th></th></tr>
-          <tr class="indiv-col-row"><th></th><th>Captain's Choice</th><th>Alternate Shot</th><th>Best Ball</th><th>Match Play</th><th>Total</th></tr>
+          <tr class="indiv-col-row"><th class="indiv-sortable" style="text-align:left;" onclick="setIndivSort('name')" title="Sort by last name">Player${indivSortArrow('name')}</th><th>Captain's Choice</th><th>Alternate Shot</th><th>Best Ball</th><th>Match Play</th><th class="indiv-sortable" onclick="setIndivSort('total')" title="Sort by total">Total${indivSortArrow('total')}</th></tr>
         </thead>
         <tbody>${rowsHtml || `<tr><td colspan="6" class="lbx-unset">No players assigned to this team yet (Admin &rarr; Roster)</td></tr>`}</tbody>
         ${players.length ? `<tfoot><tr class="indiv-total-row" style="background:${color};"><td>Total</td><td>${formatPts(totals.cc)}</td><td>${formatPts(totals.altShot)}</td><td>${formatPts(totals.bestBall)}</td><td>${formatPts(totals.matchPlay)}</td><td>${formatPts(grandTotal)}</td></tr></tfoot>` : ''}
       </table>
+    </div>
+  `;
+}
+
+function renderIndividualResults() {
+  if (!indivData) return;
+  const { names, colors, teamAPlayers, teamBPlayers, pts } = indivData;
+  document.getElementById('sbIndividual').innerHTML = `
+    <div class="indiv-wrap">
+      ${individualTableHtml(names.A, colors.A, teamAPlayers, pts)}
+      ${individualTableHtml(names.B, colors.B, teamBPlayers, pts)}
     </div>
   `;
 }
@@ -3099,12 +3165,8 @@ async function loadIndividualResults() {
   // who they happened to be paired with in any one match.
   const teamAPlayers = roster.filter((p) => p.Team === 'A' && p.Name).map((p) => p.Name);
   const teamBPlayers = roster.filter((p) => p.Team === 'B' && p.Name).map((p) => p.Name);
-  document.getElementById('sbIndividual').innerHTML = `
-    <div class="indiv-wrap">
-      ${individualTableHtml(names.A, colors.A, teamAPlayers, pts)}
-      ${individualTableHtml(names.B, colors.B, teamBPlayers, pts)}
-    </div>
-  `;
+  indivData = { names, colors, teamAPlayers, teamBPlayers, pts };
+  renderIndividualResults();
 }
 
 // ---- Match Scorecards: "Progression" strips, one per format segment ----
