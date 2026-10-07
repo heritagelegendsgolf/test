@@ -44,6 +44,7 @@
   .admin-groups { display: flex; gap: 0; margin-bottom: 10px; border-bottom: 2px solid var(--border); }
   .admin-group { padding: 8px 22px; border: none; background: none; font: inherit; font-weight: 600; font-size: 1rem; color: #666; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
   .admin-group.active { color: var(--green-dark, var(--green)); border-bottom-color: var(--green); }
+  .my-summary ul { margin: 4px 0 10px; padding-left: 20px; } .my-summary li { margin: 3px 0; } .my-summary h3 { margin: 10px 0 2px; font-size: 1rem; } .standby-txt { color: #9a6b00; }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -219,6 +220,7 @@
           <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="events" hidden>Events</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="rules" hidden>Sign-up rules</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="admins" hidden>Admins</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="sugimport" hidden>SignUp Genius import</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
         </div>
@@ -240,7 +242,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07n';
+const APP_VERSION = '2026-10-07o';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -619,6 +621,52 @@ function dayState(d) {
   return now < d.opensAt ? 'notyet' : now > d.closesAt ? 'closed' : 'open';
 }
 
+let signupsView = 'all'; // 'all' dates, or 'mine' = what I'm signed up for and what I can still sign up for
+function setSignupsView(v) { signupsView = v; openForm = null; renderSignups(); }
+// One line per thing I'm on (round, event, duty) and per date I can still join.
+function mySummaryHtml(items) {
+  const me = myId();
+  const mine = [], canJoin = [];
+  items.forEach((it) => {
+    if (it.type === 'day') {
+      const d = it.d;
+      if (d.closed) return;
+      const state = dayState(d);
+      let found = null;
+      ['fun', 'nassau'].forEach((g) => {
+        const list = groupList(d.DateKey, g), idx = list.findIndex((x) => String(x.PlayerID) === me);
+        if (idx === -1) return;
+        const slots = g === 'fun' ? d.funSlots : d.nassauSlots, times = g === 'fun' ? d.funTimes : d.nassauTimes;
+        const det = detailText(list[idx]);
+        found = `${g === 'fun' ? 'Fun' : 'Nassau'} group ${escapeHtml(times)} — ${idx < slots ? `<b>in</b> (#${idx + 1})` : `<b class="standby-txt">standby #${idx - slots + 1}</b>`}${det ? ` · ${escapeHtml(det)}` : ''}`;
+      });
+      if (found) mine.push({ key: d.DateKey, html: `<a href="#day-${d.DateKey}">${escapeHtml(dateShort(d.DateKey))}</a> · ${found}` });
+      else if (state === 'open') {
+        const f = groupList(d.DateKey, 'fun').length, n = groupList(d.DateKey, 'nassau').length;
+        const room = (c, slots) => (c < slots ? `${slots - c} open` : c < slots + d.standbySlots ? 'standby only' : 'full');
+        canJoin.push({ key: d.DateKey, html: `<a href="#day-${d.DateKey}">${escapeHtml(dateShort(d.DateKey))}</a> · Fun: ${room(f, d.funSlots)} · Nassau: ${room(n, d.nassauSlots)} <span class="hint">· closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>` });
+      } else if (state === 'notyet') {
+        canJoin.push({ key: d.DateKey, html: `${escapeHtml(dateShort(d.DateKey))} <span class="hint">· sign-ups open ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>` });
+      }
+    } else {
+      const e = it.e, group = 'event:' + e.EventID;
+      const list = (board.signups || []).filter((x) => x.Group === group);
+      const cap = parseInt(e.Capacity, 10) || 0, idx = list.findIndex((x) => String(x.PlayerID) === me);
+      if (idx !== -1) mine.push({ key: e.DateKey, html: `<a href="#event-${escapeHtml(e.EventID)}">${escapeHtml(dateShort(e.DateKey))}</a> · ${escapeHtml(e.Title)} — ${cap && idx >= cap ? `<b class="standby-txt">standby #${idx - cap + 1}</b>` : '<b>signed up</b>'}${list[idx].Note ? ` · ${escapeHtml(list[idx].Note)}` : ''}` });
+      else if (!cap || list.length < cap + parseInt(board.settings.StandbySlots, 10)) canJoin.push({ key: e.DateKey, html: `<a href="#event-${escapeHtml(e.EventID)}">${escapeHtml(dateShort(e.DateKey))}</a> · ${escapeHtml(e.Title)}${cap ? ` <span class="hint">· ${Math.max(cap - list.length, 0)} of ${cap} places left</span>` : ''}` });
+    }
+  });
+  const duty = (board.duty || []).filter((x) => String(x.PlayerID) === me && x.DateKey >= board.today).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
+  const dutyInfo = board.dutyDayInfo || {};
+  const li = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => `<li>${x.html}</li>`).join('');
+  return `<div class="card my-summary">
+      <h3 style="margin-top:0;">What I'm signed up for</h3>
+      ${mine.length ? `<ul>${li(mine)}</ul>` : '<p class="hint">Nothing yet.</p>'}
+      ${duty.length ? `<h3>My Tee Time Duty</h3><ul>${duty.map((x) => { const inf = dutyInfo[x.DateKey] || {}; return `<li>${escapeHtml(dateShort(x.DateKey))} · ${x.Role === 'phone' ? `phone in at ${escapeHtml(inf.call || '')}` : `in person, arrive ${escapeHtml(inf.arrive || '')}`}${inf.target ? ` <span class="hint">· books round for ${escapeHtml(dateShort(inf.target))}</span>` : ''}${inf.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</li>`; }).join('')}</ul>` : ''}
+      <h3>What I can sign up for</h3>
+      ${canJoin.length ? `<ul>${li(canJoin)}</ul>` : '<p class="hint">Nothing open right now.</p>'}
+    </div>`;
+}
 function renderSignups() {
   const el = document.getElementById('signupsBody');
   const items = [];
@@ -626,8 +674,26 @@ function renderSignups() {
   (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE')
     .forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
   items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
-  const intro = `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
-  el.innerHTML = swapIncomingHtml() + intro + (items.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
+  if (!session) signupsView = 'all';
+  const viewBar = session ? `<div class="subtabs" style="margin-bottom:10px;">
+      <button type="button" class="subtab-btn ${signupsView === 'all' ? 'active' : ''}" data-sview="all">All dates</button>
+      <button type="button" class="subtab-btn ${signupsView === 'mine' ? 'active' : ''}" data-sview="mine">My sign-ups</button></div>` : '';
+  let shown = items, top;
+  if (signupsView === 'mine') {
+    // Cards only for dates I'm on, or can still join.
+    const me = myId();
+    shown = items.filter((it) => {
+      if (it.type === 'event') return true;
+      const d = it.d;
+      if (d.closed) return false;
+      return dayState(d) === 'open' || ['fun', 'nassau'].some((g) => groupList(d.DateKey, g).some((x) => String(x.PlayerID) === me));
+    });
+    top = mySummaryHtml(items);
+  } else {
+    top = `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
+  }
+  el.innerHTML = swapIncomingHtml() + viewBar + top + (shown.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
+  el.querySelectorAll('[data-sview]').forEach((b) => b.onclick = () => setSignupsView(b.dataset.sview));
   wireSignups(el);
   wireSwaps(el);
 }
@@ -772,7 +838,7 @@ function eventCardHtml(e) {
   }
   const form = openForm && openForm.group === group ? eventFormHtml(e) : '';
   return `
-    <div class="card">
+    <div class="card" id="event-${escapeHtml(e.EventID)}">
       <div class="day-head"><span class="day-title">${escapeHtml(dateLong(e.DateKey))} — ${escapeHtml(e.Title)}</span><span class="day-state">${cap ? `${Math.min(list.length, cap)} of ${cap} signed up` : `${list.length} signed up`}</span></div>
       ${e.Description ? `<p class="hint" style="margin:4px 0 8px; white-space:pre-line;">${escapeHtml(e.Description)}</p>` : ''}
       <div class="grp">
@@ -1121,6 +1187,7 @@ function renderAdminSub() {
   if (adminSub === 'rules') return renderRulesAdmin(el);
   if (adminSub === 'activity') return renderActivityAdmin(el);
   if (adminSub === 'sugimport') return renderSugImportAdmin(el);
+  if (adminSub === 'admins') return renderAdminsAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 
@@ -1971,6 +2038,55 @@ async function doSugImport() {
   adoptBoard(res.data);
   const s = res.data.importSummary || { added: 0 };
   showStatus('sugStatus', true, `Imported ${s.added} sign-ups${s.skipped ? ` (${s.skipped} were already signed up and left alone)` : ''}${s.daysSet ? `, set ${s.daysSet} first tee times` : ''}${s.closuresAdded ? `, added ${s.closuresAdded} closures` : ''}. Check the Sign-ups tab.`);
+}
+
+// ---------------- Admins (same list as the tournament admin page) ----------------
+let adminUsers = null;
+async function renderAdminsAdmin(el) {
+  if (!adminUsers) {
+    el.innerHTML = '<div class="card hint">Loading admins…</div>';
+    try {
+      const res = await apiPost('getAdmins', {});
+      if (!res.success) { if (!handleAdminRejected(res.error)) el.innerHTML = `<div class="card status error">${escapeHtml(cleanError(res.error))}</div>`; return; }
+      adminUsers = res.data;
+    } catch (e) { el.innerHTML = '<div class="card status error">Could not reach the server — try again.</div>'; return; }
+  }
+  el.innerHTML = `<div class="card">
+      <h2>Admins</h2>
+      <p class="hint">Everyone listed here has <b>full admin rights</b> — in this app and on the Annual Tournament admin page (it's the same list). Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, type their name and a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
+      <div class="tbl-wrap"><table class="ad"><thead><tr><th>Name</th><th style="width:130px;">Admin PIN</th><th style="width:70px;">Active</th><th style="width:80px;"></th></tr></thead><tbody>
+      ${adminUsers.map((a, i) => `<tr>
+        <td><input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani"></td>
+        <td><input type="text" inputmode="numeric" maxlength="8" data-ai="${i}" data-f="PIN" value="${escapeHtml(a.PIN || '')}" style="width:110px;"></td>
+        <td style="text-align:center;"><input type="checkbox" data-ai="${i}" data-f="Active" ${a.Active !== 'FALSE' ? 'checked' : ''}></td>
+        <td><button class="link danger" data-arm="${i}">Remove</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="row" style="margin-top:12px;"><button class="secondary" id="admAdd">+ Add admin</button><button class="primary" id="admSave">Save admins</button>${dirtyNote}</div>
+      <div id="admStatus" class="status"></div>
+    </div>`;
+  el.querySelectorAll('[data-ai]').forEach((i) => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', () => {
+    adminUsers[Number(i.dataset.ai)][i.dataset.f] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : 'FALSE') : i.value.trim();
+    markDirty();
+  }));
+  el.querySelectorAll('[data-arm]').forEach((b) => b.onclick = () => { adminUsers.splice(Number(b.dataset.arm), 1); markDirty(); renderAdminsAdmin(el); });
+  document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE' }); markDirty(); renderAdminsAdmin(el); };
+  document.getElementById('admSave').onclick = async () => {
+    const bad = adminUsers.find((a) => (a.Name || a.PIN) && !/^\d{4,8}$/.test(String(a.PIN || '')));
+    if (bad) { showStatus('admStatus', false, `${bad.Name || 'An admin'}: the PIN must be 4 to 8 digits.`); return; }
+    showStatus('admStatus', true, 'Saving…');
+    try {
+      const res = await apiPost('saveAdmins', { admins: JSON.stringify(adminUsers) });
+      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('admStatus', false, cleanError(res.error)); return; }
+      adminUsers = res.data;
+      adminDirty = false;
+      // If you changed your own PIN, keep you signed in with the new one.
+      const meAdmin = adminUsers.find((a) => adminSession && a.Name === adminSession.name && a.Active !== 'FALSE');
+      if (meAdmin && meAdmin.PIN !== adminSession.pin) saveAdminSession({ name: adminSession.name, pin: meAdmin.PIN });
+      renderAdminsAdmin(el);
+      showStatus('admStatus', true, 'Saved.');
+    } catch (e) { showStatus('admStatus', false, 'Could not reach the server — try again.'); }
+  };
+  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
 
 // ---------------- Activity ----------------
