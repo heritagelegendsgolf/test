@@ -242,7 +242,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07o';
+const APP_VERSION = '2026-10-07p';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -351,6 +351,7 @@ function showGate() {
   drawGate();
 }
 function drawGate() {
+  if (gate.step === 'email' && !gate.email) { try { gate.email = localStorage.getItem('legends_last_email') || ''; } catch (e) {} }
   const el = document.getElementById('gate');
   let body = '';
   if (gate.step === 'email') {
@@ -358,49 +359,51 @@ function drawGate() {
       <h2>Sign in</h2>
       <p class="hint lead">Use the email address the Legends have on file for you.</p>
       <label for="gEmail">Email address</label>
-      <input id="gEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${escapeHtml(gate.email)}">
-      <button class="primary" id="gNext">Continue</button>
+      <input id="gEmail" name="username" type="email" inputmode="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${escapeHtml(gate.email)}">
+      <button type="submit" class="primary" id="gNext">Continue</button>
       <div class="gate-alt">
         <a class="link" href="live.html${escapeHtml(location.search)}" style="font-size:0.85rem; color:var(--green);">Just viewing the tournament scoreboard</a>
-        <button class="link" id="gAdmin">League admin</button>
+        <button type="button" class="link" id="gAdmin">League admin</button>
       </div>`;
   } else if (gate.step === 'pin') {
     body = `
       <h2>Enter your PIN</h2>
       <p class="hint lead">${escapeHtml(gate.email)}</p>
       <label for="gPin">PIN</label>
-      <input id="gPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" placeholder="4 digits">
-      <button class="primary" id="gNext">Sign in</button>
-      <div class="gate-alt"><button class="link" id="gBack">Use a different email</button></div>
+      <input id="gPin" name="password" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" placeholder="4 digits">
+      <button type="submit" class="primary" id="gNext">Sign in</button>
+      <div class="gate-alt"><button type="button" class="link" id="gBack">Use a different email</button></div>
       <p class="hint" style="text-align:center; margin-top:14px;">Forgot your PIN? Ask the admin to reset it, then sign in again to choose a new one.</p>`;
   } else if (gate.step === 'newpin') {
     body = `
       <h2>Choose a PIN</h2>
       <p class="hint lead">First time signing in as ${escapeHtml(gate.email)}. Choose a 4-digit PIN — you'll use it on any phone or computer.</p>
       <label for="gPin">New PIN</label>
-      <input id="gPin" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits">
+      <input id="gPin" name="password" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits">
       <label for="gPin2">Confirm PIN</label>
       <input id="gPin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits again">
-      <button class="primary" id="gNext">Save PIN &amp; sign in</button>
-      <div class="gate-alt"><button class="link" id="gBack">Use a different email</button></div>`;
+      <button type="submit" class="primary" id="gNext">Save PIN &amp; sign in</button>
+      <div class="gate-alt"><button type="button" class="link" id="gBack">Use a different email</button></div>`;
   } else {
     body = `
       <h2>League admin</h2>
       <p class="hint lead">Enter your admin PIN.</p>
       <label for="gPin">Admin PIN</label>
       <input id="gPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Admin PIN">
-      <button class="primary" id="gNext">Continue</button>
-      <div class="gate-alt"><button class="link" id="gBack">Back</button></div>`;
+      <button type="submit" class="primary" id="gNext">Continue</button>
+      <div class="gate-alt"><button type="button" class="link" id="gBack">Back</button></div>`;
   }
-  el.innerHTML = body + `<p class="gate-err" role="alert">${escapeHtml(gate.err)}</p>`;
+  // A real <form> with username + password fields lets the browser offer to save and fill the email and PIN.
+  const userField = gate.step === 'pin' || gate.step === 'newpin'
+    ? `<input type="email" name="username" autocomplete="username" value="${escapeHtml(gate.email)}" style="position:absolute;left:-9999px;width:1px;height:1px;" tabindex="-1" aria-hidden="true">` : '';
+  el.innerHTML = `<form id="gForm" method="post" action="#" autocomplete="on">${userField}${body}</form><p class="gate-err" role="alert">${escapeHtml(gate.err)}</p>`;
+  document.getElementById('gForm').onsubmit = (e) => { e.preventDefault(); submitGate(); };
   const first = document.getElementById(gate.step === 'email' ? 'gEmail' : 'gPin');
   if (first) first.focus();
-  document.getElementById('gNext').onclick = submitGate;
   const back = document.getElementById('gBack');
   if (back) back.onclick = () => { gate.step = 'email'; gate.err = ''; drawGate(); };
   const adm = document.getElementById('gAdmin');
   if (adm) adm.onclick = () => { gate.step = 'admin'; gate.err = ''; drawGate(); };
-  el.querySelectorAll('input').forEach((inp) => inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGate(); }));
 }
 function gateVal(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
 async function submitGate() {
@@ -412,6 +415,7 @@ async function submitGate() {
   try {
     if (gate.step === 'email') {
       gate.email = gateVal('gEmail');
+      try { localStorage.setItem('legends_last_email', gate.email); } catch (e) {}
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gate.email)) { gate.err = 'Enter your full email address.'; return; }
       const res = await apiPost('memberCheckEmail', { email: gate.email });
       if (!res.success) { gate.err = res.error; return; }
@@ -621,8 +625,6 @@ function dayState(d) {
   return now < d.opensAt ? 'notyet' : now > d.closesAt ? 'closed' : 'open';
 }
 
-let signupsView = 'all'; // 'all' dates, or 'mine' = what I'm signed up for and what I can still sign up for
-function setSignupsView(v) { signupsView = v; openForm = null; renderSignups(); }
 // One line per thing I'm on (round, event, duty) and per date I can still join.
 function mySummaryHtml(items) {
   const me = myId();
@@ -662,9 +664,9 @@ function mySummaryHtml(items) {
   return `<div class="card my-summary">
       <h3 style="margin-top:0;">What I'm signed up for</h3>
       ${mine.length ? `<ul>${li(mine)}</ul>` : '<p class="hint">Nothing yet.</p>'}
-      ${duty.length ? `<h3>My Tee Time Duty</h3><ul>${duty.map((x) => { const inf = dutyInfo[x.DateKey] || {}; return `<li>${escapeHtml(dateShort(x.DateKey))} · ${x.Role === 'phone' ? `phone in at ${escapeHtml(inf.call || '')}` : `in person, arrive ${escapeHtml(inf.arrive || '')}`}${inf.target ? ` <span class="hint">· books round for ${escapeHtml(dateShort(inf.target))}</span>` : ''}${inf.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</li>`; }).join('')}</ul>` : ''}
       <h3>What I can sign up for</h3>
       ${canJoin.length ? `<ul>${li(canJoin)}</ul>` : '<p class="hint">Nothing open right now.</p>'}
+      ${duty.length ? `<h3>My Tee Time Duty</h3><ul>${duty.map((x) => { const inf = dutyInfo[x.DateKey] || {}; return `<li>${escapeHtml(dateShort(x.DateKey))} · ${x.Role === 'phone' ? `phone in at ${escapeHtml(inf.call || '')}` : `in person, arrive ${escapeHtml(inf.arrive || '')}`}${inf.target ? ` <span class="hint">· books round for ${escapeHtml(dateShort(inf.target))}</span>` : ''}${inf.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</li>`; }).join('')}</ul>` : ''}
     </div>`;
 }
 function renderSignups() {
@@ -674,26 +676,9 @@ function renderSignups() {
   (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE')
     .forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
   items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
-  if (!session) signupsView = 'all';
-  const viewBar = session ? `<div class="subtabs" style="margin-bottom:10px;">
-      <button type="button" class="subtab-btn ${signupsView === 'all' ? 'active' : ''}" data-sview="all">All dates</button>
-      <button type="button" class="subtab-btn ${signupsView === 'mine' ? 'active' : ''}" data-sview="mine">My sign-ups</button></div>` : '';
-  let shown = items, top;
-  if (signupsView === 'mine') {
-    // Cards only for dates I'm on, or can still join.
-    const me = myId();
-    shown = items.filter((it) => {
-      if (it.type === 'event') return true;
-      const d = it.d;
-      if (d.closed) return false;
-      return dayState(d) === 'open' || ['fun', 'nassau'].some((g) => groupList(d.DateKey, g).some((x) => String(x.PlayerID) === me));
-    });
-    top = mySummaryHtml(items);
-  } else {
-    top = `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
-  }
-  el.innerHTML = swapIncomingHtml() + viewBar + top + (shown.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
-  el.querySelectorAll('[data-sview]').forEach((b) => b.onclick = () => setSignupsView(b.dataset.sview));
+  // Members land on their own summary (what I'm on / what I can join / my duty), with every date below it.
+  const top = (session ? mySummaryHtml(items) : '') + `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
+  el.innerHTML = swapIncomingHtml() + top + (items.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
   wireSignups(el);
   wireSwaps(el);
 }
@@ -792,7 +777,7 @@ function dutyBoxHtml(key) {
   if (info && info.targetClosed) {
     return `<div class="duty-box"><b>Tee Time Duty today:</b> no need to make tee times — no Legends tee times on ${escapeHtml(dateShort(target))} (${escapeHtml(info.targetClosed)}). <span class="hint">(${escapeHtml(inp.concat(ph).join(', '))})</span></div>`;
   }
-  return `<div class="duty-box"><b>Tee Time Duty today</b> (booking ${escapeHtml(dateShort(target))}):
+  return `<div class="duty-box"><b>Tee Time Duty today</b> (booking for ${escapeHtml(dateShort(target))}):
     ${inp.length ? `<div style="margin-top:4px;"><b>In person:</b> ${escapeHtml(inp.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyInPersonText, info))}</span></div>` : ''}
     ${ph.length ? `<div style="margin-top:4px;"><b>Phone in:</b> ${escapeHtml(ph.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyPhoneText, info))}</span></div>` : ''}
   </div>`;
@@ -986,10 +971,10 @@ function renderDuty() {
   if (dutyView === 'date') {
     el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Books round for</th></tr></thead><tbody>
       ${days.map((d) => `<tr class="${d.rows.some((r) => String(r.PlayerID) === myId()) ? 'mine' : ''}">
-        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
+        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">No tee times needed — ${escapeHtml(d.info.targetClosed)} in two weeks</div>` : d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
         <td>${names(d.rows, 'inperson') || '<span class="hint">—</span>'}</td>
         <td>${names(d.rows, 'phone') || '<span class="hint">—</span>'}</td>
-        <td>${d.info.target ? escapeHtml(dateShort(d.info.target)) : ''}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">No tee times needed — ${escapeHtml(d.info.targetClosed)}</div>` : ''}</td>
+        <td>${d.info.target ? escapeHtml(dateShort(d.info.target)) : ''}</td>
       </tr>`).join('')}</tbody></table></div>`;
   } else if (dutyView === 'person') {
     const byPerson = {};
@@ -1655,8 +1640,9 @@ function renderDaysAdmin(el) {
       <h2>First Tee Time <span class="hint" style="font-weight:400;">— the Legends tee times for each day</span></h2>
       <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. Each row saves on its own.</p>
       <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th></th></tr></thead><tbody>
-      ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); return `<tr>
-        <td><b>${escapeHtml(dateShort(k))}</b>${closed ? '<div class="hint" style="color:var(--error)">closed</div>' : ''}</td>
+      ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); if (closed) return `<tr class="closed-day">
+        <td><b>${escapeHtml(dateShort(k))}</b></td><td colspan="6" class="hint" style="color:var(--error)">No Legends tee times — ${escapeHtml(closed.Reason || 'closed')}</td></tr>`; return `<tr>
+        <td><b>${escapeHtml(dateShort(k))}</b></td>
         <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(defaultLegendsFirst(k))}" style="width:95px;"></td>
         <td><input type="number" min="0" max="14" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
         <td><input type="number" min="0" max="14" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
@@ -1685,6 +1671,7 @@ function renderDaysAdmin(el) {
     if (!touched[k] && c.NassauTimes) { nasCell.textContent = c.NassauTimes; nasCell.title = 'As SignUp Genius had it'; }
   };
   keys.forEach((k) => {
+    if (!inp(k, 'FunTeeTimes')) return; // closed day — nothing to fill in
     refresh(k);
     const fun = inp(k, 'FunTeeTimes'), nas = inp(k, 'NassauTeeTimes'), first = inp(k, 'LegendsFirst');
     fun.addEventListener('input', () => {
