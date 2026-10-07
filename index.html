@@ -232,7 +232,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07f';
+const APP_VERSION = '2026-10-07h';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1286,26 +1286,27 @@ function renderDutyAdmin(el) {
   if (!dutyEdit) { const m = mondayOf(board.today); startDutyEdit(m, addDays(m, 7 * 13 - 3)); }
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
   const slotHtml = (key, i, sl) => `<div class="duty-slot" style="display:flex;gap:4px;align-items:center;">
-      <select data-dk="${key}" data-i="${i}" style="max-width:160px;"><option value=""></option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === String(sl.id) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>
-      ${sl.id ? `<button class="link danger" title="Remove this name" data-clear="${key}" data-i="${i}" style="font-size:18px;line-height:1;">×</button>` : ''}
+      <select data-dk="${key}" data-i="${i}" style="max-width:145px;"><option value=""></option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === String(sl.id) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>
     </div>`;
   const extrasHtml = (key, d) => (d.extras || []).map((x, j) => { const r = rosterById(x.id); return `<div class="hint" style="white-space:nowrap;">also ${x.role === 'phone' ? 'phone in' : 'in person'}: ${escapeHtml(r ? r.Name : '?')} <button class="link danger" title="Remove this name" data-clear-extra="${key}" data-j="${j}" style="font-size:16px;line-height:1;">×</button></div>`; }).join('');
   const keys = Object.keys(dutyEdit.days).sort();
   el.innerHTML = `
     <div class="card">
       <h2>Tee Time Duty assignments</h2>
-      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. Normally two people go <b>in person</b> and one <b>phones in</b>; a third in-person column is there for days that need one. To remove a name, click the <b>×</b> next to it. Each duty day books the round two weeks later (shown at right; change it for an unusual day like a Thursday standing in for a holiday). Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
+      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. Normally two people go <b>in person</b> and one <b>phones in</b>; a third in-person column is there for days that need one. To remove a name, choose the blank line at the top of its list. Each duty day books the round two weeks later, shown as “Wed, Oct 7 <b>for</b> Wed, Oct 21”; click the second date to change it for an unusual day (like a Thursday standing in for a holiday). Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
       <div class="row" style="margin-bottom:8px;">
         <label class="hint">From <input type="date" id="dFrom" value="${dutyEdit.from}"></label>
         <label class="hint">To <input type="date" id="dTo" value="${dutyEdit.to}"></label>
         <button class="secondary" id="dLoad">Show</button>
         <span class="hint">Add an extra duty day:</span><input type="date" id="dExtra"><button class="secondary" id="dAddExtra">Add</button>
       </div>
-      <div class="tbl-wrap"><table class="ad" style="min-width:860px;"><thead><tr><th>Duty day</th><th>In person 1</th><th>In person 2</th><th>In person 3</th><th>Phone in</th><th>Books round on</th></tr></thead><tbody>
+      <div class="tbl-wrap"><table class="ad" style="min-width:700px;"><thead><tr><th style="width:110px;">Duty day</th><th>In person 1</th><th>In person 2</th><th>In person 3</th><th>Phone in</th></tr></thead><tbody>
       ${keys.map((k) => { const d = dutyEdit.days[k]; return `<tr class="${isPlayDay(k) ? '' : 'weekend'}">
-        <td style="white-space:nowrap;"><b>${escapeHtml(dateShort(k))}</b>${k < board.today ? ' <span class="hint">past</span>' : ''}${extrasHtml(k, d)}</td>
+        <td><b>${escapeHtml(dateShort(k))}</b> for ${dutyEdit.editTarget === k
+          ? `<input type="date" data-target="${k}" value="${d.target || defaultTarget(k)}" style="width:140px;">`
+          : `<button class="link" data-edit-target="${k}" title="Change the round this duty day books" style="padding:0;${d.target && d.target !== defaultTarget(k) ? 'font-weight:700;' : ''}">${escapeHtml(dateShort(d.target || defaultTarget(k)))}</button>`}${k < board.today ? ' <span class="hint">(past)</span>' : ''}${extrasHtml(k, d)}</td>
         ${d.slots.map((sl, i) => `<td>${slotHtml(k, i, sl)}</td>`).join('')}
-        <td><input type="date" data-target="${k}" value="${d.target || defaultTarget(k)}"></td></tr>`; }).join('')}
+</tr>`; }).join('')}
       </tbody></table></div>
       <div class="row" style="margin-top:12px;"><button class="primary" id="dSave">Save duty</button>${dirtyNote}</div>
       <div id="dStatus" class="status"></div>
@@ -1321,17 +1322,16 @@ function renderDutyAdmin(el) {
   el.querySelectorAll('select[data-dk]').forEach((s) => s.onchange = () => {
     dutyEdit.days[s.dataset.dk].slots[Number(s.dataset.i)].id = s.value;
     markDirty();
-    renderDutyAdmin(el); // show / hide the × button
-  });
-  el.querySelectorAll('[data-clear]').forEach((b) => b.onclick = () => {
-    dutyEdit.days[b.dataset.clear].slots[Number(b.dataset.i)].id = '';
-    markDirty(); renderDutyAdmin(el);
   });
   el.querySelectorAll('[data-clear-extra]').forEach((b) => b.onclick = () => {
     dutyEdit.days[b.dataset.clearExtra].extras.splice(Number(b.dataset.j), 1);
     markDirty(); renderDutyAdmin(el);
   });
-  el.querySelectorAll('input[data-target]').forEach((i) => i.onchange = () => { dutyEdit.days[i.dataset.target].target = i.value; markDirty(); });
+  el.querySelectorAll('[data-edit-target]').forEach((b) => b.onclick = () => { dutyEdit.editTarget = b.dataset.editTarget; renderDutyAdmin(el); });
+  el.querySelectorAll('input[data-target]').forEach((i) => i.onchange = () => {
+    if (i.value) { dutyEdit.days[i.dataset.target].target = i.value; markDirty(); }
+    dutyEdit.editTarget = null; renderDutyAdmin(el);
+  });
   document.getElementById('dLoad').onclick = () => {
     const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
     if (!f || !t || f > t) { showStatus('dStatus', false, 'Choose a valid range.'); return; }
