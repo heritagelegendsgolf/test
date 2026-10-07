@@ -3,3468 +3,568 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Heritage Legends Tournament — Admin</title>
+<title>Heritage Legends Golf</title>
 <style>
   :root {
-    --green: #1e5b3a;
-    --green-dark: #123c26;
-    --gold: #c9a227;
-    --bg: #f5f5f0;
-    --card: #ffffff;
-    --border: #d8d8d0;
-    --text: #222;
-    --muted: #777;
-    --error: #b3261e;
-    --ok: #1e5b3a;
+    --green: #1e5b3a; --green-dark: #123c26; --gold: #c9a227;
+    --bg: #f5f5f0; --card: #ffffff; --border: #d8d8d0;
+    --text: #222; --muted: #6b6b63; --error: #b3261e; --ok: #1e5b3a;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    background: var(--bg); color: var(--text);
-  }
-  header {
-    background: var(--green); color: #fff; padding: 18px 24px;
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-  }
-  header h1 { margin: 0; font-size: 1.25rem; }
-  header .sub { font-size: 0.85rem; opacity: 0.85; }
-  nav { display: flex; gap: 4px; padding: 0 24px; background: var(--green-dark); flex-wrap: wrap; }
-  nav button {
-    background: transparent; border: none; color: #fff; opacity: 0.75; padding: 12px 16px;
-    cursor: pointer; font-size: 0.95rem; border-bottom: 3px solid transparent;
-  }
-  nav button.active { opacity: 1; border-bottom-color: var(--gold); font-weight: 600; }
-  main { max-width: 980px; margin: 0 auto; padding: 24px; }
-  .card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 20px; margin-bottom: 20px;
-  }
-  .card h2 { margin-top: 0; font-size: 1.05rem; color: var(--green-dark); }
-  .field-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
-  .field { flex: 1; min-width: 200px; }
-  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
-  input[type=text], input[type=number], input[type=date], select {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem;
-  }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
-  th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
-  tr.match-row td { vertical-align: top; padding-top: 10px; }
-  .match-label { font-weight: 600; color: var(--green-dark); white-space: nowrap; }
-  button.primary {
-    background: var(--green); color: #fff; border: none; padding: 10px 18px; border-radius: 6px;
-    cursor: pointer; font-size: 0.9rem; font-weight: 600;
-  }
-  button.primary:hover { background: var(--green-dark); }
-  button.secondary {
-    background: #fff; color: var(--green); border: 1px solid var(--green); padding: 8px 14px;
-    border-radius: 6px; cursor: pointer; font-size: 0.85rem;
-  }
-  button.link { background: none; border: none; color: var(--error); cursor: pointer; font-size: 0.85rem; }
-  .status { margin-top: 10px; font-size: 0.9rem; min-height: 20px; }
-  .status.ok { color: var(--ok); }
-  .status.error { color: var(--error); }
-  .hint { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
-  .gate {
-    max-width: 360px; margin: 80px auto; text-align: center; background: var(--card);
-    border: 1px solid var(--border); border-radius: 10px; padding: 32px;
-  }
-  .gate input { text-align: center; font-size: 1.2rem; letter-spacing: 2px; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
   [hidden] { display: none !important; }
-  #rosterTable { table-layout: fixed; }
-  .roster-team-col { width: 220px; }
-  .roster-narrow-col { width: 80px; }
-  .roster-action-col { width: 64px; }
-  .roster-ch-cell { text-align: center; color: #444; }
-  .placeholder-badge {
-    display: inline-block; background: #fff3cd; color: #7a5b00; border-radius: 4px;
-    padding: 2px 8px; font-size: 0.75rem; margin-left: 8px;
-  }
-  /* readiness checklist */
-  .ready-list { list-style: none; margin: 10px 0 0; padding: 0; }
-  .ready-list li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; display: flex; gap: 10px; align-items: baseline; }
-  .ready-list li:last-child { border-bottom: none; }
-  .ready-mark { font-weight: 700; width: 1.2em; flex: 0 0 auto; text-align: center; }
-  .ready-ok .ready-mark { color: var(--ok); }
-  .ready-warn .ready-mark { color: #b8860b; }
-  .ready-info .ready-mark { color: #1565c0; }
-  .ready-list a { color: #1565c0; cursor: pointer; text-decoration: underline; }
-  .ready-summary { font-weight: 600; margin-top: 6px; }
-  /* TEST site banner */
-  #testBanner { background: #b8860b; color: #fff; text-align: center; font-weight: 700; padding: 6px 10px; letter-spacing: 0.5px; }
-  /* help tab: print only the help text */
-  .help-body h3 { margin: 16px 0 4px; font-size: 1rem; }
-  .help-body p, .help-body li { font-size: 0.9rem; line-height: 1.45; }
-  .help-body ol, .help-body ul { margin: 4px 0 8px 22px; padding: 0; }
-  @media print {
-    body.printing-help #testBanner, body.printing-help header, body.printing-help nav, body.printing-help .no-print { display: none !important; }
-    body.printing-help .tab-panel:not(#tab-help) { display: none !important; }
-    body.printing-help .card { border: none; box-shadow: none; }
-  }
-  .subtabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-  .subtab-btn { padding:8px 16px; border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--text); font:inherit; cursor:pointer; }
-  .subtab-btn.active { background:var(--green); border-color:var(--green); color:#fff; font-weight:600; }
+  #testBanner { background: #b8860b; color: #fff; text-align: center; font-weight: 700; padding: 5px 10px; font-size: 0.8rem; letter-spacing: 0.5px; }
+  header { background: var(--green); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  header h1 { margin: 0; font-size: 1.25rem; }
+  header .sub { font-size: 0.82rem; opacity: 0.85; }
+  .who { text-align: right; font-size: 0.85rem; }
+  .who button { background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: 0.82rem; padding: 0 0 0 8px; }
+  .ver { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+  nav { display: flex; gap: 2px; padding: 0 12px; background: var(--green-dark); overflow-x: auto; }
+  nav button { background: transparent; border: none; color: #fff; opacity: 0.75; padding: 12px 14px; cursor: pointer; font-size: 0.95rem; border-bottom: 3px solid transparent; white-space: nowrap; }
+  nav button.active { opacity: 1; border-bottom-color: var(--gold); font-weight: 600; }
+  main { max-width: 900px; margin: 0 auto; padding: 18px 14px 50px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { margin-top: 0; font-size: 1.05rem; color: var(--green-dark); }
+  .hint { font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
+  button.primary { background: var(--green); color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 0.92rem; font-weight: 600; }
+  button.primary:disabled { opacity: 0.55; cursor: default; }
+  button.secondary { background: #fff; color: var(--green); border: 1px solid var(--green); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  button.link { background: none; border: none; color: var(--green); text-decoration: underline; cursor: pointer; font-size: 0.85rem; padding: 0; }
+  button.link.danger { color: var(--error); }
+  .status { margin-top: 10px; font-size: 0.9rem; min-height: 20px; }
+  .status.ok { color: var(--ok); } .status.error { color: var(--error); }
+  input[type=text], input[type=email], input[type=tel], input[type=password] { padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; width: 100%; }
+
+  /* ---- sign-in screen ---- */
+  .gate { max-width: 380px; margin: 40px auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 26px 22px; }
+  .gate h2 { margin: 0 0 4px; color: var(--green-dark); font-size: 1.2rem; text-align: center; }
+  .gate .lead { text-align: center; margin: 0 0 18px; }
+  .gate label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin: 12px 0 5px; }
+  .gate input { font-size: 16px; padding: 11px 12px; }
+  .gate button.primary { width: 100%; margin-top: 16px; padding: 12px; font-size: 1rem; }
+  .gate-alt { display: flex; justify-content: center; gap: 18px; margin-top: 16px; flex-wrap: wrap; }
+  .gate-err { min-height: 20px; margin: 12px 0 0; color: var(--error); font-size: 0.88rem; text-align: center; }
+
+  /* ---- tabs ---- */
+  .soon { border-left: 4px solid var(--gold); }
+  .tile-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .tile { flex: 1 1 240px; display: block; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .tile:hover { border-color: var(--green); }
+  .tile strong { color: var(--green-dark); display: block; margin-bottom: 4px; }
+  .subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .subtab-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font: inherit; font-size: 0.88rem; cursor: pointer; }
+  .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+
+  /* ---- admin: members ---- */
+  .mem-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .mem-tools input { max-width: 240px; }
+  .mem-table-wrap { overflow-x: auto; }
+  table.mem { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 680px; }
+  table.mem th, table.mem td { padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+  table.mem th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
+  table.mem td input[type=text], table.mem td input[type=email], table.mem td input[type=tel] { padding: 6px 8px; font-size: 0.88rem; }
+  table.mem tr.inactive td { opacity: 0.55; }
+  .pin-yes { color: var(--ok); font-weight: 600; white-space: nowrap; }
+  .pin-no { color: var(--muted); white-space: nowrap; }
+  .dirty-note { color: #8a6300; font-weight: 600; font-size: 0.85rem; }
 </style>
 </head>
 <body>
 
-<div id="gate" class="gate">
-  <h2>Legends Tournament Admin</h2>
-  <p class="hint">Enter the admin PIN to set up teams and pairings.</p>
-  <input id="pinInput" type="text" inputmode="numeric" placeholder="PIN" autofocus>
-  <div style="margin-top:16px;"><button class="primary" onclick="checkPin()">Enter</button></div>
-  <div id="gateStatus" class="status error"></div>
+<div id="testBanner" hidden>TEST SITE — practice data only</div>
+
+<!-- SIGN-IN -->
+<div id="gateWrap" hidden>
+  <header><div><h1>Heritage Legends Golf</h1><div class="sub">Sign-ups &amp; Tee Time Duty</div></div></header>
+  <div class="gate" id="gate"></div>
 </div>
 
+<!-- APP -->
 <div id="app" hidden>
-  <div id="testBanner" hidden>TEST SITE — practice data only, nothing here affects the real tournament</div>
   <header>
     <div>
-      <h1 id="tournamentTitle">Heritage Legends Tournament</h1>
-      <div class="sub" id="tournamentSub">Admin — Team &amp; Pairing Setup</div>
+      <h1>Heritage Legends Golf</h1>
+      <div class="sub">Sign-ups &amp; Tee Time Duty</div>
     </div>
-    <div class="sub" style="text-align:right;">
-      <div id="envBadge"></div>
-      <div id="versionBadge" style="font-size:11px; opacity:0.7;"></div>
-      <div id="adminWho" style="font-size:12px; margin-top:2px;"></div>
-      <div style="margin-top:6px;"><a id="liveLinkBtn" href="live.html" target="_blank" style="color:#fff;">Open Scoring Page (live.html) ↗</a></div>
+    <div class="who">
+      <div><span id="whoName"></span><button type="button" id="changePinBtn" onclick="changeMyPin()">Change PIN</button><button type="button" onclick="signOut()">Sign out</button></div>
+      <div class="ver" id="verBadge"></div>
     </div>
   </header>
-  <nav>
-    <button class="tab-btn active" data-tab="settings">Settings</button>
-    <button class="tab-btn" data-tab="roster">Roster</button>
-    <button class="tab-btn" data-tab="day1">Day 1 Pairings</button>
-    <button class="tab-btn" data-tab="day2">Day 2 Pairings</button>
-    <button class="tab-btn" data-tab="pins">Scorekeeper PINs</button>
-    <button class="tab-btn" data-tab="holehc">Hole Handicaps</button>
-    <button class="tab-btn" data-tab="print">Print Scorecards</button>
-    <button class="tab-btn" data-tab="activity">Activity</button>
-    <button class="tab-btn" data-tab="help">Help</button>
+  <nav id="tabs">
+    <button data-tab="signups" class="active">Sign-ups</button>
+    <button data-tab="duty">Tee Time Duty</button>
+    <button data-tab="files">Related Files</button>
+    <button data-tab="tournament">Annual Tournament</button>
+    <button data-tab="admin">Admin</button>
   </nav>
-
   <main>
-
-    <!-- SETTINGS -->
-    <section id="tab-settings" class="tab-panel">
-      <div class="card" id="readinessCard" style="border: 1px solid var(--green);">
-        <h2>Ready for tournament?</h2>
-        <p class="hint">A quick check of everything that needs to be in place before play. It reads what's currently on this page (save your edits first) — click a blue link to jump to the tab that fixes it.</p>
-        <div class="ready-summary" id="readySummary"></div>
-        <ul class="ready-list" id="readyList"></ul>
-        <button class="secondary no-print" style="margin-top:10px;" onclick="renderReadiness()">Re-check</button>
+    <section id="tab-signups" class="tab-panel">
+      <div class="card soon">
+        <h2>Sign-ups</h2>
+        <p class="hint">Coming in the next step: Fun group, Nassau group and standby lists for each Monday, Wednesday and Friday (opening at 7:10 AM two weeks ahead), plus other events like the banquet and the $5 / $10 tournaments.</p>
       </div>
-
+    </section>
+    <section id="tab-duty" class="tab-panel" hidden>
+      <div class="card soon">
+        <h2>Tee Time Duty</h2>
+        <p class="hint">Coming in the next step: who goes to the pro shop and who calls in for each date, with List by date, List by person and Calendar views.</p>
+      </div>
+    </section>
+    <section id="tab-files" class="tab-panel" hidden>
+      <div class="card soon">
+        <h2>Related Files</h2>
+        <p class="hint">Coming later: Legends History, Stableford scoring, photos and the quarterly tee time assignments, ready to download.</p>
+      </div>
+    </section>
+    <section id="tab-tournament" class="tab-panel" hidden>
       <div class="card">
-        <h2>Tournament Settings</h2>
-        <div class="field-row">
-          <div class="field"><label>Tournament Name</label><input id="s_TournamentName" type="text"></div>
+        <h2>Heritage Legends Tournament</h2>
+        <div class="tile-row">
+          <a class="tile" id="lnkLive" href="live.html" target="_blank" rel="noopener">
+            <strong>Scoreboard &amp; Live Scoring ↗</strong>
+            <span class="hint">Results from the annual two-day tournament, including past years.</span>
+          </a>
+          <a class="tile" id="lnkTAdmin" href="tournament-admin.html" target="_blank" rel="noopener">
+            <strong>Tournament admin ↗</strong>
+            <span class="hint">Teams, pairings, PINs and scorecards. Admins only (asks for your admin PIN).</span>
+          </a>
         </div>
-        <div class="field-row">
-          <div class="field"><label>Day 1 Date</label><input id="s_Day1Date" type="date"></div>
-          <div class="field"><label>Day 2 Date</label><input id="s_Day2Date" type="date"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Team A Name <span class="hint">(placeholder until captains decide)</span></label><input id="s_TeamAName" type="text"></div>
-          <div class="field"><label>Team A Captain</label><input id="s_TeamACaptain" type="text"></div>
-          <div class="field" style="flex:0 0 auto; min-width:0;"><label>Team A Color</label><input id="s_TeamAColor" type="color" style="width:52px; height:36px; padding:2px; cursor:pointer;"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Team B Name <span class="hint">(placeholder until captains decide)</span></label><input id="s_TeamBName" type="text"></div>
-          <div class="field"><label>Team B Captain</label><input id="s_TeamBCaptain" type="text"></div>
-          <div class="field" style="flex:0 0 auto; min-width:0;"><label>Team B Color</label><input id="s_TeamBColor" type="color" style="width:52px; height:36px; padding:2px; cursor:pointer;"></div>
-        </div>
-        <p class="hint">These colors show up as a small dot next to each team's name throughout the app (Live Scoring, Scoreboard, Individual Results) and on printed scorecards.</p>
-        <button class="primary" onclick="saveSettings()">Save Settings</button>
-        <div id="settingsStatus" class="status"></div>
       </div>
-
-      <div class="card" style="border: 1px solid #1565c0;">
-        <h2 style="color:#1565c0;">Tournament Day Snapshot</h2>
-        <p class="hint">Once rosters, pairings, and PINs are finalized for the event (or for the day), click this
-          to generate a block of text to paste into both <code>index.html</code> and <code>live.html</code>,
-          replacing the SNAPSHOT block near the top of each. It lets everyone's very first login load instantly
-          from data baked into the page instead of waiting on Google — the biggest help right at the moment
-          everyone opens the app at once. It only covers Settings/Roster/Pairings/PINs, never live scores, so
-          nothing about mid-round play depends on this. Regenerate it once before Day 1 (after pairings for
-          <em>both</em> days and all PINs are set — both days' pairings load together regardless of which day is
-          being played), and again only if you change something in Settings/Roster/Pairings/PINs after that. An
-          out-of-date snapshot isn't harmful — it just means that one detail briefly shows the old value on a
-          first login before the normal live check corrects it a moment later, same as always.</p>
-        <button class="primary" onclick="copyTournamentSnapshot()">Copy Tournament Snapshot</button>
-        <div id="snapshotStatus" class="status"></div>
-        <textarea id="snapshotOutput" readonly style="width:100%; height:140px; margin-top:10px; font-family:monospace; font-size:0.72rem; display:none;"></textarea>
-      </div>
-
-      <div class="card">
-        <h2>Admin users</h2>
-        <p class="hint">Each person who runs the tournament gets their own name and PIN. Everyone signs in on the gate screen with their own PIN, and every change they make (settings, roster, pairings, PINs, score corrections, and so on) is recorded under their name on the <strong>Activity</strong> tab. PINs are 4 to 8 digits and must be different for each person. Untick <em>Active</em> to stop someone from signing in without losing their history. These PINs are checked on the server and are separate from the match Scorekeeper PINs (an admin PIN also unlocks every match on the scoring page). Test and live each keep their own admin list.</p>
-        <table>
-          <thead><tr><th>Name</th><th style="width:130px;">PIN</th><th style="width:70px;">Active</th><th style="width:70px;"></th></tr></thead>
-          <tbody id="adminsBody"></tbody>
-        </table>
-        <div style="margin-top:12px;">
-          <button class="secondary" onclick="addAdminRow()">+ Add admin</button>
-          <button class="primary" onclick="saveAdmins()">Save admin users</button>
+    </section>
+    <section id="tab-admin" class="tab-panel" hidden>
+      <div id="adminLocked" class="card">
+        <h2>Admin</h2>
+        <p class="hint">Enter your admin PIN (the same one you use on the tournament admin page).</p>
+        <div style="display:flex; gap:8px; max-width:320px;">
+          <input type="password" inputmode="numeric" id="adminPinInput" placeholder="Admin PIN" autocomplete="off">
+          <button class="primary" onclick="unlockAdmin()">Unlock</button>
         </div>
-        <div id="adminsStatus" class="status"></div>
+        <div id="adminLockStatus" class="status"></div>
       </div>
-
-      <div class="card">
-        <h2>Lock Match Results</h2>
-        <p class="hint">Once a day's play is finished, lock it to freeze every match's results on Live Scoring — scorekeepers can no longer add or change scores for that day (the Scoreboard stays visible either way). Unlock if you need to fix something after the fact.</p>
-        <div class="field-row" style="align-items:center; gap:32px;">
-          <div>
-            <strong>Day 1:</strong> <span id="day1LockLabel" class="hint">Unlocked</span>
-            <button class="secondary" id="day1LockBtn" onclick="toggleDayLock('1')" style="margin-left:10px;">Lock Day 1</button>
+      <div id="adminBody" hidden>
+        <div class="subtabs">
+          <button type="button" class="subtab-btn active" data-asub="members">Members</button>
+          <span class="hint" style="align-self:center;">More admin tools (closures, notices, first tee times, tee time duty, pro shop, reminders) arrive with the next steps.</span>
+        </div>
+        <div class="card" id="asub-members">
+          <h2>Members &amp; sign-in</h2>
+          <p class="hint">Every Legend who should be able to sign in needs an email address here. The first time they sign in they choose a 4-digit PIN; <strong>Reset PIN</strong> clears it so they choose a new one next time (and signs them out everywhere). Untick <em>Active</em> to stop someone signing in without deleting them. This is the same roster the tournament uses, so team, handicap and tee stay as they are.</p>
+          <div class="mem-tools">
+            <input type="text" id="memFilter" placeholder="Search names or emails" oninput="renderMembers()">
+            <label class="hint"><input type="checkbox" id="memMissingOnly" onchange="renderMembers()"> Only missing email</label>
+            <span class="hint" id="memCounts"></span>
           </div>
-          <div>
-            <strong>Day 2:</strong> <span id="day2LockLabel" class="hint">Unlocked</span>
-            <button class="secondary" id="day2LockBtn" onclick="toggleDayLock('2')" style="margin-left:10px;">Lock Day 2</button>
+          <div class="mem-table-wrap">
+            <table class="mem">
+              <thead><tr><th style="width:24%">Name (Last, First)</th><th style="width:30%">Email</th><th style="width:16%">Phone</th><th>Active</th><th>PIN</th></tr></thead>
+              <tbody id="memBody"></tbody>
+            </table>
           </div>
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="secondary" onclick="addMemberRow()">+ Add member</button>
+            <button class="primary" id="saveMembersBtn" onclick="saveMembers()">Save members</button>
+            <span class="dirty-note" id="memDirty" hidden>Unsaved changes</span>
+          </div>
+          <div id="memStatus" class="status"></div>
         </div>
-        <div id="dayLockStatus" class="status"></div>
-      </div>
-
-      <div class="card" style="border: 1px solid #b8860b;">
-        <h2 style="color:#b8860b;">Testing Mode: Suspend PIN Requirement</h2>
-        <p class="hint">Turn this on temporarily while the guys are testing the app so anyone can enter scores for
-          any match on Live Scoring without needing a PIN — handy for a dry run before real Scorekeeper PINs
-          matter. It doesn't clear or change any match's saved PIN; it just stops Live Scoring from asking for one
-          while this is on. Turn it back off before the tournament and every match goes back to needing its own
-          PIN (or the Admin PIN) exactly as before.</p>
-        <div class="field-row" style="align-items:center; gap:12px;">
-          <strong>Status:</strong> <span id="suspendPinsLabel" class="hint">Off — PINs required as normal</span>
-          <button class="secondary" id="suspendPinsBtn" onclick="toggleSuspendPins()">Suspend PINs</button>
-        </div>
-        <div id="suspendPinsStatus" class="status"></div>
-      </div>
-
-      <div class="card" style="border: 1px solid #2e7d32;">
-        <h2 style="color:#2e7d32;">Concede Prompt</h2>
-        <p class="hint">When a match (or a Day 2 segment) becomes mathematically decided before every hole has
-          been played, Live Scoring can offer the losing team's scorekeeper the choice to concede the rest or keep
-          playing it out. This is ON by default. Turn it off here if you'd rather players always finish every hole
-          and never see that prompt.</p>
-        <div class="field-row" style="align-items:center; gap:12px;">
-          <strong>Status:</strong> <span id="concedeEnabledLabel" class="hint">On — scorekeepers may be offered the chance to concede</span>
-          <button class="secondary" id="concedeEnabledBtn" onclick="toggleConcedeEnabled()">Turn Off</button>
-        </div>
-        <div id="concedeEnabledStatus" class="status"></div>
-      </div>
-
-      <div class="card">
-        <h2>Backups</h2>
-        <p class="hint">The Google Sheet automatically keeps hidden snapshot tabs named <code>Backup_&lt;date&gt;-&lt;time&gt;_&lt;tab&gt;</code> — one is taken just before a change is saved, at most once every 2 hours, and the newest 8 are kept. Every change to a score is also recorded in the <code>ScoreLog</code> tab (when, which match and hole, old and new value, and whether it came from a scorekeeper or the admin). To recover something, open the Google Sheet, choose View &gt; Hidden sheets, open the backup from the time you want, and copy its contents back over the live tab (or ask Claude to help).</p>
-        <button class="secondary" onclick="backupNow()">Back up now</button>
-        <button class="secondary" onclick="showBackups()">Show saved backups</button>
-        <div id="backupStatus" class="status"></div>
-      </div>
-
-      <div class="card" style="border: 1px solid #c0392b;">
-        <h2 style="color:#c0392b;">Start New Season</h2>
-        <p class="hint">Once this year's tournament is over and you're ready to set up next year's: this archives everything from this season (settings, roster, pairings, scores) into hidden backup tabs in the Google Sheet, then clears pairings and scores and resets every player's team back to unassigned so you can start fresh. Player names, handicaps and tees stay as they are — no need to re-enter the roster. The Hole Handicaps table also stays as-is (only re-enter it if you're changing courses).</p>
-        <button style="background:#c0392b; color:#fff;" onclick="startNewSeason()">Start New Season…</button>
-        <div id="newSeasonStatus" class="status"></div>
       </div>
     </section>
-
-    <!-- ROSTER -->
-    <section id="tab-roster" class="tab-panel" hidden>
-      <div class="subtabs" role="tablist" aria-label="Roster sections">
-        <button type="button" class="subtab-btn active" id="rosterSub_roster" onclick="showRosterSub('roster')">Roster</button>
-        <button type="button" class="subtab-btn" id="rosterSub_replace" onclick="showRosterSub('replace')">Replace a Player on Day 2</button>
-      </div>
-      <div class="card" id="rosterCard">
-        <h2>Roster</h2>
-        <p class="hint">Add every player and which team they're on. Handicap Index and Tee are used for Day 2 net scoring — fill them in whenever you have them, they're not required to set up pairings. <strong>Course Handicap</strong> is calculated automatically from those two (Red: Slope 111 / Rating 64.1; Gold: Slope 120 / Rating 67.1; Par 72 both) and is what's actually used for strokes on scorecards and during matches — it's read-only here, just type in Handicap Index and Tee and it fills itself in. Check <strong>Scorekeeper?</strong> for every volunteer willing to keep score for their own match — once checked here, the Day 1/Day 2 Pairings tables will flag any match whose four players don't include at least one.</p>
-        <p class="hint">The number of matches on the Day 1/Day 2 Pairings tabs and the Scorekeeper PINs tab is kept in sync with this roster automatically: it's always (Team A size)/2, so adding or removing 4 players (2 per team) adds or removes one match the moment you hit Save Roster below. Growing adds a new blank match at the end for you to fill in; shrinking only removes a trailing match that has no players in it yet — if the match that would need to go still has players assigned, you'll be told to clear them first.</p>
-        <table id="rosterTable">
-          <thead>
-            <tr>
-              <th class="roster-team-col">Name</th>
-              <th class="roster-team-col">Team</th>
-              <th class="roster-narrow-col">Handicap Index</th>
-              <th class="roster-narrow-col">Tee</th>
-              <th class="roster-narrow-col">Course Handicap</th>
-              <th class="roster-narrow-col">Scorekeeper?</th>
-              <th class="roster-action-col"></th>
-            </tr>
-          </thead>
-          <tbody id="rosterBody"></tbody>
-        </table>
-        <div style="margin-top:12px;">
-          <button class="secondary" onclick="addRosterRow()">+ Add Player</button>
-        </div>
-        <div style="margin-top:16px;">
-          <button class="primary" id="saveRosterBtn" onclick="saveRoster()">Save Roster</button>
-        </div>
-        <div id="rosterStatus" class="status"></div>
-      </div>
-
-      <!-- DAY 2 SUBSTITUTION -->
-      <div class="card" id="replacePlayerCard" hidden>
-        <h2>Replace a Player on Day 2</h2>
-        <p class="hint">Use this when someone has to drop out before (or on the morning of) Day 2 and a substitute steps in. One click does everything: the player who's out is marked "Not participating" on the Roster, the substitute is put on the same team, and the substitute's name takes the outgoing player's place everywhere on the <strong>Day 2 Pairings</strong> (their foursome, and the individual match-play slot). Day 1 Pairings and Day 1 scores are never touched. The match's Scorekeeper PIN stays exactly as it is, so the foursome keeps the same code. <strong>Save the Roster above first</strong> if you've made other edits there — this reloads the Roster from the saved copy when it finishes.</p>
-        <div class="row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div class="field" style="min-width:220px;"><label>Player who is out</label><select id="rp_outgoing"></select></div>
-          <div class="field" style="min-width:220px;"><label>Substitute (pick from Roster, or type a new name as "Last, First")</label><input type="text" id="rp_incoming" list="rp_incomingList" placeholder="Last, First" autocomplete="off"><datalist id="rp_incomingList"></datalist></div>
-          <div class="field" style="width:130px;"><label>Handicap Index</label><input type="number" step="0.1" id="rp_hi" placeholder="if new"></div>
-          <div class="field" style="width:110px;"><label>Tee</label><input type="text" id="rp_tee" placeholder="Gold / Red"></div>
-        </div>
-        <p class="hint" id="rp_hint" style="margin-top:8px;"></p>
-        <div style="margin-top:8px;">
-          <button class="primary" id="rp_btn" onclick="replacePlayerDay2()">Replace Player on Day 2</button>
-        </div>
-        <div id="rp_status" class="status"></div>
-      </div>
-    </section>
-
-    <!-- DAY 1 PAIRINGS -->
-    <section id="tab-day1" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Day 1 Pairings <span class="placeholder-badge">Front 9: Captain's Choice · Back 9: Mod. Alt Shot</span></h2>
-        <p class="hint">Each match is 2 players per team. Use placeholder matchups now — everything here is editable later once captains set real pairings. Start Hole accepts plain text, so if the pro shop doubles up a hole for the shotgun (two groups starting from the same tee, a few minutes apart), enter it as e.g. "18a" and "18b" — this is just for the pairing sheet/scorecard, but it does drive one thing besides display: Live Scoring uses each match's Start Hole to work out who's the last group to play holes 5, 8, 12 and 17 that day, and pops up a reminder for that match's scorekeeper to collect the Closest to the Pin marker once they post that hole's result — so keep Start Hole accurate for every match, not just for show.</p>
-        <p id="day1SkSummary" class="hint" style="font-weight:600;"></p>
-        <table>
-          <thead>
-            <tr><th></th><th colspan="2" id="day1TeamAHeader">Team A</th><th colspan="2" id="day1TeamBHeader">Team B</th><th>Start Hole</th></tr>
-          </thead>
-          <tbody id="day1Body"></tbody>
-        </table>
-        <p class="hint">Each match's Scorekeeper PIN is set on the "Scorekeeper PINs" tab — one PIN per match number, shared by both days unless you set a separate Day 1 or Day 2 PIN there.</p>
-        <div style="margin-top:16px;">
-          <button class="primary" onclick="savePairings('1')">Save Day 1 Pairings</button>
-        </div>
-        <div id="day1Status" class="status"></div>
-      </div>
-    </section>
-
-    <!-- DAY 2 PAIRINGS -->
-    <section id="tab-day2" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Day 2 Pairings <span class="placeholder-badge">Front 9: Best Ball · Back 9: Individual Match Play</span></h2>
-        <p class="hint">Best Ball uses the same 2-vs-2 foursome as the match below. For the back-nine Individual Match Play, pick which player from each team faces which — defaults to Player 1 vs Player 1 and Player 2 vs Player 2. Start Hole accepts plain text, so a doubled-up shotgun hole can be entered as e.g. "18a" and "18b". Besides display, Start Hole is also what Live Scoring uses to figure out who's the last group to play holes 5, 8, 12 and 17 that day, popping up a reminder for that match's scorekeeper to collect the Closest to the Pin marker once they post that hole's result — so keep it accurate for every match.</p>
-        <p id="day2SkSummary" class="hint" style="font-weight:600;"></p>
-        <table>
-          <thead>
-            <tr><th></th><th colspan="2" id="day2TeamAHeader">Team A</th><th colspan="2" id="day2TeamBHeader">Team B</th><th>Start Hole</th></tr>
-          </thead>
-          <tbody id="day2Body"></tbody>
-        </table>
-        <p class="hint">Each match's Scorekeeper PIN is set on the "Scorekeeper PINs" tab — one PIN per match number, shared by both days unless you set a separate Day 1 or Day 2 PIN there.</p>
-        <div style="margin-top:16px;">
-          <button class="primary" onclick="savePairings('2')">Save Day 2 Pairings</button>
-        </div>
-        <div id="day2Status" class="status"></div>
-      </div>
-    </section>
-
-    <!-- SCOREKEEPER PINS -->
-    <section id="tab-pins" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Scorekeeper PINs</h2>
-        <p class="hint">By default each match number has one PIN, shared by both days — a scorekeeper enters it once on Live Scoring and it unlocks that match number on Day 1 and Day 2 both. If you'd rather give a match a different code on one day (say a different foursome plays that match number on Day 2), fill in the optional <em>Day 1 only</em> and/or <em>Day 2 only</em> box: when filled in, it replaces the shared PIN for that day; when left blank, that day just uses the shared PIN. Leave everything blank for a match to leave it open to anyone with the link. Only the scorekeeper should be told the PIN, so pass it along directly (in person, by text) rather than writing it anywhere players in general will see it — it's deliberately left off printed scorecards.</p>
-        <table>
-          <thead><tr><th style="width:120px;">Match</th><th>Scorekeeper PIN (both days)</th><th>Day 1 only <span class="hint">(optional)</span></th><th>Day 2 only <span class="hint">(optional)</span></th></tr></thead>
-          <tbody id="pinsBody"></tbody>
-        </table>
-        <div style="margin-top:16px;">
-          <button class="secondary" onclick="generateMissingMatchPins()">Generate PINs for matches without one</button>
-          <button class="primary" onclick="saveMatchPins()">Save Scorekeeper PINs</button>
-        </div>
-        <div id="pinsStatus" class="status"></div>
-      </div>
-    </section>
-
-    <!-- HOLE HANDICAPS -->
-    <section id="tab-holehc" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Hole Handicaps</h2>
-        <p class="hint">Gold Stroke Index ranks each hole 1 (hardest) to 18 (easiest) — this is what Day 2's Live Scoring page uses to work out net scores from each player's Handicap Index on the Roster tab. Red tees play to a different Stroke Index than every other tee on this course, so there's a separate column just for them: any Roster player whose Tee is "Red" gets strokes from that column instead, everyone else (Gold, White, Blue, etc.) uses the regular Gold Stroke Index column. Par is optional, just for reference, and doesn't change by tee. This table is set once per course/tee setup and shouldn't need changing after that — if it ever does (a new course, a corrected number), edit it directly in the Google Sheet's <code>HoleHandicaps</code> / <code>HoleHandicapsRed</code> tabs rather than here.</p>
-        <table>
-          <thead><tr><th style="width:70px;">Hole</th><th>Gold Stroke Index</th><th>Red Stroke Index</th><th style="width:90px;">Par</th></tr></thead>
-          <tbody id="holeHcBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- PRINT SCORECARDS -->
-    <!-- ACTIVITY -->
-    <section id="tab-activity" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Activity</h2>
-        <p class="hint">What each admin has done, newest first: sign-ins, settings and roster changes, pairings, PIN changes (the PIN values themselves are never logged), Day 2 substitutions, backups, season starts, and score corrections made with an admin PIN. Individual hole-by-hole changes are also in the <code>ScoreLog</code> tab of the Google Sheet. The full history is in the <code>ActivityLog</code> tab.</p>
-        <div class="row" style="align-items:center; gap:10px; flex-wrap:wrap;">
-          <label for="activityWho"><strong>Person:</strong></label>
-          <select id="activityWho" onchange="renderActivity()"><option value="">Everyone</option></select>
-          <button class="secondary" onclick="loadActivity()">Refresh</button>
-        </div>
-        <div id="activityStatus" class="status"></div>
-        <table style="margin-top:8px;">
-          <thead><tr><th style="width:150px;">When</th><th style="width:130px;">Who</th><th style="width:200px;">What</th><th>Details</th></tr></thead>
-          <tbody id="activityBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- HELP -->
-    <section id="tab-help" class="tab-panel" hidden>
-      <div class="card help-body">
-        <h2>Quick Start for the Tournament Admin</h2>
-        <button class="secondary no-print" onclick="printHelp()">Print this page</button>
-        <h3>Before the tournament (in order)</h3>
-        <ol>
-          <li><strong>Settings</strong> — if this is a new year, first use <em>Start New Season</em> (archives last year). Then enter the tournament name, both dates, team names, captains and colors. Check the "Ready for tournament?" box at the top any time.</li>
-          <li><strong>Roster</strong> — add new players as "Last, First"; fill in Handicap Index and Tee (Gold or Red); pick each player's team; tick <em>Scorekeeper?</em> for volunteers. Save Roster.</li>
-          <li><strong>Day 1 Pairings / Day 2 Pairings</strong> — choose four players per match and the Start Hole (text is fine, e.g. 18a / 18b). Save each day.</li>
-          <li><strong>Scorekeeper PINs</strong> — Generate PINs, optionally set a different Day 1 only or Day 2 only PIN, Save. Tell each scorekeeper only their own match's PIN.</li>
-          <li><strong>Print Scorecards</strong> — print the cards (PINs are not printed on them).</li>
-          <li><strong>Rehearse</strong> on the TEST site first (add <code>?env=test</code> to the page address).</li>
-        </ol>
-        <h3>On tournament days</h3>
-        <ul>
-          <li>Scorekeepers open the public scoring link, choose Scorekeeper, enter their PIN, and tap the winner of each hole (or Tie).</li>
-          <li>Everyone else watches the Scoreboard tab. Add <code>?display=1</code> to the scoring link for a big auto-refreshing screen.</li>
-          <li>To correct a score: type your own admin PIN on any match's lock screen, then edit. Your name is recorded on the Activity tab.</li>
-          <li>A player drops out before Day 2: Roster tab, then the <em>Replace a Player on Day 2</em> button at the top.</li>
-          <li>When a day is finished, lock it in Settings. "Results are locked" is the correct final state.</li>
-        </ul>
-        <h3>If something goes wrong</h3>
-        <ul>
-          <li>Scores not saving: the day is probably locked (Settings), or the phone has no signal — the scoring page shows "waiting to sync" until it reconnects.</li>
-          <li>A scorekeeper can't unlock a match: use Forget PIN on their phone, then re-enter the PIN.</li>
-          <li>Changed or lost data: see Backups in Settings, and the ScoreLog tab in the Google Sheet.</li>
-          <li>Anything else: describe it to Claude with a screenshot — the Handoff Guide explains how.</li>
-        </ul>
-      </div>
-    </section>
-
-    <section id="tab-print" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Print Blank Scorecards</h2>
-        <p class="hint">
-          For players who'd rather write scores by hand than use Live Scoring on a phone. Prints one
-          paper scorecard per match with the tournament name, date, tee, and hole numbers.
-          <strong>Day 2</strong> also shows the Gold Stroke Index and each player's handicap strokes marked
-          as dots on the holes they apply to. <strong>Day 1</strong> is one row per team instead of per
-          player, since Captain's Choice and Modified Alternate Shot are both one combined score per
-          team per hole — no handicap strokes apply, so there's no Hcp row or dots for that day.
-          Any match printed without a Scorekeeper PIN yet automatically gets one generated and saved
-          so scoring is still locked down on Live Scoring — but the PIN itself is never printed on the
-          card. Check the Scorekeeper PINs tab and tell each match's scorekeeper their PIN directly.
-        </p>
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-          <select id="printDaySelect" onchange="populatePrintMatchSelect()">
-            <option value="2" selected>Day 2</option>
-            <option value="1">Day 1</option>
-          </select>
-          <select id="printMatchSelect"></select>
-          <button class="primary" onclick="printScorecards()">Print</button>
-          <button class="secondary" onclick="printSampleScorecard()">Preview Sample Scorecard</button>
-        </div>
-        <p class="hint">Haven't set that day's pairings yet? "Preview Sample Scorecard" shows the layout
-          with made-up players so you can check it over (and see your Hole Handicaps table reflected in
-          it, for Day 2) before real teams are assembled. Both buttons print the pro shop paper layout —
-          front 9 and back 9 stacked on one 11&Prime;&times;4.25&Prime; card, two cards per
-          11&Prime;&times;8.5&Prime; sheet, with a narrow Winner column at the right of each table.</p>
-        <div id="printStatus" class="status"></div>
-      </div>
-    </section>
-
   </main>
 </div>
 
 <script>
 // ====================== CONFIG ======================
-// Fill these in after you deploy Code.gs as a Web App (see setup notes at
-// the top of Code.gs). Keeping test/live separate lets you rehearse without
-// touching real tournament data, same pattern as the tee sheet app.
+// Same backend as the tournament pages (live.html / tournament-admin.html).
 const CONFIG = {
   test: { backendUrl: 'https://script.google.com/macros/s/AKfycbzTyDa25NoGyjcB7-3SIr8jnNCgBmzerlqZuNX5jWRZwLcoySdJxKsFURZFjJSjMzQq/exec', key: '&wW3d@j>3£56' },
   live: { backendUrl: 'https://script.google.com/macros/s/AKfycbwpSXsN89fdgQxJNMkYWAvXiCifqnmXAhTZom0OVFg13oh7oYBrjsxVW38Vl3bDnlLv/exec', key: '&wW3d@j>3£56' },
 };
-// Regenerate this from the "Copy Tournament Snapshot" button on the Settings
-// tab before match day, and paste the whole block — start marker, the const,
-// and end marker — over this one, in BOTH this file and live.html. It's
-// exactly the shape apiGet('getBootData') returns. Once pairings/rosters/
-// PINs are finalized, this lets this page's own dashboard (and, in
-// live.html, a scorekeeper's very first login) paint instantly from data
-// already sitting in the page instead of waiting on Google — the biggest
-// help right at the moment everyone opens the app at once. It only covers
-// settings/roster/pairings/PINs, never live scores, so nothing about
-// mid-round play depends on it, and an out-of-date snapshot isn't harmful —
-// the real fetch that runs alongside it (see init() below) always wins
-// moments later regardless. An empty object here is completely fine.
-// ===== SNAPSHOT START =====
-const EMBEDDED_SNAPSHOT = {
-  "settings": {
-    "TournamentName": "2026 Heritage Legends Tournament",
-    "Day1Date": "2026-09-30",
-    "Day2Date": "2026-10-01",
-    "TeamAName": "CanesIn6",
-    "TeamACaptain": "Kevin Kusilek",
-    "TeamBName": "Birdie Boys",
-    "TeamBCaptain": "Winston Shade",
-    "Day1Locked": "TRUE",
-    "Day2Locked": false,
-    "SuspendScorePins": "FALSE",
-    "TeamAColor": "#add8e6",
-    "TeamBColor": "#bf5700",
-    "ConcedeEnabled": "FALSE"
-  },
-  "roster": [
-    {
-      "PlayerID": 1,
-      "Name": "Alston, Rufus",
-      "Team": "A",
-      "HandicapIndex": 24.1,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 2,
-      "Name": "Anderson, Mike",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 3,
-      "Name": "Bacca, Tom",
-      "Team": "B",
-      "HandicapIndex": 14.2,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 4,
-      "Name": "Buchanan, Buck",
-      "Team": "A",
-      "HandicapIndex": 20.9,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 5,
-      "Name": "Cobb, Randy",
-      "Team": "A",
-      "HandicapIndex": 14.2,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 6,
-      "Name": "Colt, Dave",
-      "Team": "B",
-      "HandicapIndex": 9.9,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 7,
-      "Name": "Davis, Jay",
-      "Team": "B",
-      "HandicapIndex": 24,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 8,
-      "Name": "Davis, Larry",
-      "Team": "B",
-      "HandicapIndex": 16.1,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 9,
-      "Name": "DeLisle, Jeffrey",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 10,
-      "Name": "Dillon, Eric",
-      "Team": "B",
-      "HandicapIndex": 11.8,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 11,
-      "Name": "Dunbar, Bob",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 12,
-      "Name": "Eiloo, Gary",
-      "Team": "B",
-      "HandicapIndex": 21.9,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 13,
-      "Name": "Grosso, Bob",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 14,
-      "Name": "Gurganus, Tommy",
-      "Team": "A",
-      "HandicapIndex": 19.8,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 15,
-      "Name": "Haines, Dan",
-      "Team": "A",
-      "HandicapIndex": 16,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 16,
-      "Name": "Harris, John",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 17,
-      "Name": "Haskell, Ralf",
-      "Team": "A",
-      "HandicapIndex": 20.4,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 18,
-      "Name": "Hood, Chuck",
-      "Team": "A",
-      "HandicapIndex": 24.2,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 19,
-      "Name": "Hope, Bob",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 20,
-      "Name": "Houseworth, Chuck",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 21,
-      "Name": "Kalloway, Ken",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 22,
-      "Name": "Kimball, Charles",
-      "Team": "A",
-      "HandicapIndex": 16.1,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 23,
-      "Name": "Kloepfer, Bill",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 24,
-      "Name": "Kusilek, Kevin",
-      "Team": "A",
-      "HandicapIndex": 8.7,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 25,
-      "Name": "Landry, Paul",
-      "Team": "A",
-      "HandicapIndex": 19.8,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 26,
-      "Name": "Latus, Stephen",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 27,
-      "Name": "Lionelli, Tom",
-      "Team": "A",
-      "HandicapIndex": 9,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 28,
-      "Name": "Luksis, Duke",
-      "Team": "B",
-      "HandicapIndex": 11.9,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 29,
-      "Name": "McCulloch, Wayne",
-      "Team": "B",
-      "HandicapIndex": 12.5,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 30,
-      "Name": "McEver, John",
-      "Team": "A",
-      "HandicapIndex": 29.5,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 31,
-      "Name": "McFarland, Don",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 32,
-      "Name": "McGuffin, Gary",
-      "Team": "A",
-      "HandicapIndex": 13.4,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 33,
-      "Name": "Moreland, Greg",
-      "Team": "B",
-      "HandicapIndex": "13.1",
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 34,
-      "Name": "Nelson, Ellis",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": 15.9,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 35,
-      "Name": "Neumann, Pete",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 36,
-      "Name": "Owens, Bill",
-      "Team": "A",
-      "HandicapIndex": 21.4,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 37,
-      "Name": "Peverill, Lou",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 38,
-      "Name": "Primm, Kirby",
-      "Team": "A",
-      "HandicapIndex": 11.1,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 39,
-      "Name": "Recchia, John",
-      "Team": "B",
-      "HandicapIndex": 12.9,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 40,
-      "Name": "Rich, Ron",
-      "Team": "B",
-      "HandicapIndex": 25.4,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 41,
-      "Name": "Roane, Michael",
-      "Team": "B",
-      "HandicapIndex": 14.4,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 42,
-      "Name": "Rogers, Henry",
-      "Team": "B",
-      "HandicapIndex": 20.1,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 43,
-      "Name": "Rowinski, Al",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 44,
-      "Name": "Salisbury, Jim",
-      "Team": "B",
-      "HandicapIndex": 22.4,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 45,
-      "Name": "Schipani, Ray",
-      "Team": "B",
-      "HandicapIndex": 25.2,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 46,
-      "Name": "Shade, Winston",
-      "Team": "B",
-      "HandicapIndex": 7.3,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 47,
-      "Name": "Simpson, Dave",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 48,
-      "Name": "Smith, Braxton",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 49,
-      "Name": "Stewart, Jeff",
-      "Team": "A",
-      "HandicapIndex": 15.8,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 50,
-      "Name": "Striegel, Scott",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 51,
-      "Name": "Sullivan, Tom",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 52,
-      "Name": "Swinson, Stan",
-      "Team": "A",
-      "HandicapIndex": 24,
-      "Tee": "Gold",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 53,
-      "Name": "Taylor, Percy",
-      "Team": "ON_STANDBY",
-      "HandicapIndex": 8.4,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 54,
-      "Name": "Truszkowski, Mark",
-      "Team": "A",
-      "HandicapIndex": 18.6,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": "true"
-    },
-    {
-      "PlayerID": 55,
-      "Name": "Upfield, Mike",
-      "Team": "B",
-      "HandicapIndex": 21.4,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 56,
-      "Name": "Urban, Irwin",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 57,
-      "Name": "Visser, John",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 58,
-      "Name": "Webster, Wayne",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 59,
-      "Name": "Woloski, John",
-      "Team": "NOT_PLAYING",
-      "HandicapIndex": "",
-      "Tee": "",
-      "Active": "true",
-      "Scorekeeper": ""
-    },
-    {
-      "PlayerID": 60,
-      "Name": "Woodard, Jim",
-      "Team": "B",
-      "HandicapIndex": 30.1,
-      "Tee": "Red",
-      "Active": "true",
-      "Scorekeeper": ""
-    }
-  ],
-  "holeHandicaps": [
-    {
-      "Hole": 1,
-      "StrokeIndex": 15,
-      "Par": 5
-    },
-    {
-      "Hole": 2,
-      "StrokeIndex": 1,
-      "Par": 4
-    },
-    {
-      "Hole": 3,
-      "StrokeIndex": 13,
-      "Par": 4
-    },
-    {
-      "Hole": 4,
-      "StrokeIndex": 3,
-      "Par": 4
-    },
-    {
-      "Hole": 5,
-      "StrokeIndex": 9,
-      "Par": 3
-    },
-    {
-      "Hole": 6,
-      "StrokeIndex": 11,
-      "Par": 5
-    },
-    {
-      "Hole": 7,
-      "StrokeIndex": 5,
-      "Par": 4
-    },
-    {
-      "Hole": 8,
-      "StrokeIndex": 17,
-      "Par": 3
-    },
-    {
-      "Hole": 9,
-      "StrokeIndex": 7,
-      "Par": 4
-    },
-    {
-      "Hole": 10,
-      "StrokeIndex": 4,
-      "Par": 4
-    },
-    {
-      "Hole": 11,
-      "StrokeIndex": 14,
-      "Par": 4
-    },
-    {
-      "Hole": 12,
-      "StrokeIndex": 16,
-      "Par": 3
-    },
-    {
-      "Hole": 13,
-      "StrokeIndex": 8,
-      "Par": 4
-    },
-    {
-      "Hole": 14,
-      "StrokeIndex": 6,
-      "Par": 5
-    },
-    {
-      "Hole": 15,
-      "StrokeIndex": 2,
-      "Par": 4
-    },
-    {
-      "Hole": 16,
-      "StrokeIndex": 12,
-      "Par": 4
-    },
-    {
-      "Hole": 17,
-      "StrokeIndex": 18,
-      "Par": 3
-    },
-    {
-      "Hole": 18,
-      "StrokeIndex": 10,
-      "Par": 5
-    }
-  ],
-  "holeHandicapsRed": [
-    {
-      "Hole": 1,
-      "StrokeIndex": 7
-    },
-    {
-      "Hole": 2,
-      "StrokeIndex": 17
-    },
-    {
-      "Hole": 3,
-      "StrokeIndex": 13
-    },
-    {
-      "Hole": 4,
-      "StrokeIndex": 3
-    },
-    {
-      "Hole": 5,
-      "StrokeIndex": 9
-    },
-    {
-      "Hole": 6,
-      "StrokeIndex": 1
-    },
-    {
-      "Hole": 7,
-      "StrokeIndex": 5
-    },
-    {
-      "Hole": 8,
-      "StrokeIndex": 15
-    },
-    {
-      "Hole": 9,
-      "StrokeIndex": 11
-    },
-    {
-      "Hole": 10,
-      "StrokeIndex": 8
-    },
-    {
-      "Hole": 11,
-      "StrokeIndex": 10
-    },
-    {
-      "Hole": 12,
-      "StrokeIndex": 16
-    },
-    {
-      "Hole": 13,
-      "StrokeIndex": 2
-    },
-    {
-      "Hole": 14,
-      "StrokeIndex": 4
-    },
-    {
-      "Hole": 15,
-      "StrokeIndex": 6
-    },
-    {
-      "Hole": 16,
-      "StrokeIndex": 14
-    },
-    {
-      "Hole": 17,
-      "StrokeIndex": 18
-    },
-    {
-      "Hole": 18,
-      "StrokeIndex": 12
-    }
-  ],
-  "pairings1": [
-    {
-      "MatchNum": 1,
-      "TeamA_P1": "Kusilek, Kevin",
-      "TeamA_P2": "Cobb, Randy",
-      "TeamB_P1": "Colt, Dave",
-      "TeamB_P2": "McCulloch, Wayne",
-      "StartHole": "1A"
-    },
-    {
-      "MatchNum": 2,
-      "TeamA_P1": "Lionelli, Tom",
-      "TeamA_P2": "Primm, Kirby",
-      "TeamB_P1": "Shade, Winston",
-      "TeamB_P2": "Luksis, Duke",
-      "StartHole": "1B"
-    },
-    {
-      "MatchNum": 3,
-      "TeamA_P1": "Stewart, Jeff",
-      "TeamA_P2": "Haines, Dan",
-      "TeamB_P1": "Recchia, John",
-      "TeamB_P2": "Dillon, Eric",
-      "StartHole": "14"
-    },
-    {
-      "MatchNum": 4,
-      "TeamA_P1": "McGuffin, Gary",
-      "TeamA_P2": "Truszkowski, Mark",
-      "TeamB_P1": "Bacca, Tom",
-      "TeamB_P2": "Davis, Jay",
-      "StartHole": "15A"
-    },
-    {
-      "MatchNum": 5,
-      "TeamA_P1": "Kimball, Charles",
-      "TeamA_P2": "Buchanan, Buck",
-      "TeamB_P1": "Salisbury, Jim",
-      "TeamB_P2": "Upfield, Mike",
-      "StartHole": "15B"
-    },
-    {
-      "MatchNum": 6,
-      "TeamA_P1": "Gurganus, Tommy",
-      "TeamA_P2": "Swinson, Stan",
-      "TeamB_P1": "Rogers, Henry",
-      "TeamB_P2": "Roane, Michael",
-      "StartHole": "16"
-    },
-    {
-      "MatchNum": 7,
-      "TeamA_P1": "Haskell, Ralf",
-      "TeamA_P2": "Owens, Bill",
-      "TeamB_P1": "Schipani, Ray",
-      "TeamB_P2": "Rich, Ron",
-      "StartHole": "17A"
-    },
-    {
-      "MatchNum": 8,
-      "TeamA_P1": "Landry, Paul",
-      "TeamA_P2": "McEver, John",
-      "TeamB_P1": "Eiloo, Gary",
-      "TeamB_P2": "Davis, Larry",
-      "StartHole": "17B"
-    },
-    {
-      "MatchNum": 9,
-      "TeamA_P1": "Alston, Rufus",
-      "TeamA_P2": "Hood, Chuck",
-      "TeamB_P1": "Moreland, Greg",
-      "TeamB_P2": "Woodard, Jim",
-      "StartHole": "18"
-    }
-  ],
-  "pairings2": [
-    {
-      "MatchNum": 1,
-      "TeamA_P1": "Lionelli, Tom",
-      "TeamA_P2": "Kusilek, Kevin",
-      "TeamB_P1": "Colt, Dave",
-      "TeamB_P2": "Shade, Winston",
-      "MP1_TeamA": "Lionelli, Tom",
-      "MP1_TeamB": "Colt, Dave",
-      "MP2_TeamA": "Kusilek, Kevin",
-      "MP2_TeamB": "Shade, Winston",
-      "MPSwapped": "",
-      "StartHole": "1A"
-    },
-    {
-      "MatchNum": 2,
-      "TeamA_P1": "Kimball, Charles",
-      "TeamA_P2": "Primm, Kirby",
-      "TeamB_P1": "McCulloch, Wayne",
-      "TeamB_P2": "Luksis, Duke",
-      "MP1_TeamA": "Kimball, Charles",
-      "MP1_TeamB": "McCulloch, Wayne",
-      "MP2_TeamA": "Primm, Kirby",
-      "MP2_TeamB": "Luksis, Duke",
-      "MPSwapped": "",
-      "StartHole": "1B"
-    },
-    {
-      "MatchNum": 3,
-      "TeamA_P1": "Stewart, Jeff",
-      "TeamA_P2": "Owens, Bill",
-      "TeamB_P1": "Recchia, John",
-      "TeamB_P2": "Roane, Michael",
-      "MP1_TeamA": "Stewart, Jeff",
-      "MP1_TeamB": "Recchia, John",
-      "MP2_TeamA": "Owens, Bill",
-      "MP2_TeamB": "Roane, Michael",
-      "MPSwapped": "",
-      "StartHole": "14"
-    },
-    {
-      "MatchNum": 4,
-      "TeamA_P1": "Cobb, Randy",
-      "TeamA_P2": "Haines, Dan",
-      "TeamB_P1": "Bacca, Tom",
-      "TeamB_P2": "Dillon, Eric",
-      "MP1_TeamA": "Cobb, Randy",
-      "MP1_TeamB": "Bacca, Tom",
-      "MP2_TeamA": "Haines, Dan",
-      "MP2_TeamB": "Dillon, Eric",
-      "MPSwapped": "",
-      "StartHole": "15A"
-    },
-    {
-      "MatchNum": 5,
-      "TeamA_P1": "Truszkowski, Mark",
-      "TeamA_P2": "McGuffin, Gary",
-      "TeamB_P1": "Salisbury, Jim",
-      "TeamB_P2": "Davis, Jay",
-      "MP1_TeamA": "Truszkowski, Mark",
-      "MP1_TeamB": "Salisbury, Jim",
-      "MP2_TeamA": "McGuffin, Gary",
-      "MP2_TeamB": "Davis, Jay",
-      "MPSwapped": "",
-      "StartHole": "15B"
-    },
-    {
-      "MatchNum": 6,
-      "TeamA_P1": "Haskell, Ralf",
-      "TeamA_P2": "Alston, Rufus",
-      "TeamB_P1": "Rogers, Henry",
-      "TeamB_P2": "Rich, Ron",
-      "MP1_TeamA": "Haskell, Ralf",
-      "MP1_TeamB": "Rogers, Henry",
-      "MP2_TeamA": "Alston, Rufus",
-      "MP2_TeamB": "Rich, Ron",
-      "MPSwapped": "",
-      "StartHole": "16"
-    },
-    {
-      "MatchNum": 7,
-      "TeamA_P1": "Hood, Chuck",
-      "TeamA_P2": "Landry, Paul",
-      "TeamB_P1": "Schipani, Ray",
-      "TeamB_P2": "Upfield, Mike",
-      "MP1_TeamA": "Hood, Chuck",
-      "MP1_TeamB": "Schipani, Ray",
-      "MP2_TeamA": "Landry, Paul",
-      "MP2_TeamB": "Upfield, Mike",
-      "MPSwapped": "",
-      "StartHole": "17A"
-    },
-    {
-      "MatchNum": 8,
-      "TeamA_P1": "Gurganus, Tommy",
-      "TeamA_P2": "McEver, John",
-      "TeamB_P1": "Eiloo, Gary",
-      "TeamB_P2": "Woodard, Jim",
-      "MP1_TeamA": "Gurganus, Tommy",
-      "MP1_TeamB": "Eiloo, Gary",
-      "MP2_TeamA": "McEver, John",
-      "MP2_TeamB": "Woodard, Jim",
-      "MPSwapped": "",
-      "StartHole": "17B"
-    },
-    {
-      "MatchNum": 9,
-      "TeamA_P1": "Swinson, Stan",
-      "TeamA_P2": "Buchanan, Buck",
-      "TeamB_P1": "Moreland, Greg",
-      "TeamB_P2": "Davis, Larry",
-      "MP1_TeamA": "Swinson, Stan",
-      "MP1_TeamB": "Moreland, Greg",
-      "MP2_TeamA": "Buchanan, Buck",
-      "MP2_TeamB": "Davis, Larry",
-      "MPSwapped": "",
-      "StartHole": "18"
-    }
-  ],
-  "matchPins": [
-    {
-      "MatchNum": 1,
-      "PIN": "1000"
-    },
-    {
-      "MatchNum": 2,
-      "PIN": "2000"
-    },
-    {
-      "MatchNum": 3,
-      "PIN": "3000"
-    },
-    {
-      "MatchNum": 4,
-      "PIN": "4000"
-    },
-    {
-      "MatchNum": 5,
-      "PIN": "5000"
-    },
-    {
-      "MatchNum": 6,
-      "PIN": "6000"
-    },
-    {
-      "MatchNum": 7,
-      "PIN": "7000"
-    },
-    {
-      "MatchNum": 8,
-      "PIN": "8000"
-    },
-    {
-      "MatchNum": 9,
-      "PIN": "9000"
-    }
-  ]
-};
-// ===== SNAPSHOT END — paste this whole block (all three marked lines and
-//   everything between them) over the old SNAPSHOT block, in BOTH
-//   index.html and live.html =====
-// Bumped by hand every time this file changes — shown in the header next to
-// the live "Backend:" version (from Code.gs) so you can tell at a glance
-// whether the page you're looking at, and the Apps Script it's talking to,
-// are both up to date.
-const ADMIN_VERSION = '2026-10-06b';
-
-// Environment detection: an explicit ?env=test or ?env=live in the URL always
-// wins (use this while testing the raw local file, e.g. index.html?env=test).
-// Otherwise, once this is deployed to two separate GitHub Pages URLs, it falls
-// back to checking whether "test" appears in the page's own URL.
 const envParam = new URLSearchParams(location.search).get('env');
-const ENV = (envParam === 'test' || envParam === 'live')
-  ? envParam
-  : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
+const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
-const CFG_IS_PLACEHOLDER = !CFG.backendUrl || CFG.backendUrl.startsWith('PASTE_');
+// Bumped by hand every time this file changes.
+const APP_VERSION = '2026-10-07';
 
-// ====================== GATE ======================
-// Admin sign-in: each admin has their own PIN (Settings > Admin users), checked
-// on the server — see checkPin below.
-async function checkPin() {
-  if (CFG_IS_PLACEHOLDER) {
-    document.getElementById('gateStatus').textContent =
-      `No backend URL/key is set for "${ENV}" yet — edit the CONFIG block near the top of the <script> tag in this file. ` +
-      `(Add ?env=test or ?env=live to this page's URL to pick which one you're testing.)`;
-    return;
-  }
-  const val = document.getElementById('pinInput').value.trim();
-  document.getElementById('gateStatus').textContent = '';
-  if (!val) { document.getElementById('gateStatus').textContent = 'Enter your admin PIN.'; return; }
-  document.getElementById('gateStatus').textContent = 'Checking…';
-  let res;
-  try {
-    // The PIN is checked on the server (it is never sent down to this page),
-    // which also tells us whose PIN it is — shown in the header and used to
-    // label everything this person changes in the Activity log.
-    res = await apiPost('verifyAdminPin', { pin: val, where: 'admin page' });
-  } catch (err) {
-    document.getElementById('gateStatus').textContent = 'Network error checking PIN: ' + err.message;
-    return;
-  }
-  if (!res.success) {
-    document.getElementById('gateStatus').textContent = res.error || 'Could not check PIN.';
-    return;
-  }
-  adminSession = { name: res.data.name, pin: val };
-  document.getElementById('adminWho').textContent = 'Signed in as ' + res.data.name;
-  document.getElementById('gateStatus').textContent = '';
-  document.getElementById('gate').hidden = true;
-  document.getElementById('app').hidden = false;
-  document.getElementById('envBadge').textContent = ENV.toUpperCase();
-  document.getElementById('testBanner').hidden = ENV !== 'test';
-  // Carry the ?env= override (if any) through to the scoring page, so testing
-  // locally with ?env=test from this page also opens the test scoring page.
-  document.getElementById('liveLinkBtn').href = 'live.html' + location.search;
-  init();
-}
-document.getElementById('pinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') checkPin(); });
+const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
+const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
 
-// ====================== API HELPERS ======================
-// Same reasoning as live.html's copy of this: the backend's save_* actions
-// wait on a shared lock for up to 10s (20s for the rare startNewSeason_
-// archive action, the longest of any action in this file) before giving up —
-// a plain, un-timed fetch() can then sit open far longer than that on a weak
-// connection with no controlled way to react. Set a few seconds above that
-// 20s worst case (rather than live.html's 20s, tuned to its 10s max) so a
-// legitimately-still-processing startNewSeason_ can't get aborted right as
-// it's about to finish.
+// ====================== API ======================
 const FETCH_TIMEOUT_MS = 25000;
-// Reads (GETs) get their own, longer timeout — see apiGet below for why a
-// tighter one can actually make real concurrent-load slowness worse rather
-// than better.
-const GET_TIMEOUT_MS = 35000;
-async function fetchWithTimeout(url, options, timeoutMs) {
+async function fetchWithTimeout(url, options, ms) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs || FETCH_TIMEOUT_MS);
-  try {
-    return await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-  } finally {
-    clearTimeout(timer);
-  }
+  const timer = setTimeout(() => controller.abort(), ms || FETCH_TIMEOUT_MS);
+  try { return await fetch(url, Object.assign({}, options, { signal: controller.signal })); }
+  finally { clearTimeout(timer); }
 }
-// GETs never change anything server-side, so — unlike apiPost, which leaves
-// retrying to whichever caller knows it's safe to repeat that particular
-// action — it's always safe for apiGet to quietly retry on its own. This is
-// what actually closes the loop on Apps Script's occasional slow/flaky
-// response (the "Network error checking PIN: signal is aborted without
-// reason" Tom saw, then didn't see on a second try): instead of making a
-// person notice the failure and manually try again, a transient hiccup now
-// self-heals inside the same call.
-//
-// The timeout here is deliberately longer than a POST's (35s vs. 25s) and
-// the backoff between attempts has some randomness (jitter) mixed in. Both
-// are about several phones loading at once on tournament day: these reads
-// don't take a lock, so a slow one just means Apps Script itself is busy,
-// not stuck — cutting it off too early and firing a retry doesn't relieve
-// that load, it adds another request competing for the same busy backend. A
-// longer timeout gives an already-in-flight request more room to just
-// finish; jitter keeps several phones that all timed out at the same moment
-// from all retrying in the same instant and re-colliding.
 async function apiGet(action, extra) {
-  const params = new URLSearchParams(Object.assign({ action, key: CFG.key }, extra || {}));
-  const url = CFG.backendUrl + '?' + params.toString();
-  const maxAttempts = 3;
-  let lastError;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const res = await fetchWithTimeout(url, undefined, GET_TIMEOUT_MS);
-      return await res.json();
-    } catch (e) {
-      lastError = e;
-      if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 500 * attempt + Math.random() * 500));
-    }
+  const url = CFG.backendUrl + '?' + new URLSearchParams(Object.assign({ action, key: CFG.key }, extra || {})).toString();
+  let lastErr;
+  for (let i = 1; i <= 3; i++) {
+    try { const res = await fetchWithTimeout(url, undefined, 35000); return await res.json(); }
+    catch (e) { lastErr = e; if (i < 3) await new Promise((r) => setTimeout(r, 500 * i + Math.random() * 500)); }
   }
-  throw lastError;
+  throw lastErr;
 }
-// Who is signed in on this page (set by the gate). Every request carries the
-// admin's PIN so the server can check it and log the change under their name.
-let adminSession = { name: '', pin: '' };
+// POST keeps PINs out of the address bar and server logs. Carries the admin
+// PIN (if this tab has unlocked Admin) and the member token automatically.
 async function apiPost(action, body) {
+  const extra = {};
+  if (adminSession) extra.adminPin = adminSession.pin;
+  if (session) extra.token = session.token;
   const res = await fetchWithTimeout(CFG.backendUrl, {
     method: 'POST',
-    body: JSON.stringify(Object.assign({ action, key: CFG.key, adminPin: adminSession.pin }, body || {})),
+    body: JSON.stringify(Object.assign({ action, key: CFG.key }, extra, body || {})),
   });
   return res.json();
 }
-function showStatus(elId, ok, msg) {
-  const el = document.getElementById(elId);
+function showStatus(id, ok, msg) {
+  const el = document.getElementById(id);
   el.textContent = msg;
   el.className = 'status ' + (ok ? 'ok' : 'error');
 }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// "Last, First" -> "First Last" for friendly display.
+function displayName(name) {
+  const s = String(name || '');
+  const i = s.indexOf(',');
+  return i === -1 ? s.trim() : (s.slice(i + 1).trim() + ' ' + s.slice(0, i).trim()).trim();
+}
 
-// ====================== TABS ======================
-document.querySelectorAll('.tab-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach((p) => (p.hidden = true));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).hidden = false;
-    if (btn.dataset.tab === 'settings') { renderReadiness(); loadAdmins(); }
-    if (btn.dataset.tab === 'activity') loadActivity();
+// ====================== SESSION ======================
+let session = null;       // { token, member: { PlayerID, Name, Email } }
+let adminSession = null;  // { name, pin }
+function loadSession() {
+  try { session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+  try { adminSession = JSON.parse(sessionStorage.getItem(ADMIN_KEY) || 'null'); } catch (e) { adminSession = null; }
+}
+function saveSession(s) {
+  session = s;
+  try { if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)); else localStorage.removeItem(SESSION_KEY); } catch (e) {}
+}
+function saveAdminSession(a) {
+  adminSession = a;
+  try { if (a) sessionStorage.setItem(ADMIN_KEY, JSON.stringify(a)); else sessionStorage.removeItem(ADMIN_KEY); } catch (e) {}
+}
+
+// ====================== SIGN-IN SCREEN ======================
+// Email first, then PIN (or choose a PIN the first time). No names are shown
+// before someone signs in. The admin link lets an admin in with their admin
+// PIN — needed at the very start, before anyone's email has been entered.
+const gate = { step: 'email', email: '', err: '', busy: false };
+function showGate() {
+  document.getElementById('app').hidden = true;
+  document.getElementById('gateWrap').hidden = false;
+  drawGate();
+}
+function drawGate() {
+  const el = document.getElementById('gate');
+  let body = '';
+  if (gate.step === 'email') {
+    body = `
+      <h2>Sign in</h2>
+      <p class="hint lead">Use the email address the Legends have on file for you.</p>
+      <label for="gEmail">Email address</label>
+      <input id="gEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${escapeHtml(gate.email)}">
+      <button class="primary" id="gNext">Continue</button>
+      <div class="gate-alt">
+        <a class="link" href="live.html" style="font-size:0.85rem; color:var(--green);">Just viewing the tournament scoreboard</a>
+        <button class="link" id="gAdmin">League admin</button>
+      </div>`;
+  } else if (gate.step === 'pin') {
+    body = `
+      <h2>Enter your PIN</h2>
+      <p class="hint lead">${escapeHtml(gate.email)}</p>
+      <label for="gPin">PIN</label>
+      <input id="gPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" placeholder="4 digits">
+      <button class="primary" id="gNext">Sign in</button>
+      <div class="gate-alt"><button class="link" id="gBack">Use a different email</button></div>
+      <p class="hint" style="text-align:center; margin-top:14px;">Forgot your PIN? Ask the admin to reset it, then sign in again to choose a new one.</p>`;
+  } else if (gate.step === 'newpin') {
+    body = `
+      <h2>Choose a PIN</h2>
+      <p class="hint lead">First time signing in as ${escapeHtml(gate.email)}. Choose a 4-digit PIN — you'll use it on any phone or computer.</p>
+      <label for="gPin">New PIN</label>
+      <input id="gPin" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits">
+      <label for="gPin2">Confirm PIN</label>
+      <input id="gPin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits again">
+      <button class="primary" id="gNext">Save PIN &amp; sign in</button>
+      <div class="gate-alt"><button class="link" id="gBack">Use a different email</button></div>`;
+  } else {
+    body = `
+      <h2>League admin</h2>
+      <p class="hint lead">Enter your admin PIN.</p>
+      <label for="gPin">Admin PIN</label>
+      <input id="gPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Admin PIN">
+      <button class="primary" id="gNext">Continue</button>
+      <div class="gate-alt"><button class="link" id="gBack">Back</button></div>`;
+  }
+  el.innerHTML = body + `<p class="gate-err" role="alert">${escapeHtml(gate.err)}</p>`;
+  const first = document.getElementById(gate.step === 'email' ? 'gEmail' : 'gPin');
+  if (first) first.focus();
+  document.getElementById('gNext').onclick = submitGate;
+  const back = document.getElementById('gBack');
+  if (back) back.onclick = () => { gate.step = 'email'; gate.err = ''; drawGate(); };
+  const adm = document.getElementById('gAdmin');
+  if (adm) adm.onclick = () => { gate.step = 'admin'; gate.err = ''; drawGate(); };
+  el.querySelectorAll('input').forEach((inp) => inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGate(); }));
+}
+function gateVal(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
+async function submitGate() {
+  if (gate.busy) return;
+  gate.busy = true;
+  const btn = document.getElementById('gNext');
+  if (btn) btn.disabled = true;
+  gate.err = '';
+  try {
+    if (gate.step === 'email') {
+      gate.email = gateVal('gEmail');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gate.email)) { gate.err = 'Enter your full email address.'; return; }
+      const res = await apiPost('memberCheckEmail', { email: gate.email });
+      if (!res.success) { gate.err = res.error; return; }
+      if (!res.data.found) { gate.err = "We don't have that email on file. Check the spelling, or ask the admin to add it."; return; }
+      gate.step = res.data.needsPin ? 'newpin' : 'pin';
+      return;
+    }
+    if (gate.step === 'pin') {
+      const pin = gateVal('gPin');
+      if (!pin) { gate.err = 'Enter your PIN.'; return; }
+      const res = await apiPost('memberLogin', { email: gate.email, pin });
+      if (!res.success) { gate.err = res.error; return; }
+      finishSignIn(res.data);
+      return;
+    }
+    if (gate.step === 'newpin') {
+      const a = gateVal('gPin'), b = gateVal('gPin2');
+      if (!/^\d{4}$/.test(a)) { gate.err = 'Enter exactly 4 numbers, like 1234.'; return; }
+      if (a !== b) { gate.err = "The two PINs don't match."; return; }
+      const res = await apiPost('memberSetPin', { email: gate.email, newPin: a });
+      if (!res.success) { gate.err = res.error; return; }
+      finishSignIn(res.data);
+      return;
+    }
+    if (gate.step === 'admin') {
+      const pin = gateVal('gPin');
+      if (!pin) { gate.err = 'Enter your admin PIN.'; return; }
+      const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app' });
+      if (!res.success) { gate.err = res.error || 'Incorrect PIN.'; return; }
+      saveAdminSession({ name: res.data.name, pin });
+      showApp('admin');
+      return;
+    }
+  } catch (e) {
+    gate.err = 'Could not reach the server — check your connection and try again.';
+  } finally {
+    gate.busy = false;
+    if (!document.getElementById('gateWrap').hidden) drawGate();
+  }
+}
+function finishSignIn(data) {
+  saveSession({ token: data.token, member: data.member });
+  gate.step = 'email'; gate.err = '';
+  showApp();
+}
+function signOut() {
+  saveSession(null);
+  saveAdminSession(null);
+  gate.step = 'email'; gate.email = ''; gate.err = '';
+  showGate();
+}
+async function changeMyPin() {
+  if (!session) return;
+  const a = prompt('Choose a new 4-digit PIN:');
+  if (a === null) return;
+  if (!/^\d{4}$/.test(a.trim())) { alert('Enter exactly 4 numbers, like 1234.'); return; }
+  const b = prompt('Type the new PIN again to confirm:');
+  if (b === null) return;
+  if (a.trim() !== b.trim()) { alert("The two PINs don't match — nothing changed."); return; }
+  try {
+    const res = await apiPost('memberChangePin', { newPin: a.trim() });
+    if (!res.success) { handleSignedOut(res.error) || alert(res.error); return; }
+    saveSession({ token: res.data.token, member: res.data.member });
+    alert('PIN changed.');
+  } catch (e) { alert('Could not reach the server — try again.'); }
+}
+// Any member request that comes back "signed out" (PIN reset, made inactive)
+// sends the person back to the sign-in screen. Returns true if it did.
+function handleSignedOut(err) {
+  if (!/^SIGNED_OUT/.test(String(err || ''))) return false;
+  saveSession(null);
+  gate.step = 'email'; gate.err = 'You were signed out (your PIN may have been reset). Please sign in again.';
+  showGate();
+  return true;
+}
+
+// ====================== APP SHELL ======================
+function showApp(tab) {
+  document.getElementById('gateWrap').hidden = true;
+  document.getElementById('app').hidden = false;
+  const who = session ? displayName(session.member.Name) : (adminSession ? adminSession.name + ' (admin)' : '');
+  document.getElementById('whoName').textContent = 'Signed in as ' + who;
+  document.getElementById('changePinBtn').hidden = !session;
+  // Carry ?env= through to the tournament pages when testing locally.
+  document.getElementById('lnkLive').href = 'live.html' + location.search;
+  document.getElementById('lnkTAdmin').href = 'tournament-admin.html' + location.search;
+  selectTab(tab || 'signups');
+}
+document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+function selectTab(tab) {
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== 'tab-' + tab; });
+  if (tab === 'admin') renderAdminGate();
+}
+
+// ====================== ADMIN ======================
+function renderAdminGate() {
+  const unlocked = !!adminSession;
+  document.getElementById('adminLocked').hidden = unlocked;
+  document.getElementById('adminBody').hidden = !unlocked;
+  if (unlocked && !membersLoaded) loadMembers();
+}
+document.getElementById('adminPinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockAdmin(); });
+async function unlockAdmin() {
+  const pin = document.getElementById('adminPinInput').value.trim();
+  if (!pin) { showStatus('adminLockStatus', false, 'Enter your admin PIN.'); return; }
+  showStatus('adminLockStatus', true, 'Checking…');
+  try {
+    const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app' });
+    if (!res.success) { showStatus('adminLockStatus', false, res.error || 'Incorrect PIN.'); return; }
+    saveAdminSession({ name: res.data.name, pin });
+    document.getElementById('adminPinInput').value = '';
+    showStatus('adminLockStatus', true, '');
+    renderAdminGate();
+  } catch (e) { showStatus('adminLockStatus', false, 'Could not reach the server — try again.'); }
+}
+// An admin request that fails because the admin PIN is no longer valid
+// (changed on the Admin users list) re-locks the Admin tab.
+function handleAdminRejected(err) {
+  if (!/Admin PIN missing or incorrect/i.test(String(err || ''))) return false;
+  saveAdminSession(null);
+  renderAdminGate();
+  showStatus('adminLockStatus', false, 'Your admin PIN was not accepted — enter it again.');
+  return true;
+}
+
+// ---- Members ----
+let members = [];        // working copy: [{PlayerID, Name, Team, Email, Phone, Active, hasPin}]
+let membersLoaded = false;
+let membersDirty = false;
+function setDirty(v) { membersDirty = v; document.getElementById('memDirty').hidden = !v; }
+async function loadMembers() {
+  showStatus('memStatus', true, 'Loading members…');
+  try {
+    const res = await apiPost('getMembersAdmin', {});
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
+    members = res.data;
+    membersLoaded = true;
+    setDirty(false);
+    showStatus('memStatus', true, '');
+    renderMembers();
+  } catch (e) { showStatus('memStatus', false, 'Could not reach the server — try again.'); }
+}
+function memberSortKey(m) { return String(m.Name || '').toLowerCase(); }
+function renderMembers() {
+  const q = document.getElementById('memFilter').value.trim().toLowerCase();
+  const missingOnly = document.getElementById('memMissingOnly').checked;
+  const rows = members
+    .map((m, idx) => ({ m, idx }))
+    .filter(({ m }) => !q || String(m.Name).toLowerCase().includes(q) || String(m.Email).toLowerCase().includes(q) || m.PlayerID === undefined)
+    .filter(({ m }) => !missingOnly || !String(m.Email || '').trim())
+    .sort((a, b) => (a.m.PlayerID === undefined) - (b.m.PlayerID === undefined) || memberSortKey(a.m).localeCompare(memberSortKey(b.m)));
+  const body = document.getElementById('memBody');
+  body.innerHTML = rows.map(({ m, idx }) => `
+    <tr class="${m.Active === 'FALSE' ? 'inactive' : ''}">
+      <td><input type="text" data-idx="${idx}" data-f="Name" value="${escapeHtml(m.Name)}" placeholder="Last, First"></td>
+      <td><input type="email" data-idx="${idx}" data-f="Email" value="${escapeHtml(m.Email)}" placeholder="email" autocapitalize="off"></td>
+      <td><input type="tel" data-idx="${idx}" data-f="Phone" value="${escapeHtml(m.Phone)}" placeholder="phone"></td>
+      <td style="text-align:center;"><input type="checkbox" data-idx="${idx}" data-f="Active" ${m.Active !== 'FALSE' ? 'checked' : ''}></td>
+      <td>${m.PlayerID === undefined ? '<span class="pin-no">new</span>'
+        : m.hasPin ? `<span class="pin-yes">✓ Set</span> <button class="link danger" data-reset="${idx}">Reset</button>`
+        : '<span class="pin-no">Not set yet</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="hint">No members match.</td></tr>';
+  body.querySelectorAll('[data-f]').forEach((el) => {
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+      const m = members[Number(el.dataset.idx)];
+      m[el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
+      if (el.type === 'checkbox') el.closest('tr').classList.toggle('inactive', !el.checked);
+      setDirty(true);
+    });
   });
-});
-
-// ====================== STATE ======================
-let roster = [];       // [{PlayerID, Name, Team, HandicapIndex, Tee, Active}]
-let settings = {};
-let holeHandicaps = []; // [{Hole, StrokeIndex, Par}] x18 — used by every tee except Red
-let holeHandicapsRed = []; // [{Hole, StrokeIndex}] x18 — Red tees only
-let matchPins = []; // [{MatchNum, PIN}] x9 — one Scorekeeper PIN per match number, shared by both days
-
-// Which Stroke Index table a player's tee should use — matches the same
-// helper in live.html, so print scorecards and live scoring never disagree.
-function strokeIndexForTee(tee, hole) {
-  const isRed = (tee || '').trim().toLowerCase() === 'red';
-  const table = isRed ? holeHandicapsRed : holeHandicaps;
-  const hh = table.find((r) => Number(r.Hole) === hole) || {};
-  return hh.StrokeIndex;
+  body.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => resetPin(Number(b.dataset.reset))));
+  const active = members.filter((m) => m.PlayerID !== undefined && m.Active !== 'FALSE');
+  const withEmail = active.filter((m) => String(m.Email || '').trim()).length;
+  const withPin = active.filter((m) => m.hasPin).length;
+  document.getElementById('memCounts').textContent = `${active.length} active · ${withEmail} with email · ${withPin} have signed in`;
 }
-
-// Course Handicap = Handicap Index x (Slope/113) + (Course Rating - Par),
-// per this course's own rating/slope for each tee (Par 72 both tees):
-//   Red:  Slope 111, Rating 64.1
-//   Gold: Slope 120, Rating 67.1 (also used for any tee other than Red)
-// This is what actually gets used for strokes everywhere in the app — on the
-// Roster it's a read-only, auto-calculated column, not something you type in.
-function courseHandicap(handicapIndex, tee) {
-  const idx = parseFloat(handicapIndex);
-  if (isNaN(idx)) return '';
-  const isRed = (tee || '').trim().toLowerCase() === 'red';
-  const ch = isRed ? (idx * 111 / 113 + (64.1 - 72)) : (idx * 120 / 113 + (67.1 - 72));
-  return Math.round(ch);
+function addMemberRow() {
+  members.push({ Name: '', Email: '', Phone: '', Active: 'TRUE', hasPin: false });
+  document.getElementById('memFilter').value = '';
+  document.getElementById('memMissingOnly').checked = false;
+  renderMembers();
+  setDirty(true);
+  const inputs = document.querySelectorAll('#memBody input[data-f="Name"]');
+  if (inputs.length) inputs[0].focus();
 }
+async function saveMembers() {
+  const bad = members.find((m) => String(m.Email || '').trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(m.Email).trim()));
+  if (bad) { showStatus('memStatus', false, `${bad.Name || 'A member'}: "${bad.Email}" is not a valid email address.`); return; }
+  const btn = document.getElementById('saveMembersBtn');
+  btn.disabled = true;
+  showStatus('memStatus', true, 'Saving…');
+  try {
+    const payload = members.map((m) => ({ PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, Phone: m.Phone, Active: m.Active }));
+    const res = await apiPost('saveMembers', { members: JSON.stringify(payload) });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
+    members = res.data;
+    setDirty(false);
+    renderMembers();
+    showStatus('memStatus', true, 'Saved.');
+  } catch (e) { showStatus('memStatus', false, 'Could not reach the server — try again.'); }
+  finally { btn.disabled = false; }
+}
+async function resetPin(idx) {
+  const m = members[idx];
+  if (!confirm(`Reset ${displayName(m.Name)}'s PIN? They'll be signed out and will choose a new PIN the next time they sign in.`)) return;
+  try {
+    const res = await apiPost('resetMemberPin', { playerId: String(m.PlayerID) });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
+    m.hasPin = false;
+    renderMembers();
+    showStatus('memStatus', true, `${displayName(m.Name)}'s PIN was reset.`);
+  } catch (e) { showStatus('memStatus', false, 'Could not reach the server — try again.'); }
+}
+window.addEventListener('beforeunload', (e) => { if (membersDirty) { e.preventDefault(); e.returnValue = ''; } });
 
-// ====================== INIT ======================
-async function loadVersionBadge() {
-  const el = document.getElementById('versionBadge');
-  el.textContent = `Page: ${ADMIN_VERSION} • Backend: …`;
+// ====================== BOOT ======================
+async function loadVersion() {
+  const el = document.getElementById('verBadge');
+  el.textContent = `${ENV.toUpperCase()} · Page ${APP_VERSION} · Backend …`;
   try {
     const res = await apiGet('getVersion');
-    el.textContent = `Page: ${ADMIN_VERSION} • Backend: ${res.success ? res.data.version : 'unknown'}`;
-  } catch (err) {
-    el.textContent = `Page: ${ADMIN_VERSION} • Backend: unreachable`;
-  }
+    el.textContent = `${ENV.toUpperCase()} · Page ${APP_VERSION} · Backend ${res.success ? res.data.version : 'unknown'}`;
+  } catch (e) { el.textContent = `${ENV.toUpperCase()} · Page ${APP_VERSION} · Backend unreachable`; }
 }
-
-// Used to fire 5 separate apiGet calls plus 2 more via loadPairings (7
-// total) in parallel — the same pattern live.html's loadShared() had, and
-// the same ~16s load time it caused on a live test (see the note on
-// getBootData_ in Code.gs). One combined request now does the same job.
-// Applies a boot-data snapshot — in the same raw shape apiGet('getBootData')
-// returns — to every tab's own state and re-renders it. One function, used
-// identically whether it's the EMBEDDED_SNAPSHOT baked into this file (for
-// an instant first paint — see init() below) or the real fetch that follows
-// it, so there's exactly one place that knows how to turn boot data into
-// on-screen state, and the real fetch's result always wins when it lands.
-function applyBootData_(d) {
-  settings = d.settings;
-  populateSettingsForm();
-  roster = d.roster;
-  renderRoster();
-  holeHandicaps = d.holeHandicaps.length ? d.holeHandicaps : defaultHoleHandicapRows();
-  holeHandicapsRed = d.holeHandicapsRed.length ? d.holeHandicapsRed : defaultHoleHandicapRedRows();
-  renderHoleHandicaps();
-  matchPins = d.matchPins.length ? d.matchPins : defaultMatchPinRows();
-  renderMatchPins();
-  pairings['1'] = d.pairings1.length ? d.pairings1 : defaultPairingRows('1');
-  pairings['2'] = d.pairings2.length ? d.pairings2 : defaultPairingRows('2');
-  renderPairings('1');
-  renderPairings('2');
-  populatePrintMatchSelect();
-  renderReadiness();
-}
-async function init() {
-  loadVersionBadge();
-  // Paint instantly from the snapshot baked into this file (if one's been
-  // generated — see the "Copy Tournament Snapshot" button on the Settings
-  // tab) while the real fetch below runs — same idea as live.html's
-  // device-cache-first paint, just without a cache tier here since only a
-  // couple of people ever open this page.
-  if (EMBEDDED_SNAPSHOT && Object.keys(EMBEDDED_SNAPSHOT).length) {
-    // Wrapped defensively: a malformed/partial paste into EMBEDDED_SNAPSHOT
-    // shouldn't be able to stop the real fetch just below this from running.
-    try { applyBootData_(EMBEDDED_SNAPSHOT); } catch (e) { console.error('Could not apply boot seed', e); }
-  }
-  const res = await apiGet('getBootData');
-  if (!res.success) {
-    document.getElementById('printStatus').textContent = 'Could not load tournament data: ' + (res.error || 'unknown error') + ' — try reloading.';
-    return;
-  }
-  applyBootData_(res.data);
-}
-
-// ====================== HOLE HANDICAPS TAB ======================
-// Read-only display, combining the regular and Red Stroke Index tables into
-// one row per hole. Set once per course/tee setup and not expected to change
-// after that — edit the HoleHandicaps / HoleHandicapsRed tabs directly in the
-// Google Sheet if it ever needs to (see strokeIndexForTee for how each is used).
-function defaultHoleHandicapRows() {
-  const rows = [];
-  for (let h = 1; h <= 18; h++) rows.push({ Hole: h, StrokeIndex: '', Par: '' });
-  return rows;
-}
-function defaultHoleHandicapRedRows() {
-  const rows = [];
-  for (let h = 1; h <= 18; h++) rows.push({ Hole: h, StrokeIndex: '' });
-  return rows;
-}
-
-function renderHoleHandicaps() {
-  const body = document.getElementById('holeHcBody');
-  if (!body) return;
-  body.innerHTML = '';
-  for (let h = 1; h <= 18; h++) {
-    const row = holeHandicaps.find((r) => Number(r.Hole) === h) || {};
-    const redRow = holeHandicapsRed.find((r) => Number(r.Hole) === h) || {};
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="match-label">Hole ${h}${h === 9 || h === 18 ? ' <span class="hint">(' + (h === 9 ? 'end of front 9' : 'end of back 9') + ')</span>' : ''}</td>
-      <td>${row.StrokeIndex || ''}</td>
-      <td>${redRow.StrokeIndex || ''}</td>
-      <td>${row.Par || ''}</td>
-    `;
-    body.appendChild(tr);
-  }
-}
-
-// ====================== SETTINGS TAB ======================
-function populateSettingsForm() {
-  document.getElementById('s_TournamentName').value = settings.TournamentName || '';
-  document.getElementById('s_Day1Date').value = settings.Day1Date || '';
-  document.getElementById('s_Day2Date').value = settings.Day2Date || '';
-  document.getElementById('s_TeamAName').value = settings.TeamAName || 'Team A';
-  document.getElementById('s_TeamACaptain').value = settings.TeamACaptain || '';
-  document.getElementById('s_TeamAColor').value = settings.TeamAColor || '#ADD8E6';
-  document.getElementById('s_TeamBName').value = settings.TeamBName || 'Team B';
-  document.getElementById('s_TeamBCaptain').value = settings.TeamBCaptain || '';
-  document.getElementById('s_TeamBColor').value = settings.TeamBColor || '#F08080';
-  document.getElementById('tournamentTitle').textContent = settings.TournamentName || 'Heritage Legends Tournament';
-  updateDayLockUI();
-  updateSuspendPinsUI();
-  updateConcedeEnabledUI();
-  refreshPairingHeaders();
-}
-
-// Mirrors isDayLocked_ in Code.gs / dayIsLocked in live.html.
-function dayIsLocked(day) {
-  const v = settings[day === '2' ? 'Day2Locked' : 'Day1Locked'];
-  return v === true || v === 'TRUE' || v === 'true';
-}
-function updateDayLockUI() {
-  ['1', '2'].forEach((day) => {
-    const locked = dayIsLocked(day);
-    document.getElementById(`day${day}LockLabel`).textContent = locked ? 'Locked' : 'Unlocked';
-    document.getElementById(`day${day}LockLabel`).style.color = locked ? '#c0392b' : '';
-    document.getElementById(`day${day}LockLabel`).style.fontWeight = locked ? '700' : '400';
-    document.getElementById(`day${day}LockBtn`).textContent = locked ? `Unlock Day ${day}` : `Lock Day ${day}`;
-  });
-}
-// Only the one Locked key is included — leaves
-// every other setting (including the other day's lock) untouched.
-async function toggleDayLock(day) {
-  const key = day === '2' ? 'Day2Locked' : 'Day1Locked';
-  const newValue = dayIsLocked(day) ? 'FALSE' : 'TRUE';
-  try {
-    const res = await apiPost('saveSettings', { settings: JSON.stringify({ [key]: newValue }) });
-    if (res.success) {
-      settings = res.data;
-      updateDayLockUI();
-      showStatus('dayLockStatus', true, newValue === 'TRUE' ? `Day ${day} locked — results are now frozen on Live Scoring.` : `Day ${day} unlocked — results can be edited again.`);
-    } else {
-      showStatus('dayLockStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('dayLockStatus', false, 'Network error: ' + err.message);
-  }
-}
-
-// Mirrors the SuspendScorePins check in live.html's matchIsUnlocked.
-function suspendPinsOn() {
-  const v = settings.SuspendScorePins;
-  return v === true || v === 'TRUE' || v === 'true';
-}
-function updateSuspendPinsUI() {
-  const on = suspendPinsOn();
-  const label = document.getElementById('suspendPinsLabel');
-  label.textContent = on ? 'ON — anyone can enter scores for any match, no PIN needed' : 'Off — PINs required as normal';
-  label.style.color = on ? '#b8860b' : '';
-  label.style.fontWeight = on ? '700' : '400';
-  document.getElementById('suspendPinsBtn').textContent = on ? 'Require PINs Again' : 'Suspend PINs';
-}
-async function toggleSuspendPins() {
-  const newValue = suspendPinsOn() ? 'FALSE' : 'TRUE';
-  try {
-    const res = await apiPost('saveSettings', { settings: JSON.stringify({ SuspendScorePins: newValue }) });
-    if (res.success) {
-      settings = res.data;
-      updateSuspendPinsUI();
-      showStatus('suspendPinsStatus', true, newValue === 'TRUE'
-        ? 'PIN requirement suspended — Live Scoring will let anyone enter any match’s scores until you turn this back off.'
-        : 'PINs required again — every match is back to needing its own PIN (or the Admin PIN), same as before.');
-    } else {
-      showStatus('suspendPinsStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('suspendPinsStatus', false, 'Network error: ' + err.message);
-  }
-}
-
-// Mirrors concedeEnabled() in live.html. Defaults ON (existing behavior)
-// unless explicitly turned off.
-function concedeEnabledOn() {
-  const v = settings.ConcedeEnabled;
-  return !(v === false || v === 'FALSE' || v === 'false');
-}
-function updateConcedeEnabledUI() {
-  const on = concedeEnabledOn();
-  const label = document.getElementById('concedeEnabledLabel');
-  label.textContent = on ? 'On — scorekeepers may be offered the chance to concede' : 'Off — players always play out every hole';
-  label.style.color = on ? '#2e7d32' : '#c0392b';
-  label.style.fontWeight = '700';
-  document.getElementById('concedeEnabledBtn').textContent = on ? 'Turn Off' : 'Turn On';
-}
-async function toggleConcedeEnabled() {
-  const newValue = concedeEnabledOn() ? 'FALSE' : 'TRUE';
-  try {
-    const res = await apiPost('saveSettings', { settings: JSON.stringify({ ConcedeEnabled: newValue }) });
-    if (res.success) {
-      settings = res.data;
-      updateConcedeEnabledUI();
-      showStatus('concedeEnabledStatus', true, newValue === 'TRUE'
-        ? 'Concede prompt turned back on — a losing team may be offered the chance to concede once a match is decided.'
-        : 'Concede prompt turned off — Live Scoring will no longer offer to concede; players will play out every hole.');
-    } else {
-      showStatus('concedeEnabledStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('concedeEnabledStatus', false, 'Network error: ' + err.message);
-  }
-}
-
-async function saveSettings() {
-  const newSettings = {
-    TournamentName: document.getElementById('s_TournamentName').value,
-    Day1Date: document.getElementById('s_Day1Date').value,
-    Day2Date: document.getElementById('s_Day2Date').value,
-    TeamAName: document.getElementById('s_TeamAName').value || 'Team A',
-    TeamACaptain: document.getElementById('s_TeamACaptain').value,
-    TeamAColor: document.getElementById('s_TeamAColor').value || '#ADD8E6',
-    TeamBName: document.getElementById('s_TeamBName').value || 'Team B',
-    TeamBCaptain: document.getElementById('s_TeamBCaptain').value,
-    TeamBColor: document.getElementById('s_TeamBColor').value || '#F08080',
-  };
-  try {
-    const res = await apiPost('saveSettings', { settings: JSON.stringify(newSettings) });
-    if (res.success) {
-      settings = res.data;
-      populateSettingsForm();
-      showStatus('settingsStatus', true, 'Saved.');
-    } else {
-      showStatus('settingsStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('settingsStatus', false, 'Network error: ' + err.message);
-  }
-}
-
-// Generates the paste-ready SNAPSHOT block described in the card above — the
-// exact same shape apiGet('getBootData') already returns, wrapped in the
-// start/end markers both files' EMBEDDED_SNAPSHOT is looking for so it's
-// obvious what to select when pasting over the old one. Copies it to the
-// clipboard when the browser allows it; either way it's also shown in the
-// box below so it can be selected and copied by hand if the automatic copy
-// doesn't go through (some phone browsers block it outside a very direct tap
-// response).
-async function copyTournamentSnapshot() {
-  const statusEl = document.getElementById('snapshotStatus');
-  const outputEl = document.getElementById('snapshotOutput');
-  statusEl.className = 'status';
-  statusEl.textContent = 'Fetching current data…';
-  outputEl.style.display = 'none';
-  let res;
-  try {
-    res = await apiGet('getBootData');
-  } catch (err) {
-    showStatus('snapshotStatus', false, 'Could not fetch current data: ' + err.message);
-    return;
-  }
-  if (!res.success) {
-    showStatus('snapshotStatus', false, res.error || 'Could not fetch current data.');
-    return;
-  }
-  const text = '// ===== SNAPSHOT START =====\n'
-    + 'const EMBEDDED_SNAPSHOT = ' + JSON.stringify(res.data, null, 2) + ';\n'
-    + '// ===== SNAPSHOT END — paste this whole block (all three marked lines and\n'
-    + '//   everything between them) over the old SNAPSHOT block, in BOTH\n'
-    + '//   index.html and live.html =====';
-  outputEl.value = text;
-  outputEl.style.display = 'block';
-  try {
-    await navigator.clipboard.writeText(text);
-    showStatus('snapshotStatus', true, `Copied (as of ${new Date().toLocaleString()}) — paste it over the SNAPSHOT block in both index.html and live.html.`);
-  } catch (err) {
-    statusEl.className = 'status';
-    statusEl.textContent = 'Could not copy automatically — select the text below and copy it by hand.';
-    outputEl.focus();
-    outputEl.select();
-  }
-}
-
-
-async function startNewSeason() {
-  const defaultLabel = new Date().getFullYear().toString();
-  const label = prompt(
-    'Label for this season\'s archive (letters/numbers only, e.g. a year):',
-    defaultLabel
-  );
-  if (label === null) return; // cancelled
-
-  const confirmed = confirm(
-    'This will:\n\n' +
-    '- Save a copy of this year\'s settings, roster, pairings and scores as hidden “Archive_' + (label || defaultLabel) + '_...” tabs in the Google Sheet\n' +
-    '- Clear all 9 Day 1 and Day 2 pairings back to blank\n' +
-    '- Clear all entered scores\n' +
-    '- Reset every player’s team assignment back to unassigned\n' +
-    '- Reset the tournament dates and Team A/B names/captains back to defaults\n\n' +
-    'Player names/handicaps/tees and the Hole Handicaps table are kept as-is.\n\n' +
-    'This cannot be undone from here (though the archived tabs keep everything). Continue?'
-  );
-  if (!confirmed) return;
-
-  try {
-    showStatus('newSeasonStatus', true, 'Archiving and resetting…');
-    const res = await apiPost('startNewSeason', { archiveLabel: label || defaultLabel });
-    if (res.success) {
-      showStatus('newSeasonStatus', true, 'Done — archived as "' + res.data.archived + '". Reloading…');
-      await init();
-      showStatus('newSeasonStatus', true, 'New season started. Everything below has been reset.');
-    } else {
-      showStatus('newSeasonStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('newSeasonStatus', false, 'Network error: ' + err.message);
-  }
-}
-
-function refreshPairingHeaders() {
-  document.getElementById('day1TeamAHeader').textContent = settings.TeamAName || 'Team A';
-  document.getElementById('day1TeamBHeader').textContent = settings.TeamBName || 'Team B';
-  document.getElementById('day2TeamAHeader').textContent = settings.TeamAName || 'Team A';
-  document.getElementById('day2TeamBHeader').textContent = settings.TeamBName || 'Team B';
-  if (roster.length) renderRoster(); // refresh the captain-name labels in the Team dropdown
-}
-
-// ====================== ROSTER TAB ======================
-function renderRoster() {
-  const body = document.getElementById('rosterBody');
-  body.innerHTML = '';
-  roster.forEach((p, idx) => body.appendChild(rosterRowEl(p, idx)));
-  renderReplacePlayerForm();
-}
-
-// ---- Day 2 substitution ("Replace a Player on Day 2") ----
-// Outgoing choices: everyone currently named in a Day 2 match. Substitute
-// suggestions: roster players who are NOT in Day 2 right now (standby,
-// not participating, unassigned) — but a brand-new name can just be typed.
-function day2PlayerNames_() {
-  const used = new Set();
-  (pairings['2'] || []).forEach((row) => {
-    ['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].forEach((f) => { if (row[f]) used.add(row[f]); });
-  });
-  return used;
-}
-function renderReplacePlayerForm() {
-  const outSel = document.getElementById('rp_outgoing');
-  const dl = document.getElementById('rp_incomingList');
-  if (!outSel || !dl) return;
-  const prevOut = outSel.value;
-  const inDay2 = day2PlayerNames_();
-  const outNames = Array.from(inDay2).sort((a, b) => a.localeCompare(b));
-  outSel.innerHTML = '<option value="">— select —</option>' +
-    outNames.map((n) => `<option value="${escapeAttr(n)}" ${n === prevOut ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
-  const candidates = roster.filter((p) => p.Name && !inDay2.has(p.Name)).map((p) => p.Name).sort((a, b) => a.localeCompare(b));
-  dl.innerHTML = candidates.map((n) => `<option value="${escapeAttr(n)}"></option>`).join('');
-  const hint = document.getElementById('rp_hint');
-  if (hint && !outNames.length) hint.textContent = 'No players are assigned to Day 2 matches yet — set up the Day 2 Pairings first.';
-  else if (hint) hint.textContent = '';
-}
-// The Roster tab has two views: the roster table (default) and the Day 2
-// substitute form. Switching to the form refreshes its player lists.
-function showRosterSub(which) {
-  const isReplace = which === 'replace';
-  document.getElementById('rosterCard').hidden = isReplace;
-  document.getElementById('replacePlayerCard').hidden = !isReplace;
-  document.getElementById('rosterSub_roster').classList.toggle('active', !isReplace);
-  document.getElementById('rosterSub_replace').classList.toggle('active', isReplace);
-  if (isReplace) renderReplacePlayerForm();
-}
-async function replacePlayerDay2() {
-  const status = 'rp_status';
-  const outgoing = document.getElementById('rp_outgoing').value;
-  const incomingName = document.getElementById('rp_incoming').value.trim();
-  const hiRaw = document.getElementById('rp_hi').value.trim();
-  const tee = document.getElementById('rp_tee').value.trim();
-  if (!outgoing) { showStatus(status, false, 'Choose the player who is out.'); return; }
-  if (!incomingName) { showStatus(status, false, 'Enter or choose the substitute.'); return; }
-  if (incomingName === outgoing) { showStatus(status, false, 'The substitute can’t be the same person.'); return; }
-  if (day2PlayerNames_().has(incomingName)) { showStatus(status, false, incomingName + ' is already playing in a Day 2 match.'); return; }
-  const existing = roster.find((p) => p.Name === incomingName);
-  if (!existing && incomingName.indexOf(',') === -1) {
-    if (!confirm('"' + incomingName + '" is a new player and isn’t in "Last, First" form — the Scoreboard and scorecards show names as Last name, First initial, so it’s best to type it as "Last, First". Use it as typed anyway?')) return;
-  }
-  const outP = roster.find((p) => p.Name === outgoing);
-  const teamName = outP ? teamLabel(outP.Team) : '';
-  if (!confirm('Replace ' + outgoing + ' with ' + incomingName + (teamName ? ' (' + teamName + ')' : '') + ' on Day 2?\n\n' + outgoing + ' will be marked Not participating, and ' + incomingName + ' will take their place on the Day 2 Pairings. Day 1 is not changed.')) return;
-  const btn = document.getElementById('rp_btn');
-  btn.disabled = true;
-  try {
-    const incoming = { Name: incomingName };
-    if (hiRaw !== '') incoming.HandicapIndex = Number(hiRaw);
-    if (tee) incoming.Tee = tee;
-    const res = await apiPost('replacePlayerDay2', { outgoingName: outgoing, incoming: JSON.stringify(incoming) });
-    if (!res.success) { showStatus(status, false, res.error || 'Could not replace the player.'); return; }
-    // Reload both from the server so the screen matches what was saved.
-    const [r, p2] = await Promise.all([apiGet('getRoster'), apiGet('getPairings', { day: '2' })]);
-    if (r && r.success) roster = r.data;
-    if (p2 && p2.success && p2.data.length) pairings['2'] = p2.data;
-    renderRoster();
-    refreshPairingDropdownSources();
-    document.getElementById('rp_incoming').value = '';
-    document.getElementById('rp_hi').value = '';
-    document.getElementById('rp_tee').value = '';
-    const d = res.data || {};
-    const matches = (d.matchesUpdated || []).length ? ' Day 2 Match ' + d.matchesUpdated.join(', ') + ' updated.' : ' (They weren’t found in any Day 2 match.)';
-    showStatus(status, true, outgoing + ' → ' + incomingName + ' done.' + matches);
-  } catch (err) {
-    showStatus(status, false, 'Network error: ' + err.message);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function teamLabel(key) {
-  if (key === 'A') {
-    const cap = settings.TeamACaptain;
-    return cap && cap !== 'TBD' ? `${settings.TeamAName || 'Team A'} — ${cap}` : (settings.TeamAName || 'Team A');
-  }
-  if (key === 'B') {
-    const cap = settings.TeamBCaptain;
-    return cap && cap !== 'TBD' ? `${settings.TeamBName || 'Team B'} — ${cap}` : (settings.TeamBName || 'Team B');
-  }
-  return key;
-}
-
-// Boolean roster fields round-trip through the Sheet as an actual TRUE/FALSE
-// checkbox value, which Apps Script hands back as a real JS boolean — but
-// treat the string forms as true too, just in case a cell was ever typed by
-// hand rather than checked.
-function isScorekeeper(p) {
-  const v = p && p.Scorekeeper;
-  return v === true || v === 'TRUE' || v === 'true';
-}
-
-function rosterRowEl(p, idx) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="text" value="${escapeAttr(p.Name || '')}" data-field="Name" data-idx="${idx}"></td>
-    <td>
-      <select data-field="Team" data-idx="${idx}">
-        <option value="" ${!p.Team ? 'selected' : ''}>— Unassigned —</option>
-        <option value="A" ${p.Team === 'A' ? 'selected' : ''}>${escapeHtml(teamLabel('A'))}</option>
-        <option value="B" ${p.Team === 'B' ? 'selected' : ''}>${escapeHtml(teamLabel('B'))}</option>
-        <option value="ON_STANDBY" ${p.Team === 'ON_STANDBY' ? 'selected' : ''}>On standby</option>
-        <option value="NOT_PLAYING" ${p.Team === 'NOT_PLAYING' ? 'selected' : ''}>Not participating</option>
-      </select>
-    </td>
-    <td><input type="number" step="0.1" value="${p.HandicapIndex || ''}" data-field="HandicapIndex" data-idx="${idx}"></td>
-    <td><input type="text" value="${escapeAttr(p.Tee || '')}" data-field="Tee" data-idx="${idx}"></td>
-    <td class="roster-ch-cell" data-ch-idx="${idx}">${rosterChDisplay(p)}</td>
-    <td style="text-align:center;"><input type="checkbox" data-field="Scorekeeper" data-idx="${idx}" ${isScorekeeper(p) ? 'checked' : ''}></td>
-    <td><button class="link" onclick="removeRosterRow(${idx})">Remove</button></td>
-  `;
-  tr.querySelectorAll('input, select').forEach((el) => {
-    el.addEventListener('change', (e) => {
-      const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-      roster[idx][e.target.dataset.field] = value;
-      if (e.target.dataset.field === 'HandicapIndex' || e.target.dataset.field === 'Tee') {
-        const chCell = tr.querySelector(`[data-ch-idx="${idx}"]`);
-        if (chCell) chCell.textContent = rosterChDisplay(roster[idx]);
-      }
-      if (e.target.dataset.field === 'Name' || e.target.dataset.field === 'Scorekeeper') {
-        // The Pairings tables' "needs a scorekeeper" flags read straight off
-        // this same in-memory roster array, so keep them current as you type
-        // rather than only after Save Roster.
-        refreshPairingDropdownSources();
-      }
-    });
-  });
-  return tr;
-}
-
-// Read-only display for the Roster's Course Handicap column — recomputed
-// live as Handicap Index / Tee are edited, never stored as its own field.
-function rosterChDisplay(p) {
-  if (!p || p.HandicapIndex === '' || p.HandicapIndex === undefined || p.HandicapIndex === null) return '';
-  const ch = courseHandicap(p.HandicapIndex, p.Tee);
-  return ch === '' ? '' : String(ch);
-}
-
-function addRosterRow() {
-  roster.push({ PlayerID: '', Name: '', Team: '', HandicapIndex: '', Tee: '', Active: true });
-  renderRoster();
-}
-function removeRosterRow(idx) {
-  roster.splice(idx, 1);
-  renderRoster();
-}
-
-// ====================== MATCH COUNT (kept in sync with the Roster) ======================
-// Every match is a 2-vs-2 foursome (2 players from each team), so the number
-// of matches the roster actually supports is (Team A size)/2, which should
-// always equal (Team B size)/2 too since players are added/removed in groups
-// of 4 (2 per team) to keep the teams even. Math.min guards against a
-// roster that's momentarily uneven (e.g. only one team's players have been
-// updated so far) — it never invents more matches than either team can
-// actually fill two players into.
-function targetMatchCountFromRoster() {
-  const a = rosterNamesForTeam('A').length;
-  const b = rosterNamesForTeam('B').length;
-  return Math.floor(Math.min(a, b) / 2);
-}
-
-function blankPairingRow(day, matchNum) {
-  return (day === '2' || day === 2)
-    ? { MatchNum: matchNum, TeamA_P1: '', TeamA_P2: '', TeamB_P1: '', TeamB_P2: '', StartHole: '', MP1_TeamA: '', MP1_TeamB: '', MP2_TeamA: '', MP2_TeamB: '', MPSwapped: false }
-    : { MatchNum: matchNum, TeamA_P1: '', TeamA_P2: '', TeamB_P1: '', TeamB_P2: '', StartHole: '' };
-}
-
-// Grows or shrinks pairings[day] to exactly `target` rows. Growing appends
-// fresh blank match rows at the end (Match N+1, N+2, ...) — the admin fills
-// in real players afterward on the Pairings tab, same as any other blank
-// match. Shrinking only ever removes rows from the END, and only ones with
-// no player in any of the 4 slots — a match that already has real pairing
-// data is left alone rather than silently discarded. Returns the match
-// number(s) it wasn't able to remove, if any, so the caller can tell the
-// admin about them.
-function reconcilePairingCount(day, target) {
-  const rows = pairings[day];
-  const blocked = [];
-  while (rows.length < target) rows.push(blankPairingRow(day, rows.length + 1));
-  while (rows.length > target) {
-    const last = rows[rows.length - 1];
-    const isBlank = !last.TeamA_P1 && !last.TeamA_P2 && !last.TeamB_P1 && !last.TeamB_P2;
-    if (!isBlank) { blocked.push(last.MatchNum); break; }
-    rows.pop();
-  }
-  return blocked;
-}
-
-function reconcileMatchPinCount(target) {
-  while (matchPins.length < target) matchPins.push({ MatchNum: matchPins.length + 1, PIN: '' });
-  while (matchPins.length > target) matchPins.pop();
-}
-
-// Runs right after a successful Save Roster: recomputes how many matches the
-// roster now supports and grows/shrinks Day 1 Pairings, Day 2 Pairings, and
-// Scorekeeper PINs to match, saving whichever of those three actually
-// changed length. Returns a short sentence describing what happened (or ''
-// if the match count didn't change), for saveRoster to append to its own
-// "Saved N players" status message.
-async function reconcileMatchCountFromRoster() {
-  const target = targetMatchCountFromRoster();
-  const before1 = pairings['1'].length;
-  const before2 = pairings['2'].length;
-  const blocked1 = reconcilePairingCount('1', target);
-  const blocked2 = reconcilePairingCount('2', target);
-  const effectiveTarget = Math.max(pairings['1'].length, pairings['2'].length);
-  const beforePins = matchPins.length;
-  reconcileMatchPinCount(effectiveTarget);
-
-  const saves = [];
-  if (pairings['1'].length !== before1) {
-    saves.push(apiPost('savePairings', { day: '1', pairings: JSON.stringify(pairings['1']) }).then((res) => { if (res.success) pairings['1'] = res.data; }));
-  }
-  if (pairings['2'].length !== before2) {
-    saves.push(apiPost('savePairings', { day: '2', pairings: JSON.stringify(pairings['2']) }).then((res) => { if (res.success) pairings['2'] = res.data; }));
-  }
-  if (matchPins.length !== beforePins) {
-    saves.push(apiPost('saveMatchPins', { matchPins: JSON.stringify(matchPins) }).then((res) => { if (res.success) matchPins = res.data; }));
-  }
-  if (saves.length) await Promise.all(saves);
-
-  renderPairings('1');
-  renderPairings('2');
-  renderMatchPins();
-  populatePrintMatchSelect();
-
-  const blockedNums = Array.from(new Set(blocked1.concat(blocked2)));
-  if (blockedNums.length) {
-    const plural = blockedNums.length > 1;
-    return ` The roster now supports ${target} match${target === 1 ? '' : 'es'}, but Match ${blockedNums.join(' and ')} still ${plural ? 'have' : 'has'} players assigned — clear ${plural ? 'their' : 'its'} players on the Day 1/Day 2 Pairings tabs, then save the roster again to finish.`;
-  }
-  if (pairings['1'].length !== before1 || pairings['2'].length !== before2) {
-    return ` Match count updated to ${effectiveTarget} (was ${Math.max(before1, before2)}) on the Pairings and Scorekeeper PINs tabs.`;
-  }
-  return '';
-}
-
-async function saveRoster() {
-  const btn = document.getElementById('saveRosterBtn');
-  const originalLabel = btn.textContent;
-  btn.disabled = true;
-  try {
-    const res = await apiPost('saveRoster', { roster: JSON.stringify(roster) });
-    if (res.success) {
-      roster = res.data;
-      renderRoster();
-      const matchNote = await reconcileMatchCountFromRoster();
-      showStatus('rosterStatus', true, `Saved ${roster.length} players.` + matchNote);
-      refreshPairingDropdownSources();
-      flashSavedButton(btn, originalLabel);
-    } else {
-      showStatus('rosterStatus', false, res.error);
-      btn.disabled = false;
-    }
-  } catch (err) {
-    showStatus('rosterStatus', false, 'Network error: ' + err.message);
-    btn.disabled = false;
-  }
-}
-
-// Swaps the just-clicked Save button's own label to a checkmark for a
-// couple of seconds — on top of (not instead of) the text status line below
-// — so confirmation shows up right where the tap landed and is hard to miss,
-// rather than relying on a quiet status line under the button.
-function flashSavedButton(btn, originalLabel) {
-  btn.textContent = '✓ Saved!';
-  setTimeout(() => {
-    btn.textContent = originalLabel;
-    btn.disabled = false;
-  }, 1800);
-}
-
-function rosterNamesForTeam(team) {
-  return roster.filter((p) => p.Team === team && p.Name).map((p) => p.Name);
-}
-
-// ====================== PAIRINGS (shared logic for Day 1 & 2) ======================
-let pairings = { 1: [], 2: [] };
-
-// usedElsewhere is the set of names already picked in some OTHER slot for
-// this same day (see usedNamesInDay below) — filtered out here so the same
-// player can't accidentally end up in two matches at once. The name already
-// sitting in THIS slot is never in that set (usedNamesInDay excludes the
-// slot it's building for), so it always stays selectable for itself.
-function playerSelect(selectedName, team, dataAttrs, usedElsewhere) {
-  const used = usedElsewhere || new Set();
-  const names = rosterNamesForTeam(team).filter((n) => n === selectedName || !used.has(n));
-  const opts = ['<option value="">— select —</option>']
-    .concat(names.map((n) => `<option value="${escapeAttr(n)}" ${n === selectedName ? 'selected' : ''}>${escapeHtml(n)}</option>`));
-  return `<select ${dataAttrs}>${opts.join('')}</select>`;
-}
-
-// Every player already assigned to any of that day's matches (either team,
-// any of the 4 slots), except whichever one slot is currently being built —
-// so that dropdown doesn't lose its own current selection.
-function usedNamesInDay(day, exceptIdx, exceptField) {
-  const used = new Set();
-  (pairings[day] || []).forEach((row, i) => {
-    ['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].forEach((f) => {
-      if (i === exceptIdx && f === exceptField) return;
-      if (row[f]) used.add(row[f]);
-    });
-  });
-  return used;
-}
-
-function defaultPairingRows(day) {
-  const rows = [];
-  for (let m = 1; m <= 9; m++) {
-    if (day === '2' || day === 2) {
-      rows.push({ MatchNum: m, TeamA_P1: '', TeamA_P2: '', TeamB_P1: '', TeamB_P2: '', StartHole: '', MP1_TeamA: '', MP1_TeamB: '', MP2_TeamA: '', MP2_TeamB: '', MPSwapped: false });
-    } else {
-      rows.push({ MatchNum: m, TeamA_P1: '', TeamA_P2: '', TeamB_P1: '', TeamB_P2: '', StartHole: '' });
-    }
-  }
-  return rows;
-}
-
-// Random 4-digit PIN, as a string (keeps a leading zero if it lands on one).
-function randomPin4() {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
-function renderPairings(day) {
-  const body = document.getElementById(day === '2' ? 'day2Body' : 'day1Body');
-  body.innerHTML = '';
-  if (day === '2' || day === 2) {
-    pairings[day].forEach((row) => { if (!row.MP1_TeamA && !isSwapped(row)) syncMatchPlayPairing(row); });
-  }
-  pairings[day].forEach((row, idx) => body.appendChild(pairingRowEl(day, row, idx)));
-  updateScorekeeperSummary(day);
-}
-
-// "N of M matches have a scorekeeper" above each Pairings table — only
-// counts matches that actually have all 4 players assigned, same as the
-// per-row flag below, so it tracks "matches ready to go" rather than
-// penalizing pairings you haven't finished setting up yet.
-function updateScorekeeperSummary(day) {
-  const el = document.getElementById(day === '2' || day === 2 ? 'day2SkSummary' : 'day1SkSummary');
-  if (!el) return;
-  const staffedRows = (pairings[day] || []).filter((row) => [row.TeamA_P1, row.TeamA_P2, row.TeamB_P1, row.TeamB_P2].every(Boolean));
-  const withSk = staffedRows.filter((row) => [row.TeamA_P1, row.TeamA_P2, row.TeamB_P1, row.TeamB_P2].some((name) => {
-    const p = roster.find((r) => r.Name === name);
-    return isScorekeeper(p);
-  }));
-  if (!staffedRows.length) { el.textContent = ''; return; }
-  const allSet = withSk.length === staffedRows.length;
-  el.textContent = `${withSk.length} of ${staffedRows.length} set-up match${staffedRows.length === 1 ? '' : 'es'} have a scorekeeper assigned.`;
-  el.style.color = allSet ? 'var(--ok)' : '#8a6300';
-}
-
-function pairingRowEl(day, row, idx) {
-  const tr = document.createElement('tr');
-  tr.className = 'match-row';
-  const base = `data-day="${day}" data-idx="${idx}"`;
-  const isDay2 = day === '2' || day === 2;
-
-  tr.innerHTML = `
-    <td class="match-label">Match ${row.MatchNum}</td>
-    <td>${playerSelect(row.TeamA_P1, 'A', `${base} data-field="TeamA_P1"`, usedNamesInDay(day, idx, 'TeamA_P1'))}</td>
-    <td>${playerSelect(row.TeamA_P2, 'A', `${base} data-field="TeamA_P2"`, usedNamesInDay(day, idx, 'TeamA_P2'))}</td>
-    <td>${playerSelect(row.TeamB_P1, 'B', `${base} data-field="TeamB_P1"`, usedNamesInDay(day, idx, 'TeamB_P1'))}</td>
-    <td>${playerSelect(row.TeamB_P2, 'B', `${base} data-field="TeamB_P2"`, usedNamesInDay(day, idx, 'TeamB_P2'))}</td>
-    <td><input type="text" value="${escapeAttr(row.StartHole || '')}" ${base} data-field="StartHole" placeholder="e.g. 18a" style="width:70px;"></td>
-  `;
-  tr.querySelectorAll('select, input').forEach((el) => {
-    if (!el.dataset.field) return;
-    el.addEventListener('change', (e) => {
-      pairings[day][idx][e.target.dataset.field] = e.target.value;
-      if (['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].includes(e.target.dataset.field)) {
-        // keep the match-play pairing in sync with the foursome unless the admin swapped it
-        if (isDay2) syncMatchPlayPairing(pairings[day][idx]);
-        // full re-render so every OTHER row's dropdown stops offering whoever
-        // was just picked here (see usedNamesInDay) — and Day 2's "vs" line updates
-        renderPairings(day);
-      }
-    });
-  });
-  const skRow = scorekeeperStatusRowEl(row);
-
-  if (isDay2) {
-    const mpRow = document.createElement('tr');
-    mpRow.innerHTML = `
-      <td></td>
-      <td colspan="4" class="hint">
-        Individual Match Play: <strong>${escapeHtml(row.MP1_TeamA || '?')}</strong> vs <strong>${escapeHtml(row.MP1_TeamB || '?')}</strong>,
-        <strong>${escapeHtml(row.MP2_TeamA || '?')}</strong> vs <strong>${escapeHtml(row.MP2_TeamB || '?')}</strong>
-        &nbsp;<button class="link" style="color:var(--green);" data-swap-idx="${idx}">swap opponents</button>
-      </td>
-      <td></td>
-    `;
-    mpRow.querySelector('[data-swap-idx]').addEventListener('click', () => {
-      const r = pairings[day][idx];
-      const tmp = r.MP1_TeamB;
-      r.MP1_TeamB = r.MP2_TeamB;
-      r.MP2_TeamB = tmp;
-      r.MPSwapped = true;
-      renderPairings(day);
-    });
-    const frag = document.createDocumentFragment();
-    frag.appendChild(tr);
-    if (skRow) frag.appendChild(skRow);
-    frag.appendChild(mpRow);
-    return frag;
-  }
-
-  if (skRow) {
-    const frag = document.createDocumentFragment();
-    frag.appendChild(tr);
-    frag.appendChild(skRow);
-    return frag;
-  }
-
-  return tr;
-}
-
-// A thin note row under each match: green "✓ Scorekeeper: <name(s)>" once at
-// least one of the four assigned players is checked as a Scorekeeper on the
-// Roster tab, or an amber "⚠ No scorekeeper assigned" if the match is fully
-// staffed but none of its four players are. Returns null (no row at all) for
-// a match that isn't staffed yet, since flagging an empty match as "needs a
-// scorekeeper" would just be noise while pairings are still being built.
-function scorekeeperStatusRowEl(row) {
-  const players = [row.TeamA_P1, row.TeamA_P2, row.TeamB_P1, row.TeamB_P2].filter(Boolean);
-  if (!players.length) return null;
-  const skNames = players.filter((name) => {
-    const p = roster.find((r) => r.Name === name);
-    return isScorekeeper(p);
-  });
-  const tr = document.createElement('tr');
-  if (skNames.length) {
-    tr.innerHTML = `<td></td><td colspan="5" class="hint" style="color:var(--ok); font-weight:600;">✓ Scorekeeper: ${escapeHtml(skNames.join(', '))}</td>`;
+(function boot() {
+  document.getElementById('testBanner').hidden = ENV !== 'test';
+  loadSession();
+  loadVersion();
+  if (session && session.token) {
+    // Show the app straight away from what this device remembers, then
+    // confirm with the server that the sign-in is still good.
+    showApp();
+    apiPost('memberMe', {}).then((res) => {
+      if (res.success) saveSession({ token: session.token, member: res.data.member });
+      else handleSignedOut(res.error);
+    }).catch(() => { /* offline — keep going; the next real action will check again */ });
+  } else if (adminSession) {
+    showApp('admin');
   } else {
-    tr.innerHTML = `<td></td><td colspan="5" class="hint" style="color:#8a6300; font-weight:600;">⚠ No scorekeeper assigned for this match — check "Scorekeeper?" for one of these players on the Roster tab, or tell them the PIN some other way.</td>`;
+    showGate();
   }
-  return tr;
-}
-
-function isSwapped(r) {
-  return r.MPSwapped === true || r.MPSwapped === 'TRUE' || r.MPSwapped === 'true';
-}
-function syncMatchPlayPairing(r) {
-  if (isSwapped(r)) { r.MP1_TeamA = r.TeamA_P1; r.MP2_TeamA = r.TeamA_P2; return; }
-  r.MP1_TeamA = r.TeamA_P1; r.MP1_TeamB = r.TeamB_P1;
-  r.MP2_TeamA = r.TeamA_P2; r.MP2_TeamB = r.TeamB_P2;
-}
-
-function refreshPairingDropdownSources() {
-  renderPairings('1');
-  renderPairings('2');
-  populatePrintMatchSelect();
-}
-
-async function savePairings(day) {
-  const statusId = day === '2' ? 'day2Status' : 'day1Status';
-  // basic validation: no player used twice on the same day
-  const used = {};
-  let dup = null;
-  pairings[day].forEach((row) => {
-    ['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].forEach((f) => {
-      const name = row[f];
-      if (!name) return;
-      if (used[name]) dup = name;
-      used[name] = true;
-    });
-  });
-  if (dup) {
-    showStatus(statusId, false, `"${dup}" is assigned to more than one match — each player should appear once per day.`);
-    return;
-  }
-  try {
-    const res = await apiPost('savePairings', { day, pairings: JSON.stringify(pairings[day]) });
-    if (res.success) {
-      pairings[day] = res.data;
-      renderPairings(day);
-      populatePrintMatchSelect();
-      showStatus(statusId, true, 'Saved.');
-    } else {
-      showStatus(statusId, false, res.error);
-    }
-  } catch (err) {
-    showStatus(statusId, false, 'Network error: ' + err.message);
-  }
-}
-
-// ====================== READINESS CHECKLIST ======================
-// Reads only the in-memory state already on this page (settings, roster,
-// pairings, PINs, hole handicaps) — so save edits first for an accurate
-// check. Each item is { level: 'ok'|'warn'|'info', text, tab? }.
-function gotoTab(name) {
-  const b = document.querySelector('.tab-btn[data-tab="' + name + '"]');
-  if (b) b.click();
-}
-function computeReadiness() {
-  const items = [];
-  const add = (level, text, tab) => items.push({ level, text: text.replace(/\.\.$/, '.'), tab });
-  const isTrue = (v) => v === true || v === 'TRUE' || v === 'true';
-
-  // Settings
-  const settingsGaps = [];
-  if (!settings.TournamentName) settingsGaps.push('tournament name');
-  if (!settings.Day1Date) settingsGaps.push('Day 1 date');
-  if (!settings.Day2Date) settingsGaps.push('Day 2 date');
-  if (!settings.TeamAName || settings.TeamAName === 'Team A') settingsGaps.push('Team A name');
-  if (!settings.TeamBName || settings.TeamBName === 'Team B') settingsGaps.push('Team B name');
-  if (!settings.TeamACaptain || settings.TeamACaptain === 'TBD') settingsGaps.push('Team A captain');
-  if (!settings.TeamBCaptain || settings.TeamBCaptain === 'TBD') settingsGaps.push('Team B captain');
-  settingsGaps.length
-    ? add('warn', 'Settings still missing: ' + settingsGaps.join(', ') + '.', 'settings')
-    : add('ok', 'Settings: name, dates, team names and captains are filled in.');
-
-  // Roster
-  const onTeam = roster.filter((p) => p.Name && (p.Team === 'A' || p.Team === 'B'));
-  const aCount = onTeam.filter((p) => p.Team === 'A').length;
-  const bCount = onTeam.filter((p) => p.Team === 'B').length;
-  if (!onTeam.length) add('warn', 'No players are assigned to Team A or Team B yet.', 'roster');
-  else if (aCount !== bCount) add('warn', 'Teams are uneven: ' + aCount + ' on Team A, ' + bCount + ' on Team B.', 'roster');
-  else add('ok', 'Roster: ' + aCount + ' players on each team.');
-  const noHcp = onTeam.filter((p) => p.HandicapIndex === '' || p.HandicapIndex === null || p.HandicapIndex === undefined || !p.Tee);
-  if (onTeam.length) {
-    noHcp.length
-      ? add('warn', noHcp.length + ' playing ' + (noHcp.length === 1 ? 'player is' : 'players are') + ' missing a Handicap Index or Tee (needed for Day 2): ' + noHcp.slice(0, 6).map((p) => nameLastInitial(p.Name)).join('; ') + (noHcp.length > 6 ? '…' : '') + '.', 'roster')
-      : add('ok', 'Every playing player has a Handicap Index and Tee.');
-  }
-
-  // Pairings, scorekeepers, PINs
-  const full = (r) => r.TeamA_P1 && r.TeamA_P2 && r.TeamB_P1 && r.TeamB_P2;
-  const rosterNames = new Set(roster.map((p) => p.Name));
-  const notPlaying = new Set(roster.filter((p) => p.Team !== 'A' && p.Team !== 'B').map((p) => p.Name));
-  ['1', '2'].forEach((day) => {
-    const rows = pairings[day] || [];
-    const total = rows.length;
-    const staffed = rows.filter(full);
-    const tab = day === '1' ? 'day1' : 'day2';
-    if (!total || staffed.length < total) {
-      add('warn', 'Day ' + day + ': ' + staffed.length + ' of ' + total + ' matches have all four players.', tab);
-    } else {
-      add('ok', 'Day ' + day + ': all ' + total + ' matches have four players.');
-    }
-    const noStart = staffed.filter((r) => !String(r.StartHole || '').trim());
-    if (noStart.length) add('warn', 'Day ' + day + ': Start Hole missing for match ' + noStart.map((r) => r.MatchNum).join(', ') + '.', tab);
-    if (day === '2') {
-      const noMp = staffed.filter((r) => !(r.MP1_TeamA && r.MP1_TeamB && r.MP2_TeamA && r.MP2_TeamB));
-      if (noMp.length) add('warn', 'Day 2: individual match-play pairings missing for match ' + noMp.map((r) => r.MatchNum).join(', ') + '.', tab);
-    }
-    const names = [];
-    rows.forEach((r) => ['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].forEach((f) => { if (r[f]) names.push(r[f]); }));
-    const stale = names.filter((n) => !rosterNames.has(n) || notPlaying.has(n));
-    if (stale.length) add('warn', 'Day ' + day + ' pairings include ' + Array.from(new Set(stale)).map(nameLastInitial).join('; ') + ', who ' + (stale.length === 1 ? 'is' : 'are') + ' not an active player on the Roster.', tab);
-    const noSk = staffed.filter((r) => !['TeamA_P1', 'TeamA_P2', 'TeamB_P1', 'TeamB_P2'].some((f) => { const pl = roster.find((p) => p.Name === r[f]); return pl && isScorekeeper(pl); }));
-    if (staffed.length) {
-      noSk.length
-        ? add('warn', 'Day ' + day + ': no scorekeeper volunteer in match ' + noSk.map((r) => r.MatchNum).join(', ') + '.', 'roster')
-        : add('ok', 'Day ' + day + ': every match has a scorekeeper volunteer.');
-    }
-    const noPin = staffed.filter((r) => !pinForMatch(r.MatchNum, day));
-    if (staffed.length) {
-      noPin.length
-        ? add('warn', 'Day ' + day + ': no Scorekeeper PIN for match ' + noPin.map((r) => r.MatchNum).join(', ') + ' (anyone with the link could score it).', 'pins')
-        : add('ok', 'Day ' + day + ': every match has a Scorekeeper PIN.');
-    }
-  });
-
-  // Hole handicaps
-  const hcMissing = (rows) => { const have = new Set((rows || []).filter((r) => r.StrokeIndex !== '' && r.StrokeIndex != null).map((r) => String(r.Hole))); let n = 0; for (let h = 1; h <= 18; h++) if (!have.has(String(h))) n++; return n; };
-  const gMiss = hcMissing(holeHandicaps), rMiss = hcMissing(holeHandicapsRed);
-  (gMiss || rMiss)
-    ? add('warn', 'Hole Handicaps incomplete (' + gMiss + ' Gold, ' + rMiss + ' Red holes missing) — Day 2 scoring needs all 18.', 'holehc')
-    : add('ok', 'Hole Handicaps are filled in for all 18 holes (Gold and Red).');
-
-  // Switches
-  if (isTrue(settings.SuspendScorePins)) add('warn', 'Testing mode is ON: scorekeeper PINs are suspended — turn it off before the tournament (Settings).', 'settings');
-  ['1', '2'].forEach((d) => { if (isTrue(settings['Day' + d + 'Locked'])) add('info', 'Day ' + d + ' is locked — scorekeepers cannot enter or change scores for it.', 'settings'); });
-  return items;
-}
-function renderReadiness() {
-  const list = document.getElementById('readyList');
-  const sum = document.getElementById('readySummary');
-  if (!list || !sum) return;
-  let items;
-  try { items = computeReadiness(); } catch (e) { sum.textContent = 'Could not run the check yet (data still loading).'; list.innerHTML = ''; return; }
-  const warns = items.filter((i) => i.level === 'warn').length;
-  sum.textContent = warns ? warns + ' item' + (warns === 1 ? '' : 's') + ' need attention.' : 'All set — nothing needs attention.';
-  sum.style.color = warns ? '#b8860b' : 'var(--ok)';
-  const mark = { ok: '✓', warn: '⚠', info: 'i' };
-  list.innerHTML = items.map((i) =>
-    '<li class="ready-' + i.level + '"><span class="ready-mark">' + mark[i.level] + '</span><span>' + escapeHtml(i.text) +
-    (i.tab ? ' <a onclick="gotoTab(\'' + i.tab + '\')">Go to tab</a>' : '') + '</span></li>').join('');
-}
-
-// ====================== ADMIN USERS / ACTIVITY ======================
-let adminUsers = []; // [{Name, PIN, Active}]
-async function loadAdmins() {
-  try {
-    const res = await apiPost('getAdmins', {});
-    if (res.success) { adminUsers = res.data; renderAdmins(); }
-    else showStatus('adminsStatus', false, res.error);
-  } catch (err) { showStatus('adminsStatus', false, 'Network error: ' + err.message); }
-}
-function renderAdmins() {
-  const body = document.getElementById('adminsBody');
-  if (!body) return;
-  body.innerHTML = '';
-  adminUsers.forEach((a, idx) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="text" value="${escapeAttr(a.Name || '')}" data-f="Name" placeholder="Name"></td>
-      <td><input type="text" inputmode="numeric" maxlength="8" value="${escapeAttr(a.PIN || '')}" data-f="PIN" placeholder="PIN" style="width:100px;"></td>
-      <td style="text-align:center;"><input type="checkbox" data-f="Active" ${a.Active === 'TRUE' || a.Active === true ? 'checked' : ''}></td>
-      <td><button class="link" type="button" data-rm="1">Remove</button></td>`;
-    tr.querySelectorAll('[data-f]').forEach((el) => {
-      el.addEventListener('change', () => {
-        adminUsers[idx][el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value.trim();
-      });
-    });
-    tr.querySelector('[data-rm]').addEventListener('click', () => { adminUsers.splice(idx, 1); renderAdmins(); });
-    body.appendChild(tr);
-  });
-}
-function addAdminRow() {
-  adminUsers.push({ Name: '', PIN: randomPin4(), Active: 'TRUE' });
-  renderAdmins();
-}
-async function saveAdmins() {
-  try {
-    const res = await apiPost('saveAdmins', { admins: JSON.stringify(adminUsers) });
-    if (res.success) {
-      adminUsers = res.data;
-      renderAdmins();
-      // If the person who is signed in just changed their own name or PIN,
-      // keep this session working under the new values.
-      const mine = adminUsers.find((a) => a.Name.toLowerCase() === adminSession.name.toLowerCase());
-      if (mine) { adminSession.pin = mine.PIN; adminSession.name = mine.Name; document.getElementById('adminWho').textContent = 'Signed in as ' + mine.Name; }
-      showStatus('adminsStatus', true, 'Saved.');
-    } else {
-      showStatus('adminsStatus', false, res.error);
-    }
-  } catch (err) { showStatus('adminsStatus', false, 'Network error: ' + err.message); }
-}
-
-let activityRows = [];
-async function loadActivity() {
-  showStatus('activityStatus', true, 'Loading…');
-  try {
-    const res = await apiPost('getActivityLog', { limit: 500 });
-    if (!res.success) { showStatus('activityStatus', false, res.error); return; }
-    activityRows = res.data;
-    const sel = document.getElementById('activityWho');
-    const keep = sel.value;
-    const names = Array.from(new Set(activityRows.map((r) => r.Admin).filter(Boolean))).sort();
-    sel.innerHTML = '<option value="">Everyone</option>' + names.map((n) => `<option value="${escapeAttr(n)}" ${n === keep ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
-    showStatus('activityStatus', true, '');
-    renderActivity();
-  } catch (err) { showStatus('activityStatus', false, 'Network error: ' + err.message); }
-}
-function renderActivity() {
-  const who = document.getElementById('activityWho').value;
-  const rows = activityRows.filter((r) => !who || r.Admin === who);
-  const body = document.getElementById('activityBody');
-  body.innerHTML = rows.length
-    ? rows.map((r) => `<tr><td>${escapeHtml(r.Timestamp)}</td><td>${escapeHtml(r.Admin || '(unknown)')}</td><td>${escapeHtml(r.Action)}</td><td>${escapeHtml(r.Detail)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="hint">Nothing recorded yet.</td></tr>';
-}
-
-// ====================== BACKUPS / HELP ======================
-async function backupNow() {
-  showStatus('backupStatus', true, 'Backing up…');
-  try {
-    const res = await apiPost('backupNow', {});
-    if (res.success) showStatus('backupStatus', true, 'Backed up (' + res.data.label + '). ' + res.data.kept.length + ' snapshot' + (res.data.kept.length === 1 ? '' : 's') + ' kept.');
-    else showStatus('backupStatus', false, res.error);
-  } catch (err) { showStatus('backupStatus', false, 'Network error: ' + err.message); }
-}
-async function showBackups() {
-  try {
-    const res = await apiPost('listBackups', {});
-    if (!res.success) { showStatus('backupStatus', false, res.error); return; }
-    showStatus('backupStatus', true, res.data.length
-      ? 'Saved backups (newest first, date-time): ' + res.data.join(', ')
-      : 'No backups yet — one is taken automatically the next time something is saved, or click Back up now.');
-  } catch (err) { showStatus('backupStatus', false, 'Network error: ' + err.message); }
-}
-function printHelp() {
-  document.body.classList.add('printing-help');
-  window.addEventListener('afterprint', () => document.body.classList.remove('printing-help'), { once: true });
-  window.print();
-}
-
-// ====================== SCOREKEEPER PINS (one per match, shared by both days) ======================
-function defaultMatchPinRows() {
-  const rows = [];
-  for (let m = 1; m <= 9; m++) rows.push({ MatchNum: m, PIN: '' });
-  return rows;
-}
-
-// The PIN in effect for a match on a given day ('1' or '2'): that day's
-// optional override if filled in, else the shared PIN. With no day, just the
-// shared PIN.
-function pinForMatch(matchNum, day) {
-  const row = matchPins.find((r) => String(r.MatchNum) === String(matchNum));
-  if (!row) return '';
-  if (day === '1' || day === '2') {
-    const over = String(row['Day' + day + 'PIN'] == null ? '' : row['Day' + day + 'PIN']).trim();
-    if (over) return over;
-  }
-  return String(row.PIN == null ? '' : row.PIN).trim();
-}
-
-function renderMatchPins() {
-  const body = document.getElementById('pinsBody');
-  if (!body) return;
-  body.innerHTML = '';
-  matchPins.forEach((row, idx) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="match-label">Match ${row.MatchNum}</td>
-      <td>
-        <input type="text" value="${escapeAttr(row.PIN || '')}" data-idx="${idx}" data-field="PIN" maxlength="8" placeholder="open" style="width:70px;">
-        <button type="button" class="link" data-genpin-idx="${idx}" data-genpin-field="PIN" style="font-size:0.75rem; padding:0;">generate</button>
-      </td>
-      <td>
-        <input type="text" value="${escapeAttr(row.Day1PIN || '')}" data-idx="${idx}" data-field="Day1PIN" maxlength="8" placeholder="same" style="width:70px;">
-        <button type="button" class="link" data-genpin-idx="${idx}" data-genpin-field="Day1PIN" style="font-size:0.75rem; padding:0;">generate</button>
-      </td>
-      <td>
-        <input type="text" value="${escapeAttr(row.Day2PIN || '')}" data-idx="${idx}" data-field="Day2PIN" maxlength="8" placeholder="same" style="width:70px;">
-        <button type="button" class="link" data-genpin-idx="${idx}" data-genpin-field="Day2PIN" style="font-size:0.75rem; padding:0;">generate</button>
-      </td>
-    `;
-    tr.querySelectorAll('[data-field]').forEach((inp) => {
-      inp.addEventListener('change', (e) => {
-        matchPins[idx][inp.dataset.field] = e.target.value.trim();
-      });
-    });
-    tr.querySelectorAll('[data-genpin-field]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        matchPins[idx][btn.dataset.genpinField] = randomPin4();
-        renderMatchPins();
-      });
-    });
-    body.appendChild(tr);
-  });
-}
-
-function generateMissingMatchPins() {
-  matchPins.forEach((row) => { if (!row.PIN && !(row.Day1PIN && row.Day2PIN)) row.PIN = randomPin4(); });
-  renderMatchPins();
-}
-
-async function saveMatchPins() {
-  try {
-    const res = await apiPost('saveMatchPins', { matchPins: JSON.stringify(matchPins) });
-    if (res.success) {
-      matchPins = res.data;
-      renderMatchPins();
-      showStatus('pinsStatus', true, 'Saved.');
-    } else {
-      showStatus('pinsStatus', false, res.error);
-    }
-  } catch (err) {
-    showStatus('pinsStatus', false, 'Network error: ' + err.message);
-  }
-}
-
-// ====================== PRINT SCORECARDS (Day 2 only) ======================
-// Same strokes-per-hole math as live.html's scoring page, duplicated here
-// since this file doesn't share code with it — every player gets strokes on
-// their own hardest holes based on their Course Handicap (see courseHandicap
-// above), not their raw Handicap Index.
-function strokesOnHolePrint(handicapIndex, strokeIndex) {
-  const hc = parseFloat(handicapIndex);
-  const si = parseInt(strokeIndex, 10);
-  if (isNaN(hc) || isNaN(si) || hc <= 0) return 0;
-  const rounded = Math.round(hc);
-  const base = Math.floor(rounded / 18);
-  const extra = (si <= (rounded % 18)) ? 1 : 0;
-  return base + extra;
-}
-// A player's tee and total 18-hole Course Handicap strokes as one short
-// string for the "Tees/Strokes" column, e.g. "Red/16" — blank if the player
-// slot is empty or has no tee on file.
-function teeStrokesLabel(name, rosterList) {
-  if (!name) return '';
-  const p = rosterList.find((r) => r.Name === name);
-  if (!p || !p.Tee) return '';
-  const hc = courseHandicap(p.HandicapIndex, p.Tee);
-  let strokesTotal = 0;
-  for (let h = 1; h <= 18; h++) strokesTotal += strokesOnHolePrint(hc, strokeIndexForTee(p.Tee, h));
-  return `${p.Tee}/${strokesTotal}`;
-}
-// A player's last name, standing in for their full name everywhere on the
-// printed scorecard — falls back to "(unassigned)" for an empty slot,
-// matching the rest of the card's blank-slot wording (lastName() itself
-// returns "?", which reads fine inline but not as a whole cell's content).
-function lastNameOrUnassigned(name) {
-  return name ? escapeHtml(nameLastInitial(name)) : '(unassigned)';
-}
-// Day 2's per-hole score-entry cells: a blank box per hole for writing in a
-// gross score, each carrying a small dot in its upper-right corner on every
-// hole where this player's tee/handicap combination earns a stroke there
-// (two dots for a hole worth two strokes) — so the same box that gets a
-// handwritten score also shows at a glance whether a stroke should be
-// subtracted before circling that hole's net-low score.
-function scoreCellsWithDotsHtml(name, rosterList, startHole, endHole, startHoleNum) {
-  const p = name ? rosterList.find((r) => r.Name === name) : null;
-  const hc = p ? courseHandicap(p.HandicapIndex, p.Tee) : '';
-  const tee = p ? p.Tee : '';
-  let cells = '';
-  for (let h = startHole; h <= endHole; h++) {
-    const startClass = h === startHoleNum ? ' sc-start-hole' : '';
-    const strokes = strokesOnHolePrint(hc, strokeIndexForTee(tee, h));
-    const dotHtml = strokes > 0 ? `<span class="sc-stroke-dot">${'&bull;'.repeat(strokes)}</span>` : '';
-    cells += `<td class="sc-hole-cell${startClass}">${dotHtml}</td>`;
-  }
-  return cells;
-}
-// A blank row of hole cells for writing in "W" or "T" by hand — the single,
-// primary result-entry mechanism on the redesigned scorecard (no gross
-// scores anywhere). startHole/endHole is just this segment's own 9 holes.
-function blankWtCellsHtml(startHole, endHole, startHoleNum) {
-  let cells = '';
-  for (let h = startHole; h <= endHole; h++) {
-    const startClass = h === startHoleNum ? ' sc-start-hole' : '';
-    cells += `<td class="${startClass}"></td>`;
-  }
-  return cells;
-}
-// A spacer row between one team's block of rows and the next, matching the
-// segment table's own column count (1 name column + 9 hole columns, plus the
-// Tees/Strokes column on Day 2's segments).
-function segSpacerRowHtml(extraCol) {
-  const colspan = extraCol ? 11 : 10;
-  return `<tr class="sc-spacer"><td colspan="${colspan}" style="border:none; padding:6px 0;"></td></tr>`;
-}
-// Builds one 9-hole segment's whole card: its title/instruction, a table
-// with real hole numbers for that 9 (1-9 or 10-18) plus the always-shown
-// Par/Gold Handicap/Red Handicap reference rows, whatever segment-specific
-// rows the caller supplies, and a "Circle Winning Team" ballot alongside it
-// for marking the segment's overall winner once all holes are in — shared
-// by both days' front-9/back-9 segments.
-function printSegmentHtml(segLabel, instruction, startHole, endHole, startHoleNum, rowsHtml, colHeadLabel, teamNamesAB, extraColHeader) {
-  const hasPar = holeHandicaps.some((h) => h.Par !== '' && h.Par != null);
-  let holeHeaderCells = '', parCells = '', hcpCells = '', hcpRedCells = '';
-  for (let h = startHole; h <= endHole; h++) {
-    const hh = holeHandicaps.find((r) => Number(r.Hole) === h) || {};
-    const hhRed = holeHandicapsRed.find((r) => Number(r.Hole) === h) || {};
-    const startClass = h === startHoleNum ? ' sc-start-hole' : '';
-    holeHeaderCells += `<th class="${startClass}">${h}</th>`;
-    parCells += `<td class="${startClass}">${hh.Par || ''}</td>`;
-    hcpCells += `<td class="${startClass}">${hh.StrokeIndex || ''}</td>`;
-    hcpRedCells += `<td class="${startClass}">${hhRed.StrokeIndex || ''}</td>`;
-  }
-  const extraTh = extraColHeader ? `<th class="sc-tee-col">${escapeHtml(extraColHeader)}</th>` : '';
-  const extraTd = extraColHeader ? '<td class="sc-tee-col"></td>' : '';
-  const circleHtml = [teamNamesAB[0], 'Tie', teamNamesAB[1]]
-    .map((n) => `<div class="sc-circle-row"><span class="sc-circle"></span>${escapeHtml(n)}</div>`).join('');
-  return `
-    <div class="sc-segment">
-      <div class="sc-seg-title">${escapeHtml(segLabel)} - <span class="sc-seg-instr-inline">${escapeHtml(instruction)}</span></div>
-      <div class="sc-seg-layout">
-        <table class="sc-table sc-seg-table">
-          <thead><tr><th class="sc-name">${escapeHtml(colHeadLabel)}</th>${extraTh}${holeHeaderCells}</tr></thead>
-          <tbody>
-            ${hasPar ? `<tr class="sc-meta"><td class="sc-name">PAR</td>${extraTd}${parCells}</tr>` : ''}
-            <tr class="sc-meta"><td class="sc-name">Gold Handicap</td>${extraTd}${hcpCells}</tr>
-            <tr class="sc-meta"><td class="sc-name">Red Handicap</td>${extraTd}${hcpRedCells}</tr>
-            ${segSpacerRowHtml(!!extraColHeader)}
-            ${rowsHtml}
-          </tbody>
-        </table>
-        <div class="sc-circle-box">
-          <div class="sc-circle-title">Circle Winning Team</div>
-          ${circleHtml}
-        </div>
-      </div>
-    </div>
-  `;
-}
-// Pulls the leading hole number out of a Start Hole value like "18a" or "18b"
-// (or a plain "5") so that hole's header box can be highlighted — returns
-// null for blank/unrecognized values, which just means no highlight.
-function startHoleNumberOf(startHole) {
-  const m = String(startHole || '').match(/^\s*(\d{1,2})/);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  return (n >= 1 && n <= 18) ? n : null;
-}
-function hasPlayers(row) {
-  return !!(row.TeamA_P1 || row.TeamA_P2 || row.TeamB_P1 || row.TeamB_P2);
-}
-function matchLabelShort(row) {
-  return `${row.TeamA_P1 || '?'} / ${row.TeamA_P2 || '?'} vs ${row.TeamB_P1 || '?'} / ${row.TeamB_P2 || '?'}`;
-}
-function formatDateNice(iso) {
-  if (!iso) return 'date TBD';
-  const d = new Date(iso + 'T00:00:00');
-  if (isNaN(d)) return iso;
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
-
-function populatePrintMatchSelect() {
-  const sel = document.getElementById('printMatchSelect');
-  const daySel = document.getElementById('printDaySelect');
-  if (!sel || !daySel) return;
-  const day = daySel.value;
-  const rows = (pairings[day] || []).filter(hasPlayers);
-  sel.innerHTML = `<option value="all">All Day ${day} matches</option>` +
-    rows.map((r) => `<option value="${r.MatchNum}">Match ${r.MatchNum}: ${escapeHtml(matchLabelShort(r))}</option>`).join('');
-}
-
-const PRINT_CSS = `
-  * { box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; padding: 24px; }
-  .scorecard { page-break-after: always; margin-bottom: 24px; }
-  .scorecard:last-child { page-break-after: auto; }
-  .sc-title { font-size: 1.3rem; font-weight: 700; }
-  .sc-sub { font-size: 0.95rem; color: #444; margin-top: 2px; }
-  .sc-teams { font-size: 1rem; font-weight: 600; margin-top: 4px; }
-  table.sc-table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 0.8rem; }
-  table.sc-table th, table.sc-table td { border: 1px solid #999; padding: 5px 2px; text-align: center; min-width: 22px; }
-  table.sc-table th.sc-name, table.sc-table td.sc-name { text-align: left; padding: 5px 8px; white-space: normal; font-weight: 600; min-width: 130px; }
-  table.sc-table th.sc-tee-col, table.sc-table td.sc-tee-col { font-weight: 600; font-size: 0.78em; min-width: 52px; white-space: nowrap; }
-  tr.sc-meta td { font-weight: 600; background: #f2f2f2; }
-  .sc-tee { font-weight: 400; color: #666; font-size: 0.85em; }
-  .sc-players { font-weight: 400; font-size: 0.85em; white-space: normal; }
-  .sc-start-hole { background: #fff176; }
-  /* Day 2's per-hole score-entry boxes: a blank cell for a handwritten gross
-     score, with a small dot pinned to its upper-right corner on any hole
-     where that player's tee/handicap earns a stroke there. */
-  table.sc-table td.sc-hole-cell { position: relative; }
-  .sc-stroke-dot { position: absolute; top: 0px; right: 2px; font-size: 1.05em; font-weight: 700; line-height: 1; letter-spacing: -1px; color: #b3261e; }
-  .sc-note { font-size: 0.78rem; color: #555; margin-top: 10px; }
-  .sc-sample-badge { display: inline-block; background: #fff3cd; color: #7a5b00; border: 1px solid #e6c866; border-radius: 4px; padding: 3px 10px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em; margin-bottom: 8px; }
-  .print-bar { margin-bottom: 20px; }
-  .print-bar button { font-size: 0.95rem; padding: 8px 16px; cursor: pointer; }
-  @media print { .print-bar { display: none; } }
-
-  /* ---- Redesigned scorecard: one 9-hole segment table + its own
-     "Circle Winning Team" ballot, no gross-score entry anywhere. ---- */
-  .sc-segment { margin-top: 16px; page-break-inside: avoid; }
-  .sc-seg-title { font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; color: #123c26; margin-bottom: 6px; }
-  .sc-seg-instr-inline { text-transform: none; font-style: italic; font-weight: 400; color: #444; }
-  .sc-seg-layout { display: flex; gap: 16px; align-items: flex-start; }
-  table.sc-seg-table { flex: 1; margin-top: 0; }
-  .sc-circle-box { flex-shrink: 0; border: 1px solid #999; border-radius: 6px; padding: 8px 14px; min-width: 150px; }
-  .sc-circle-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: #444; margin-bottom: 6px; }
-  .sc-circle-row { font-size: 0.85rem; display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-  .sc-circle { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #333; flex-shrink: 0; }
-`;
-
-// ---- Compact "pro shop paper" layout: two cards per 11in x 8.5in sheet, each
-// card exactly 11in x 4.25in (matching the pro shop's pre-perforated stock),
-// front 9 and back 9 stacked in one card instead of on two separate pages.
-// No side "Circle Winning Team" box (no room) — instead a narrow "Winner"
-// column sits at the right of each table, carrying that row's own name (or
-// "Tie", on a thin row between the two sides) for the scorekeeper to circle
-// by hand, the same trick the 2018 paper card used to fit a Best Ball segment
-// and a Match Play segment onto one physical card.
-const COMPACT_PRINT_CSS = `
-  * { box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  html, body { margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-  @page { size: 11in 8.5in; margin: 0; }
-  .cc-sheet { width: 11in; height: 8.5in; page-break-after: always; }
-  .cc-sheet:last-child { page-break-after: auto; }
-  .cc-card { width: 11in; height: 4.25in; padding: 0.07in 0.26in; overflow: hidden; line-height: 1.05; }
-  .cc-card.cc-top { border-bottom: 1px dashed #aaa; }
-  /* The Day 2 card's top-of-page header line was getting clipped when it
-     sits in the top slot (the bottom slot, and every Day 1 card, print
-     fine). Nudge its content down with a bit more top padding — taken from
-     the bottom padding rather than added on top of it, so the box stays
-     4.25in tall (box-sizing: border-box, above) and the extra room at the
-     top doesn't shrink the space available for content and risk clipping
-     something new at the bottom. */
-  .cc-card.cc-top.cc-day2 { padding-top: 0.16in; padding-bottom: 0; }
-  .cc-sample-badge { display: inline-block; background: #fff3cd; color: #7a5b00; border: 1px solid #e6c866; border-radius: 3px; padding: 1px 6px; font-size: 6.5pt; font-weight: 700; letter-spacing: 0.03em; }
-  .cc-header { display: flex; justify-content: space-between; align-items: flex-start; }
-  .cc-teams { font-size: 13pt; font-weight: 700; }
-  .cc-meta { font-size: 8.4pt; color: #444; margin-top: 0; }
-  .cc-segment { margin-top: 3px; }
-  /* Extra breathing room between the two segments (Front 9 / Back 9) — but
-     not above the first one, which already sits right under the card
-     header. */
-  .cc-segment + .cc-segment { margin-top: 5px; }
-  .cc-seg-title { font-size: 8.8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: #123c26; }
-  .cc-seg-instr { text-transform: none; font-style: italic; font-weight: 400; color: #555; }
-  table.cc-table { border-collapse: collapse; width: 100%; margin-top: 1px; font-size: 8.2pt; table-layout: fixed; }
-  table.cc-table th, table.cc-table td { border: 1px solid #777; padding: 0.5px 2px; text-align: center; }
-  table.cc-table th.cc-name, table.cc-table td.cc-name { text-align: left; padding: 0.5px 5px; font-weight: 600; width: 21%; }
-  table.cc-table th.cc-tee-col, table.cc-table td.cc-tee-col { width: 8%; font-weight: 600; font-size: 7.6pt; white-space: nowrap; }
-  table.cc-table th.cc-winner, table.cc-table td.cc-winner { width: 9%; font-weight: 600; vertical-align: middle; }
-  .cc-winner-instr { text-align: center; font-size: 7.4pt; font-weight: 700; line-height: 1.15; white-space: normal; }
-  table.cc-table td.sc-hole-cell { position: relative; }
-  tr.cc-meta-row td { font-weight: 600; background: #f2f2f2; font-size: 7.8pt; }
-  tr.cc-tie-row td { font-size: 8.2pt; color: #444; font-style: italic; }
-  /* Entry rows (not a meta/reference row) are where a score actually gets
-     written by hand — the Tie row between two entry rows gets the same
-     padding AND the same fixed row height, so it reads as just another row
-     of the same size (with the vertical hole lines running through it), not
-     a squeezed-in divider. */
-  table.cc-table tbody tr:not(.cc-meta-row):not(:first-child) td { padding: 2px 2px; }
-  table.cc-table tbody tr:not(.cc-meta-row):not(:first-child) td.cc-name { padding: 2px 5px; }
-  table.cc-table tbody tr:not(.cc-meta-row):not(:first-child):not(.cc-spacer) { height: 0.215in; }
-  .cc-day1 table.cc-table { font-size: 9.2pt; }
-  .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child) td { padding: 1.5px 2px; }
-  .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child) td.cc-name { padding: 1.5px 5px; }
-  .cc-day1 table.cc-table tbody tr:not(.cc-meta-row):not(:first-child):not(.cc-spacer) { height: 0.31in; }
-  .cc-day1 tr.cc-tie-row td { font-size: 9.2pt; }
-  .cc-day1 .cc-seg-title { font-size: 9pt; }
-  .cc-day1 .cc-teams { font-size: 13pt; }
-  .cc-day1 .cc-meta { font-size: 9pt; }
-  /* Day 1 card: the header sits at the top and the two grids (Captain's
-     Choice, Modified Alternate Shot) split ALL the remaining height equally,
-     each with its table at the top — so the blank space under each grid
-     (room for notes, e.g. which player's drive was used) is the same. */
-  .cc-card.cc-day1 { display: flex; flex-direction: column; }
-  .cc-card.cc-day1 .cc-segment { flex: 1 1 0; min-height: 0; }
-  .cc-card.cc-day1 .cc-segment + .cc-segment { margin-top: 0; }
-  .sc-tee { font-weight: 400; color: #666; font-size: 0.9em; }
-  .sc-players { font-weight: 400; font-size: 0.88em; }
-  .sc-start-hole { background: #fff176; }
-  .sc-stroke-dot { position: absolute; top: 0; right: 1px; font-size: 9.5pt; font-weight: 700; line-height: 1; letter-spacing: -1px; color: #b3261e; }
-  .print-bar { margin-bottom: 12px; padding: 10px; }
-  .print-bar button { font-size: 0.95rem; padding: 8px 16px; cursor: pointer; }
-  @media print { .print-bar { display: none; } }
-`;
-
-// Day 2: Front 9 is Best Ball (2v2 team result) and Back 9 is Individual
-// Match Play (two separate 1-on-1s happening at once, grouped by matchup) —
-// both now give every player their own line so they can enter their own
-// gross score per hole if they want, alongside their tee/handicap-strokes in
-// a dedicated column and a small dot on any hole where that stroke applies.
-function scorecardCardHtml(row, rosterList, isSample) {
-  rosterList = rosterList || roster;
-  const names = { A: settings.TeamAName || 'Team A', B: settings.TeamBName || 'Team B' };
-  const startHoleNum = startHoleNumberOf(row.StartHole);
-  const instruction = 'Enter scores and circle the low net, or write W or T per hole. Circle the winner at right →';
-
-  const bestBallRowHtml = (name, teamName, color, startHole, endHole) => {
-    const nameCell = `${lastNameOrUnassigned(name)} <span class="sc-players">&mdash; ${escapeHtml(teamName)}</span>`;
-    return `<tr><td class="sc-name"${teamCellStyleAttr(color)}>${nameCell}</td><td class="sc-tee-col">${teeStrokesLabel(name, rosterList)}</td>${scoreCellsWithDotsHtml(name, rosterList, startHole, endHole, startHoleNum)}</tr>`;
-  };
-  const matchPlayRowHtml = (name, teamName, color, startHole, endHole) => {
-    const nameCell = `${lastNameOrUnassigned(name)} <span class="sc-players">&mdash; ${escapeHtml(teamName)}</span>`;
-    return `<tr><td class="sc-name"${teamCellStyleAttr(color)}>${nameCell}</td><td class="sc-tee-col">${teeStrokesLabel(name, rosterList)}</td>${scoreCellsWithDotsHtml(name, rosterList, startHole, endHole, startHoleNum)}</tr>`;
-  };
-
-  const frontRows = [
-    bestBallRowHtml(row.TeamA_P1, names.A, settings.TeamAColor, 1, 9) + bestBallRowHtml(row.TeamA_P2, names.A, settings.TeamAColor, 1, 9),
-    bestBallRowHtml(row.TeamB_P1, names.B, settings.TeamBColor, 1, 9) + bestBallRowHtml(row.TeamB_P2, names.B, settings.TeamBColor, 1, 9),
-  ].join(segSpacerRowHtml(true));
-  const backRows = [
-    matchPlayRowHtml(row.TeamA_P1, names.A, settings.TeamAColor, 10, 18) + matchPlayRowHtml(row.TeamB_P1, names.B, settings.TeamBColor, 10, 18),
-    matchPlayRowHtml(row.TeamA_P2, names.A, settings.TeamAColor, 10, 18) + matchPlayRowHtml(row.TeamB_P2, names.B, settings.TeamBColor, 10, 18),
-  ].join(segSpacerRowHtml(true));
-
-  const frontSegment = printSegmentHtml('Front 9: Best Ball', instruction, 1, 9, startHoleNum, frontRows, 'Player', [names.A, names.B], 'Tees/Strokes');
-  const backSegment = printSegmentHtml('Back 9: Individual Match Play', instruction, 10, 18, startHoleNum, backRows, 'Player', [names.A, names.B], 'Tees/Strokes');
-
-  return `
-    <div class="scorecard">
-      ${isSample ? '<div class="sc-sample-badge">SAMPLE — for layout preview only, not a real match</div>' : ''}
-      <div class="sc-title">${escapeHtml(settings.TournamentName || 'Heritage Legends Tournament')}</div>
-      <div class="sc-sub">Day 2 &mdash; ${escapeHtml(formatDateNice(settings.Day2Date))} &nbsp;&middot;&nbsp; Match ${row.MatchNum} &nbsp;&middot;&nbsp; Start Hole: ${escapeHtml(row.StartHole || 'TBD')}</div>
-      <div class="sc-teams">${teamNameHtml(names.A, settings.TeamAColor)} vs ${teamNameHtml(names.B, settings.TeamBColor)}</div>
-      ${frontSegment}
-      ${backSegment}
-      <p class="sc-note">Tees/Strokes shows each player's tee and total 18-hole Course Handicap strokes. &bull; in the upper-right corner of a hole box marks a hole where that player gets a stroke there (&bull;&bull; = two strokes) &mdash; each player's dots use their own tee's Stroke Index (Red players use the "Red Handicap" row above, everyone else uses "Gold Handicap"). Best Ball covers the front 9 only; each Match Play row covers the back 9 only. Enter each player's score per hole, subtract any stroke marked by a dot, and circle the net-low score that wins the hole, then circle the winning team (or Tie) at the end of each 9.</p>
-    </div>
-  `;
-}
-
-// Day 1's Captain's Choice (front 9) and Modified Alternate Shot (back 9) are
-// both one combined result per team per hole, not per player — so each team
-// gets just one row per segment (that row doubles as both the team's label
-// and its W/T entry boxes). Gold/Red Handicap rows are still shown for
-// reference even though no handicap strokes apply on Day 1.
-function scorecardCardHtmlDay1(row, rosterList, isSample) {
-  rosterList = rosterList || roster;
-  const names = { A: settings.TeamAName || 'Team A', B: settings.TeamBName || 'Team B' };
-  const startHoleNum = startHoleNumberOf(row.StartHole);
-  const instruction = 'Enter W for Winning Team or T for a Tie';
-
-  const nameWithTee = (name) => {
-    if (!name) return '(unassigned)';
-    const p = rosterList.find((r) => r.Name === name);
-    const label = escapeHtml(nameLastInitial(name));
-    return p && p.Tee ? `${label} <span class="sc-tee">(${escapeHtml(p.Tee)})</span>` : label;
-  };
-  const teamRowHtml = (teamName, color, p1, p2, startHole, endHole) => {
-    const playersHtml = (p1 || p2) ? `<br><span class="sc-players">${nameWithTee(p1)} + ${nameWithTee(p2)}</span>` : '';
-    return `<tr><td class="sc-name"${teamCellStyleAttr(color)}>${escapeHtml(teamName)}${playersHtml}</td>${blankWtCellsHtml(startHole, endHole, startHoleNum)}</tr>`;
-  };
-  const frontRows = [[names.A, settings.TeamAColor, row.TeamA_P1, row.TeamA_P2], [names.B, settings.TeamBColor, row.TeamB_P1, row.TeamB_P2]]
-    .map(([teamName, color, p1, p2]) => teamRowHtml(teamName, color, p1, p2, 1, 9)).join('');
-  const backRows = [[names.A, settings.TeamAColor, row.TeamA_P1, row.TeamA_P2], [names.B, settings.TeamBColor, row.TeamB_P1, row.TeamB_P2]]
-    .map(([teamName, color, p1, p2]) => teamRowHtml(teamName, color, p1, p2, 10, 18)).join('');
-
-  const frontSegment = printSegmentHtml("Front 9: Captain's Choice", instruction, 1, 9, startHoleNum, frontRows, 'Hole', [names.A, names.B]);
-  const backSegment = printSegmentHtml('Back 9: Modified Alternate Shot', instruction, 10, 18, startHoleNum, backRows, 'Hole', [names.A, names.B]);
-
-  return `
-    <div class="scorecard">
-      ${isSample ? '<div class="sc-sample-badge">SAMPLE — for layout preview only, not a real match</div>' : ''}
-      <div class="sc-title">${escapeHtml(settings.TournamentName || 'Heritage Legends Tournament')}</div>
-      <div class="sc-sub">Day 1 &mdash; ${escapeHtml(formatDateNice(settings.Day1Date))} &nbsp;&middot;&nbsp; Match ${row.MatchNum} &nbsp;&middot;&nbsp; Start Hole: ${escapeHtml(row.StartHole || 'TBD')}</div>
-      <div class="sc-teams">${teamNameHtml(names.A, settings.TeamAColor)} vs ${teamNameHtml(names.B, settings.TeamBColor)}</div>
-      ${frontSegment}
-      ${backSegment}
-      <p class="sc-note">Front 9: Captain's Choice. Back 9: Modified Alternate Shot. No handicap strokes apply on Day 1 (Gold/Red Handicap rows are shown for reference only). Write "W" or "T" in the box for each team on every hole, then circle the winning team (or Tie) at the end of each 9.</p>
-    </div>
-  `;
-}
-
-// Shows one made-up match so you can check the layout before real pairings
-// exist yet for the selected day — Day 2 uses whatever's actually in the
-// Hole Handicaps table (real Stroke Index/Par if you've entered them, blank
-// otherwise), but the players and their handicaps are fictional.
-function printSampleScorecard() {
-  const day = document.getElementById('printDaySelect').value;
-  const compact = true; // pro shop paper is now the only print layout
-  let cardHtml;
-  if (day === '1') {
-    const sampleRosterDay1 = [
-      { Name: 'Sample Player A1', Tee: 'Gold' },
-      { Name: 'Sample Player A2', Tee: 'Red' },
-      { Name: 'Sample Player B1', Tee: 'Gold' },
-      { Name: 'Sample Player B2', Tee: 'Gold' },
-    ];
-    const sampleRow = {
-      MatchNum: '1', TeamA_P1: 'Sample Player A1', TeamA_P2: 'Sample Player A2',
-      TeamB_P1: 'Sample Player B1', TeamB_P2: 'Sample Player B2', StartHole: '1',
-    };
-    cardHtml = compact ? scorecardCardHtmlDay1Compact(sampleRow, sampleRosterDay1, true) : scorecardCardHtmlDay1(sampleRow, sampleRosterDay1, true);
-  } else {
-    const sampleRoster = [
-      { Name: 'Sample Player A1', HandicapIndex: 8, Tee: 'Gold' },
-      { Name: 'Sample Player A2', HandicapIndex: 14, Tee: 'Red' },
-      { Name: 'Sample Player B1', HandicapIndex: 5, Tee: 'Gold' },
-      { Name: 'Sample Player B2', HandicapIndex: 20, Tee: 'Red' },
-    ];
-    const sampleRow = {
-      MatchNum: '1', TeamA_P1: 'Sample Player A1', TeamA_P2: 'Sample Player A2',
-      TeamB_P1: 'Sample Player B1', TeamB_P2: 'Sample Player B2', StartHole: '18b',
-    };
-    cardHtml = compact ? scorecardCardHtmlCompact(sampleRow, sampleRoster, true) : scorecardCardHtml(sampleRow, sampleRoster, true);
-  }
-  // Preview the same sample match twice in compact mode so the sheet — two
-  // cards with the cut-guide line between them — looks like what actually
-  // prints, not just one lone card floating on a full page.
-  if (compact) openScorecardWindowCompact([cardHtml, cardHtml]);
-  else openScorecardWindow(cardHtml);
-  showStatus('printStatus', true, `Opened a sample scorecard in a new tab${compact ? ' (pro shop paper layout)' : ''}.`);
-}
-
-function openScorecardWindow(cardsHtml) {
-  const win = window.open('', '_blank');
-  if (!win) { showStatus('printStatus', false, 'Your browser blocked the print window — allow pop-ups for this site and try again.'); return null; }
-  win.document.write(`<!DOCTYPE html><html><head><title>Scorecards</title><style>${PRINT_CSS}</style></head><body>
-    <div class="print-bar"><button onclick="window.print()">Print</button></div>
-    ${cardsHtml}
-  </body></html>`);
-  win.document.close();
-  win.focus();
-  return win;
-}
-
-// ---- Compact "pro shop paper" card builders — see COMPACT_PRINT_CSS above
-// for the physical layout this targets (two 11in x 4.25in cards per sheet).
-function ccTieRowHtml(label, extraCol, startHole, endHole, startHoleNum) {
-  // One blank cell per hole (not a single merged cell) so the vertical hole
-  // lines run straight through the Tie row, same as the team rows around it.
-  const teeTd = extraCol ? '<td class="cc-tee-col"></td>' : '';
-  return `<tr class="cc-tie-row"><td class="cc-name"></td>${teeTd}${blankWtCellsHtml(startHole, endHole, startHoleNum)}<td class="cc-winner">${escapeHtml(label)}</td></tr>`;
-}
-// A borderless gap row — used only between two entirely separate matchups
-// (e.g. Day 2 back 9's two Individual Match Play pairings) so they read as
-// two different matches rather than one continuous 4-row block. Not used
-// between the two rows of the SAME matchup (those stay tight, with only the
-// thin Tie row between them).
-function ccSpacerRowHtml(extraCol) {
-  const colspan = extraCol ? 12 : 11;
-  return `<tr class="cc-spacer"><td colspan="${colspan}" style="border:none; padding:2px 0;"></td></tr>`;
-}
-
-// Same reference-row math as printSegmentHtml, but a single stacked table per
-// segment (no side-by-side "Circle Winning Team" box) with an extra narrow
-// "Winner" column at the right — each entry row already carries its own name
-// there (via the row-building functions below), so all a scorekeeper does is
-// circle whichever name actually won once every hole in that 9 is filled in.
-function printSegmentHtmlCompact(segLabel, instruction, startHole, endHole, startHoleNum, rowsHtml, extraColHeader, suppressAutoSuffix, refRows) {
-  // refRows picks which reference rows print above the entry rows. Day 1 has
-  // no handicap strokes, so it passes none; Day 2 passes only the Gold/Red
-  // stroke-index rows (Par was dropped from both days).
-  refRows = refRows || {};
-  const hasPar = false;
-  let holeHeaderCells = '', parCells = '', hcpCells = '', hcpRedCells = '';
-  for (let h = startHole; h <= endHole; h++) {
-    const hh = holeHandicaps.find((r) => Number(r.Hole) === h) || {};
-    const hhRed = holeHandicapsRed.find((r) => Number(r.Hole) === h) || {};
-    const startClass = h === startHoleNum ? ' sc-start-hole' : '';
-    holeHeaderCells += `<th class="${startClass}">${h}</th>`;
-    parCells += `<td class="${startClass}">${hh.Par || ''}</td>`;
-    hcpCells += `<td class="${startClass}">${hh.StrokeIndex || ''}</td>`;
-    hcpRedCells += `<td class="${startClass}">${hhRed.StrokeIndex || ''}</td>`;
-  }
-  const extraTh = extraColHeader ? `<th class="cc-tee-col">${escapeHtml(extraColHeader)}</th>` : '';
-  const extraTd = extraColHeader ? '<td class="cc-tee-col"></td>' : '';
-  // The header cell and the reference rows above the real entry rows (Par,
-  // if shown, plus Gold/Red Hcp) don't carry a per-row winner value, so
-  // instead of a "Winner" label followed by blank cells, one merged cell
-  // spans all of them with a single centered instruction — the entry/tie
-  // rows below still get their own real cc-winner cell each, unaffected.
-  const winnerHeaderRowspan = 1 + (refRows.gold ? 1 : 0) + (refRows.red ? 1 : 0);
-  const instrText = suppressAutoSuffix ? escapeHtml(instruction) : `${escapeHtml(instruction)}, then circle the winner &rarr;`;
-  // The header row and the meta rows it spans into all live in one <tbody>
-  // (not a separate <thead>) — a rowspan from a thead cell into tbody rows
-  // isn't reliably honored by the print engine, so keeping them in the same
-  // row group is what actually makes the merged cell span all four rows.
-  return `
-    <div class="cc-segment">
-      <div class="cc-seg-title">${escapeHtml(segLabel)} <span class="cc-seg-instr">&mdash; ${instrText}</span></div>
-      <table class="cc-table">
-        <tbody>
-          <tr><th class="cc-name">Hole</th>${extraTh}${holeHeaderCells}<th class="cc-winner cc-winner-instr" rowspan="${winnerHeaderRowspan}">Circle the Winner Below</th></tr>
-          ${hasPar ? `<tr class="cc-meta-row"><td class="cc-name">Par</td>${extraTd}${parCells}</tr>` : ''}
-          ${refRows.gold ? `<tr class="cc-meta-row"><td class="cc-name">Gold Hcp</td>${extraTd}${hcpCells}</tr>` : ''}
-          ${refRows.red ? `<tr class="cc-meta-row"><td class="cc-name">Red Hcp</td>${extraTd}${hcpRedCells}</tr>` : ''}
-          ${rowsHtml}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function ccCardHeaderHtml(names, isSample, metaLine) {
-  return `
-    <div class="cc-header">
-      <div>
-        ${isSample ? '<span class="cc-sample-badge">SAMPLE</span> ' : ''}<span class="cc-teams">${teamNameHtml(names.A, settings.TeamAColor)} vs ${teamNameHtml(names.B, settings.TeamBColor)}</span>
-        <div class="cc-meta">${metaLine}</div>
-      </div>
-    </div>
-  `;
-}
-
-// Day 1 compact: same one-row-per-team-per-segment content as the standard
-// card, just stacked front-then-back in one 4.25in-tall card instead of on
-// two separate pages, with a thin "Tie" row between the teams so the Winner
-// column always has all three options (Team A / Tie / Team B) to circle.
-function scorecardCardHtmlDay1Compact(row, rosterList, isSample) {
-  rosterList = rosterList || roster;
-  const names = { A: settings.TeamAName || 'Team A', B: settings.TeamBName || 'Team B' };
-  const startHoleNum = startHoleNumberOf(row.StartHole);
-  const instruction = 'Write W or T per hole';
-
-  const nameWithTee = (name) => {
-    if (!name) return '(unassigned)';
-    const p = rosterList.find((r) => r.Name === name);
-    const label = escapeHtml(nameLastInitial(name));
-    return p && p.Tee ? `${label} <span class="sc-tee">(${escapeHtml(p.Tee)})</span>` : label;
-  };
-  const teamRowHtml = (teamName, color, p1, p2, startHole, endHole) => {
-    const playersHtml = (p1 || p2) ? `<br><span class="sc-players">${nameWithTee(p1)} + ${nameWithTee(p2)}</span>` : '';
-    return `<tr><td class="cc-name"${teamCellStyleAttr(color)}>${escapeHtml(teamName)}${playersHtml}</td>${blankWtCellsHtml(startHole, endHole, startHoleNum)}<td class="cc-winner">${escapeHtml(teamName)}</td></tr>`;
-  };
-  const frontRows = teamRowHtml(names.A, settings.TeamAColor, row.TeamA_P1, row.TeamA_P2, 1, 9) + ccTieRowHtml('Tie', false, 1, 9, startHoleNum) + teamRowHtml(names.B, settings.TeamBColor, row.TeamB_P1, row.TeamB_P2, 1, 9);
-  const backRows = teamRowHtml(names.A, settings.TeamAColor, row.TeamA_P1, row.TeamA_P2, 10, 18) + ccTieRowHtml('Tie', false, 10, 18, startHoleNum) + teamRowHtml(names.B, settings.TeamBColor, row.TeamB_P1, row.TeamB_P2, 10, 18);
-
-  // Day 1 uses no handicap strokes, so no Gold/Red/Par reference rows at all.
-  const frontSegment = printSegmentHtmlCompact("Front 9: Captain's Choice", instruction, 1, 9, startHoleNum, frontRows);
-  const backSegment = printSegmentHtmlCompact('Back 9: Modified Alternate Shot', instruction, 10, 18, startHoleNum, backRows);
-
-  const metaLine = `${escapeHtml(settings.TournamentName || 'Heritage Legends Tournament')} &middot; Day 1, ${escapeHtml(formatDateNice(settings.Day1Date))} &middot; Match ${row.MatchNum} &middot; Start Hole ${escapeHtml(row.StartHole || 'TBD')} &middot; no handicap strokes apply Day 1`;
-
-  return `
-    <div class="cc-card cc-day1">
-      ${ccCardHeaderHtml(names, isSample, metaLine)}
-      ${frontSegment}
-      ${backSegment}
-    </div>
-  `;
-}
-
-// Day 2 compact: Best Ball (front 9) and Individual Match Play (back 9) both
-// give every player their own line (grouped by team on the front 9, by
-// matchup on the back 9), each with its own Tees/Strokes value and per-hole
-// score-entry boxes carrying a stroke dot where one applies. The Winner
-// column carries the team name on every row, Best Ball and Match Play alike.
-function scorecardCardHtmlCompact(row, rosterList, isSample) {
-  rosterList = rosterList || roster;
-  const names = { A: settings.TeamAName || 'Team A', B: settings.TeamBName || 'Team B' };
-  const startHoleNum = startHoleNumberOf(row.StartHole);
-  const instruction = 'Enter scores and circle the low net, or write W or T per hole. Circle the winner at right →';
-
-  // Best Ball has one winner per team, not per player, so the Winner cell is
-  // passed in already built — a single rowspan="2" cell on that team's first
-  // player row (carrying the team name once) and an empty string on the
-  // second row, rather than repeating the team name on both rows.
-  const bestBallRowHtml = (name, teamName, color, startHole, endHole, winnerCellHtml) => {
-    const nameCell = `${lastNameOrUnassigned(name)} <span class="sc-players">&mdash; ${escapeHtml(teamName)}</span>`;
-    return `<tr><td class="cc-name"${teamCellStyleAttr(color)}>${nameCell}</td><td class="cc-tee-col">${teeStrokesLabel(name, rosterList)}</td>${scoreCellsWithDotsHtml(name, rosterList, startHole, endHole, startHoleNum)}${winnerCellHtml}</tr>`;
-  };
-  const matchPlayRowHtml = (name, teamName, color, startHole, endHole) => {
-    const nameCell = `${lastNameOrUnassigned(name)} <span class="sc-players">&mdash; ${escapeHtml(teamName)}</span>`;
-    return `<tr><td class="cc-name"${teamCellStyleAttr(color)}>${nameCell}</td><td class="cc-tee-col">${teeStrokesLabel(name, rosterList)}</td>${scoreCellsWithDotsHtml(name, rosterList, startHole, endHole, startHoleNum)}<td class="cc-winner">${escapeHtml(teamName)}</td></tr>`;
-  };
-
-  const frontRows =
-    bestBallRowHtml(row.TeamA_P1, names.A, settings.TeamAColor, 1, 9, `<td class="cc-winner" rowspan="2">${escapeHtml(names.A)}</td>`) +
-    bestBallRowHtml(row.TeamA_P2, names.A, settings.TeamAColor, 1, 9, '') +
-    ccTieRowHtml('Tie', true, 1, 9, startHoleNum) +
-    bestBallRowHtml(row.TeamB_P1, names.B, settings.TeamBColor, 1, 9, `<td class="cc-winner" rowspan="2">${escapeHtml(names.B)}</td>`) +
-    bestBallRowHtml(row.TeamB_P2, names.B, settings.TeamBColor, 1, 9, '');
-  // Each Individual Match Play pairing (A1 vs B1, A2 vs B2) stays tight —
-  // just the thin Tie row between its own two competitors — but a visible
-  // gap (ccSpacerRowHtml) separates the two pairings from each other, so the
-  // card reads as two distinct matches rather than one 4-row block.
-  const backRows =
-    matchPlayRowHtml(row.TeamA_P1, names.A, settings.TeamAColor, 10, 18) + ccTieRowHtml('Tie', true, 10, 18, startHoleNum) + matchPlayRowHtml(row.TeamB_P1, names.B, settings.TeamBColor, 10, 18) +
-    ccSpacerRowHtml(true) +
-    matchPlayRowHtml(row.TeamA_P2, names.A, settings.TeamAColor, 10, 18) + ccTieRowHtml('Tie', true, 10, 18, startHoleNum) + matchPlayRowHtml(row.TeamB_P2, names.B, settings.TeamBColor, 10, 18);
-
-  const day2Ref = { gold: true, red: true }; // Par row removed; stroke-index rows stay
-  const frontSegment = printSegmentHtmlCompact('Front 9: Best Ball', instruction, 1, 9, startHoleNum, frontRows, 'Tees/Strokes', true, day2Ref);
-  const backSegment = printSegmentHtmlCompact('Back 9: Individual Match Play', instruction, 10, 18, startHoleNum, backRows, 'Tees/Strokes', true, day2Ref);
-  const metaLine = `${escapeHtml(settings.TournamentName || 'Heritage Legends Tournament')} &middot; Day 2, ${escapeHtml(formatDateNice(settings.Day2Date))} &middot; Match ${row.MatchNum} &middot; Start Hole ${escapeHtml(row.StartHole || 'TBD')}`;
-
-  return `
-    <div class="cc-card cc-day2">
-      ${ccCardHeaderHtml(names, isSample, metaLine)}
-      ${frontSegment}
-      ${backSegment}
-    </div>
-  `;
-}
-
-// Pairs up compact cards two-per-sheet (11in x 8.5in), marking the top card
-// of each sheet so CSS can draw a dashed cut-guide line under it — only when
-// there's actually a second card below it, so a lone trailing card (odd
-// count) doesn't get a pointless line with nothing under it.
-function openScorecardWindowCompact(cardHtmlArray) {
-  const win = window.open('', '_blank');
-  if (!win) { showStatus('printStatus', false, 'Your browser blocked the print window — allow pop-ups for this site and try again.'); return null; }
-  const sheets = [];
-  for (let i = 0; i < cardHtmlArray.length; i += 2) {
-    const bottom = cardHtmlArray[i + 1] || '';
-    // Match on the opening `class="cc-card` (no closing quote) so this still
-    // works on a Day 2 card, whose wrapper already carries a second class
-    // (cc-day2) — a strict 'class="cc-card"' match would silently fail to
-    // tag those as the top card at all.
-    const top = bottom ? cardHtmlArray[i].replace('class="cc-card', 'class="cc-card cc-top') : cardHtmlArray[i];
-    sheets.push(`<div class="cc-sheet">${top}${bottom}</div>`);
-  }
-  win.document.write(`<!DOCTYPE html><html><head><title>Scorecards (Pro Shop Paper)</title><style>${COMPACT_PRINT_CSS}</style></head><body>
-    <div class="print-bar"><button onclick="window.print()">Print</button></div>
-    ${sheets.join('')}
-  </body></html>`);
-  win.document.close();
-  win.focus();
-  return win;
-}
-
-// Every match that will actually be printed should have a Scorekeeper PIN on
-// it, so a team without a phone-signal on the course can still call it in to
-// unlock scoring — this backfills any missing PINs on just the match numbers
-// being printed and saves them (to the shared MatchPins sheet, since a PIN is
-// now per-match-number rather than per-day) before the print window opens, so
-// the admin never has to remember a separate "generate PINs" step first.
-async function ensurePinsForPrint(matchNums) {
-  // A match counts as covered if it has a shared PIN, or has its own PIN set
-  // for BOTH days (so there's no day left open).
-  const missing = matchPins.filter((r) => matchNums.includes(String(r.MatchNum)) && !r.PIN && !(r.Day1PIN && r.Day2PIN));
-  if (!missing.length) return { ok: true, generated: 0 };
-  missing.forEach((r) => { r.PIN = randomPin4(); });
-  try {
-    const res = await apiPost('saveMatchPins', { matchPins: JSON.stringify(matchPins) });
-    if (res.success) {
-      matchPins = res.data;
-      renderMatchPins();
-      return { ok: true, generated: missing.length };
-    }
-    return { ok: false, error: res.error };
-  } catch (err) {
-    return { ok: false, error: 'Network error: ' + err.message };
-  }
-}
-
-async function printScorecards() {
-  const day = document.getElementById('printDaySelect').value;
-  const sel = document.getElementById('printMatchSelect').value;
-  const compact = true; // pro shop paper is now the only print layout
-  if (!sel) { showStatus('printStatus', false, `No Day ${day} matches set up yet.`); return; }
-  const all = (pairings[day] || []).filter(hasPlayers);
-  let rows = sel === 'all' ? all : all.filter((r) => String(r.MatchNum) === sel);
-  if (!rows.length) { showStatus('printStatus', false, `No matches to print — set up Day ${day} pairings first.`); return; }
-  let generatedCount = 0;
-  const matchNums = rows.map((r) => String(r.MatchNum));
-  if (matchNums.some((mn) => !pinForMatch(mn))) {
-    const pinResult = await ensurePinsForPrint(matchNums);
-    if (!pinResult.ok) { showStatus('printStatus', false, `Couldn't auto-generate PINs: ${pinResult.error}`); return; }
-    generatedCount = pinResult.generated;
-  }
-  const pinNote = generatedCount ? ` (generated and saved ${generatedCount} new PIN${generatedCount > 1 ? 's' : ''})` : '';
-  if (compact) {
-    const renderer = day === '1' ? (r) => scorecardCardHtmlDay1Compact(r) : (r) => scorecardCardHtmlCompact(r);
-    if (!openScorecardWindowCompact(rows.map(renderer))) return;
-  } else {
-    const renderer = day === '1' ? (r) => scorecardCardHtmlDay1(r) : (r) => scorecardCardHtml(r);
-    if (!openScorecardWindow(rows.map(renderer).join(''))) return;
-  }
-  showStatus('printStatus', true, `Opened ${rows.length} scorecard${rows.length > 1 ? 's' : ''} in a new tab${compact ? ' (pro shop paper layout)' : ''}${pinNote}.`);
-}
-
-// ====================== UTIL ======================
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function escapeAttr(str) { return escapeHtml(str); }
-// A team's name shown as a small shaded "pill" in their chosen branding
-// color — used for inline mentions (e.g. the "Team A vs Team B" title line)
-// where shading the whole surrounding box doesn't make sense. For a table
-// cell that's entirely that team's own row, shade the cell itself instead
-// (see teamCellStyleAttr) — a full-cell band reads more clearly on a
-// printed page than a small dot ever did.
-function teamNameHtml(name, color) {
-  const c = escapeAttr(color || '#999999');
-  return `<span style="background:${c}; padding:1px 7px; border-radius:4px; display:inline-block;">${escapeHtml(name)}</span>`;
-}
-// Mixes a raw team color toward white before it's used as a background fill
-// behind printed text — a dark, saturated color (e.g. this tournament's
-// "Birdie Boys" orange) used at full strength makes the black text on top of
-// it hard to read, so blending in ~65% white keeps the team identifiable
-// while leaving enough contrast for printed labels and handwritten scores
-// alike. Falls back to light gray for a missing/unparseable color.
-function lightenColorForFill(color) {
-  let hex = String(color || '').trim().replace(/^#/, '');
-  if (/^[0-9a-fA-F]{3}$/.test(hex)) hex = hex.split('').map((c) => c + c).join('');
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return '#eeeeee';
-  const num = parseInt(hex, 16);
-  const mix = (channel) => Math.round(channel + (255 - channel) * 0.65);
-  const r = mix((num >> 16) & 255), g = mix((num >> 8) & 255), b = mix(num & 255);
-  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-}
-// A `style="..."` attribute (including the attribute name) that shades a
-// table cell's whole background with a lightened version of a team's color
-// (see lightenColorForFill) — pass straight into a <td ...${teamCellStyleAttr(color)}>.
-function teamCellStyleAttr(color) {
-  return ` style="background:${escapeAttr(lightenColorForFill(color))};"`;
-}
-// Roster names are stored "Last, First". Most display spots show just the
-// last name to keep things short — but when two players on the roster share
-// a last name (e.g. two Davises), that alone is ambiguous, so a first
-// initial is appended for BOTH of them: "Davis J" / "Davis L". Anyone whose
-// last name is unique still shows as plain "Davis". Duplicates are computed
-// fresh from the current roster on every call (the roster is small, so this
-// is cheap) rather than cached, so it stays correct if the roster changes.
-// Doesn't further disambiguate two players who'd ALSO share a first initial
-// (e.g. "Davis, Jay" and "Davis, James") — rare enough not to handle here;
-// use a Roster nickname-style edit if that ever comes up.
-function lastNameRaw_(name) {
-  if (!name) return '';
-  const idx = name.indexOf(',');
-  return (idx === -1 ? name : name.slice(0, idx)).trim();
-}
-function duplicateLastNames_() {
-  const counts = {};
-  (roster || []).forEach((p) => {
-    const ln = lastNameRaw_(p.Name);
-    if (!ln) return;
-    const key = ln.toLowerCase();
-    counts[key] = (counts[key] || 0) + 1;
-  });
-  const dupes = new Set();
-  Object.keys(counts).forEach((k) => { if (counts[k] > 1) dupes.add(k); });
-  return dupes;
-}
-// "Last, F." — last name plus FIRST INITIAL only, used on the printed
-// scorecards and the Scoreboard so every player reads the same way
-// regardless of whether another player shares their last name. Roster names
-// are stored "Last, First"; a name with no comma is returned as-is.
-function nameLastInitial(name) {
-  if (!name) return '';
-  const idx = name.indexOf(',');
-  if (idx === -1) return String(name).trim();
-  const ln = name.slice(0, idx).trim();
-  const first = name.slice(idx + 1).trim();
-  return first ? `${ln}, ${first.charAt(0).toUpperCase()}.` : ln;
-}
-function lastName(name) {
-  if (!name) return '?';
-  const ln = lastNameRaw_(name);
-  if (!ln) return name;
-  if (!duplicateLastNames_().has(ln.toLowerCase())) return ln;
-  const idx = name.indexOf(',');
-  const first = idx === -1 ? '' : name.slice(idx + 1).trim();
-  const initial = first ? first.charAt(0).toUpperCase() : '';
-  return initial ? `${ln} ${initial}` : ln;
-}
+})();
 </script>
 </body>
 </html>
