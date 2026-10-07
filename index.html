@@ -6,37 +6,46 @@
 <title>Heritage Legends Golf</title>
 <style>
   :root {
-    --green: #1e5b3a; --green-dark: #123c26; --gold: #c9a227;
+    --green: #1e5b3a; --green-dark: #123c26; --gold: #c9a227; --gold-soft: #fbf3e0;
     --bg: #f5f5f0; --card: #ffffff; --border: #d8d8d0;
-    --text: #222; --muted: #6b6b63; --error: #b3261e; --ok: #1e5b3a;
+    --text: #222; --muted: #6b6b63; --error: #b3261e; --ok: #1e5b3a; --standby: #8a6300;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
   [hidden] { display: none !important; }
   #testBanner { background: #b8860b; color: #fff; text-align: center; font-weight: 700; padding: 5px 10px; font-size: 0.8rem; letter-spacing: 0.5px; }
-  header { background: var(--green); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  header { background: var(--green); color: #fff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   header h1 { margin: 0; font-size: 1.25rem; }
   header .sub { font-size: 0.82rem; opacity: 0.85; }
   .who { text-align: right; font-size: 0.85rem; }
   .who button { background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: 0.82rem; padding: 0 0 0 8px; }
   .ver { font-size: 11px; opacity: 0.7; margin-top: 2px; }
-  nav { display: flex; gap: 2px; padding: 0 12px; background: var(--green-dark); overflow-x: auto; }
-  nav button { background: transparent; border: none; color: #fff; opacity: 0.75; padding: 12px 14px; cursor: pointer; font-size: 0.95rem; border-bottom: 3px solid transparent; white-space: nowrap; }
+  nav { display: flex; gap: 2px; padding: 0 10px; background: var(--green-dark); overflow-x: auto; }
+  nav button { background: transparent; border: none; color: #fff; opacity: 0.75; padding: 12px 13px; cursor: pointer; font-size: 0.95rem; border-bottom: 3px solid transparent; white-space: nowrap; }
   nav button.active { opacity: 1; border-bottom-color: var(--gold); font-weight: 600; }
-  main { max-width: 900px; margin: 0 auto; padding: 18px 14px 50px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
-  .card h2 { margin-top: 0; font-size: 1.05rem; color: var(--green-dark); }
+  main { max-width: 920px; margin: 0 auto; padding: 16px 12px 60px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 1.05rem; color: var(--green-dark); }
+  .card h3 { margin: 14px 0 6px; font-size: 0.95rem; color: var(--green-dark); }
   .hint { font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
-  button.primary { background: var(--green); color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 0.92rem; font-weight: 600; }
-  button.primary:disabled { opacity: 0.55; cursor: default; }
-  button.secondary { background: #fff; color: var(--green); border: 1px solid var(--green); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  button.primary { background: var(--green); color: #fff; border: none; padding: 9px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+  button.primary:disabled, button.secondary:disabled { opacity: 0.55; cursor: default; }
+  button.secondary { background: #fff; color: var(--green); border: 1px solid var(--green); padding: 7px 13px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
   button.link { background: none; border: none; color: var(--green); text-decoration: underline; cursor: pointer; font-size: 0.85rem; padding: 0; }
   button.link.danger { color: var(--error); }
-  .status { margin-top: 10px; font-size: 0.9rem; min-height: 20px; }
+  .status { margin-top: 8px; font-size: 0.9rem; min-height: 18px; }
   .status.ok { color: var(--ok); } .status.error { color: var(--error); }
-  input[type=text], input[type=email], input[type=tel], input[type=password] { padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; width: 100%; }
+  input[type=text], input[type=email], input[type=tel], input[type=password], input[type=date], input[type=number], select, textarea {
+    padding: 8px 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.92rem; font-family: inherit; background: #fff; }
+  input[type=text], input[type=email], input[type=tel], input[type=password], textarea { width: 100%; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .subtab-btn { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font: inherit; font-size: 0.86rem; cursor: pointer; }
+  .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+  #toast.error { background: var(--error); }
 
-  /* ---- sign-in screen ---- */
+  /* sign-in */
   .gate { max-width: 380px; margin: 40px auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 26px 22px; }
   .gate h2 { margin: 0 0 4px; color: var(--green-dark); font-size: 1.2rem; text-align: center; }
   .gate .lead { text-align: center; margin: 0 0 18px; }
@@ -46,28 +55,71 @@
   .gate-alt { display: flex; justify-content: center; gap: 18px; margin-top: 16px; flex-wrap: wrap; }
   .gate-err { min-height: 20px; margin: 12px 0 0; color: var(--error); font-size: 0.88rem; text-align: center; }
 
-  /* ---- tabs ---- */
-  .soon { border-left: 4px solid var(--gold); }
-  .tile-row { display: flex; gap: 12px; flex-wrap: wrap; }
-  .tile { flex: 1 1 240px; display: block; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-  .tile:hover { border-color: var(--green); }
-  .tile strong { color: var(--green-dark); display: block; margin-bottom: 4px; }
-  .subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .subtab-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font: inherit; font-size: 0.88rem; cursor: pointer; }
-  .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+  /* sign-up date cards */
+  .day-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; border-bottom: 2px solid var(--green); padding-bottom: 6px; margin-bottom: 8px; }
+  .day-title { font-weight: 700; font-size: 1.05rem; color: var(--green-dark); }
+  .day-state { font-size: 0.82rem; color: var(--muted); }
+  .day-state.open { color: var(--ok); font-weight: 600; }
+  .day-closed { background: #fdecea; color: var(--error); border-radius: 6px; padding: 8px 10px; font-weight: 600; margin: 6px 0; }
+  .day-notice { background: var(--gold-soft); border-left: 4px solid var(--gold); border-radius: 4px; padding: 7px 10px; margin: 6px 0; font-size: 0.9rem; }
+  .grp { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  .grp-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+  .grp-title { font-weight: 700; }
+  .grp-count { font-size: 0.82rem; color: var(--muted); }
+  ol.names { margin: 6px 0 4px 0; padding-left: 26px; font-size: 0.92rem; }
+  ol.names li { padding: 2px 0; }
+  ol.names li.me { font-weight: 700; color: var(--green-dark); }
+  ol.names .det { color: var(--muted); font-size: 0.85em; margin-left: 6px; }
+  ol.names .note { color: var(--muted); font-style: italic; font-size: 0.85em; margin-left: 6px; }
+  .standby-head { font-size: 0.82rem; font-weight: 700; color: var(--standby); margin-top: 6px; }
+  ol.names.standby { color: #5a4a20; }
+  .grp-actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .mine { font-size: 0.86rem; font-weight: 600; color: var(--ok); }
+  .mine.standby { color: var(--standby); }
+  .join-form { background: #f7faf8; border: 1px solid #cfe3d7; border-radius: 8px; padding: 10px; margin-top: 8px; }
+  .join-form label { font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-right: 4px; }
+  .join-form .row { margin: 6px 0; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { border: none; background: #fff; padding: 7px 11px; cursor: pointer; font-size: 0.86rem; }
+  .seg button.on { background: var(--green); color: #fff; font-weight: 600; }
+  .admin-add { margin-top: 6px; }
+  .admin-add select { max-width: 220px; font-size: 0.85rem; padding: 5px 6px; }
+  .duty-box { background: #f4f1e6; border-radius: 8px; padding: 9px 11px; margin-top: 10px; font-size: 0.88rem; }
+  .duty-box b { color: var(--green-dark); }
+  .rm { color: var(--error); background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 0 4px; }
 
-  /* ---- admin: members ---- */
-  .mem-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
-  .mem-tools input { max-width: 240px; }
-  .mem-table-wrap { overflow-x: auto; }
-  table.mem { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 680px; }
-  table.mem th, table.mem td { padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
-  table.mem th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
-  table.mem td input[type=text], table.mem td input[type=email], table.mem td input[type=tel] { padding: 6px 8px; font-size: 0.88rem; }
-  table.mem tr.inactive td { opacity: 0.55; }
+  /* duty tab */
+  .view-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  table.dt { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  table.dt th, table.dt td { padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.dt th { font-size: 0.74rem; text-transform: uppercase; color: var(--muted); }
+  table.dt tr.past td { opacity: 0.5; }
+  table.dt tr.mine td { background: #eef6f0; }
+  .role-p { color: #1565c0; font-weight: 600; font-size: 0.8em; }
+  .cal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .cal-h { background: var(--green); color: #fff; font-weight: 700; text-align: center; padding: 6px; border-radius: 6px; }
+  .cal-c { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 6px 7px; font-size: 0.8rem; min-height: 54px; }
+  .cal-c .d { font-weight: 700; color: var(--green-dark); }
+  .cal-c.blank { visibility: hidden; }
+  .cal-c.closed { background: #f6f0ee; }
+  .cal-c.mine { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+  @media (max-width: 560px) { .cal { grid-template-columns: 1fr; } .cal-h { display: none; } .cal-c.blank { display: none; } }
+
+  /* admin tables */
+  .tbl-wrap { overflow-x: auto; }
+  table.ad { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  table.ad th, table.ad td { padding: 5px 5px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+  table.ad th { font-size: 0.72rem; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  table.ad input, table.ad select { padding: 5px 6px; font-size: 0.85rem; }
+  table.ad tr.inactive td { opacity: 0.55; }
+  table.ad tr.weekend td { background: #faf8f2; }
   .pin-yes { color: var(--ok); font-weight: 600; white-space: nowrap; }
   .pin-no { color: var(--muted); white-space: nowrap; }
   .dirty-note { color: #8a6300; font-weight: 600; font-size: 0.85rem; }
+  .imp-ok { color: var(--ok); } .imp-bad { color: var(--error); font-weight: 600; } .imp-new { color: #1565c0; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 14px; }
+  .grid2 label { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
+  .grid2 input, .grid2 select { width: 100%; }
 </style>
 </head>
 <body>
@@ -101,38 +153,46 @@
   </nav>
   <main>
     <section id="tab-signups" class="tab-panel">
-      <div class="card soon">
-        <h2>Sign-ups</h2>
-        <p class="hint">Coming in the next step: Fun group, Nassau group and standby lists for each Monday, Wednesday and Friday (opening at 7:10 AM two weeks ahead), plus other events like the banquet and the $5 / $10 tournaments.</p>
-      </div>
+      <div id="signupsBody"><div class="card hint">Loading…</div></div>
     </section>
+
     <section id="tab-duty" class="tab-panel" hidden>
-      <div class="card soon">
+      <div class="card">
         <h2>Tee Time Duty</h2>
-        <p class="hint">Coming in the next step: who goes to the pro shop and who calls in for each date, with List by date, List by person and Calendar views.</p>
+        <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day books the round two weeks later.</p>
+        <div class="view-btns">
+          <button class="subtab-btn active" data-dview="date">List by date</button>
+          <button class="subtab-btn" data-dview="person">List by person</button>
+          <button class="subtab-btn" data-dview="calendar">Calendar view</button>
+          <select id="dutyFilter" style="margin-left:auto;"></select>
+        </div>
+        <div id="dutyBody"></div>
       </div>
     </section>
+
     <section id="tab-files" class="tab-panel" hidden>
-      <div class="card soon">
+      <div class="card">
         <h2>Related Files</h2>
-        <p class="hint">Coming later: Legends History, Stableford scoring, photos and the quarterly tee time assignments, ready to download.</p>
+        <p class="hint">Coming in a later step: Legends History, Stableford scoring, photos and the quarterly tee time assignments, ready to download.</p>
       </div>
     </section>
+
     <section id="tab-tournament" class="tab-panel" hidden>
       <div class="card">
         <h2>Heritage Legends Tournament</h2>
-        <div class="tile-row">
-          <a class="tile" id="lnkLive" href="live.html" target="_blank" rel="noopener">
-            <strong>Scoreboard &amp; Live Scoring ↗</strong>
+        <div class="row" style="align-items:stretch;">
+          <a class="card" style="flex:1 1 240px; text-decoration:none; color:inherit; margin:0;" id="lnkLive" href="live.html" target="_blank" rel="noopener">
+            <strong style="color:var(--green-dark);">Scoreboard &amp; Live Scoring ↗</strong><br>
             <span class="hint">Results from the annual two-day tournament, including past years.</span>
           </a>
-          <a class="tile" id="lnkTAdmin" href="tournament-admin.html" target="_blank" rel="noopener">
-            <strong>Tournament admin ↗</strong>
-            <span class="hint">Teams, pairings, PINs and scorecards. Admins only (asks for your admin PIN).</span>
+          <a class="card" style="flex:1 1 240px; text-decoration:none; color:inherit; margin:0;" id="lnkTAdmin" href="tournament-admin.html" target="_blank" rel="noopener">
+            <strong style="color:var(--green-dark);">Tournament admin ↗</strong><br>
+            <span class="hint">Teams, pairings, PINs and scorecards. Admins only.</span>
           </a>
         </div>
       </div>
     </section>
+
     <section id="tab-admin" class="tab-panel" hidden>
       <div id="adminLocked" class="card">
         <h2>Admin</h2>
@@ -144,35 +204,22 @@
         <div id="adminLockStatus" class="status"></div>
       </div>
       <div id="adminBody" hidden>
-        <div class="subtabs">
+        <div class="subtabs" id="adminSubtabs">
           <button type="button" class="subtab-btn active" data-asub="members">Members</button>
-          <span class="hint" style="align-self:center;">More admin tools (closures, notices, first tee times, tee time duty, pro shop, reminders) arrive with the next steps.</span>
+          <button type="button" class="subtab-btn" data-asub="duty">Tee Time Duty</button>
+          <button type="button" class="subtab-btn" data-asub="days">Day setup</button>
+          <button type="button" class="subtab-btn" data-asub="closures">Closures &amp; notices</button>
+          <button type="button" class="subtab-btn" data-asub="teetimes">Club first tee times</button>
+          <button type="button" class="subtab-btn" data-asub="events">Events</button>
+          <button type="button" class="subtab-btn" data-asub="rules">Sign-up rules</button>
+          <button type="button" class="subtab-btn" data-asub="activity">Activity</button>
         </div>
-        <div class="card" id="asub-members">
-          <h2>Members &amp; sign-in</h2>
-          <p class="hint">Every Legend who should be able to sign in needs an email address here. The first time they sign in they choose a 4-digit PIN; <strong>Reset PIN</strong> clears it so they choose a new one next time (and signs them out everywhere). Untick <em>Active</em> to stop someone signing in without deleting them. This is the same roster the tournament uses, so team, handicap and tee stay as they are.</p>
-          <div class="mem-tools">
-            <input type="text" id="memFilter" placeholder="Search names or emails" oninput="renderMembers()">
-            <label class="hint"><input type="checkbox" id="memMissingOnly" onchange="renderMembers()"> Only missing email</label>
-            <span class="hint" id="memCounts"></span>
-          </div>
-          <div class="mem-table-wrap">
-            <table class="mem">
-              <thead><tr><th style="width:24%">Name (Last, First)</th><th style="width:30%">Email</th><th style="width:16%">Phone</th><th>Active</th><th>PIN</th></tr></thead>
-              <tbody id="memBody"></tbody>
-            </table>
-          </div>
-          <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <button class="secondary" onclick="addMemberRow()">+ Add member</button>
-            <button class="primary" id="saveMembersBtn" onclick="saveMembers()">Save members</button>
-            <span class="dirty-note" id="memDirty" hidden>Unsaved changes</span>
-          </div>
-          <div id="memStatus" class="status"></div>
-        </div>
+        <div id="adminContent"></div>
       </div>
     </section>
   </main>
 </div>
+<div id="toast" hidden></div>
 
 <script>
 // ====================== CONFIG ======================
@@ -185,16 +232,15 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07';
+const APP_VERSION = '2026-10-07b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
 
 // ====================== API ======================
-const FETCH_TIMEOUT_MS = 25000;
 async function fetchWithTimeout(url, options, ms) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms || FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), ms || 45000);
   try { return await fetch(url, Object.assign({}, options, { signal: controller.signal })); }
   finally { clearTimeout(timer); }
 }
@@ -207,22 +253,39 @@ async function apiGet(action, extra) {
   }
   throw lastErr;
 }
-// POST keeps PINs out of the address bar and server logs. Carries the admin
-// PIN (if this tab has unlocked Admin) and the member token automatically.
-async function apiPost(action, body) {
+// POST keeps PINs out of the address bar. Carries the admin PIN (if this tab
+// has unlocked Admin) and the member token automatically. `retry` is only
+// for actions the server treats as safe to repeat (sign-up requests carry
+// their own id, so a retry after a dropped connection can't double-book).
+async function apiPost(action, body, retry) {
   const extra = {};
   if (adminSession) extra.adminPin = adminSession.pin;
   if (session) extra.token = session.token;
-  const res = await fetchWithTimeout(CFG.backendUrl, {
-    method: 'POST',
-    body: JSON.stringify(Object.assign({ action, key: CFG.key }, extra, body || {})),
-  });
-  return res.json();
+  const payload = JSON.stringify(Object.assign({ action, key: CFG.key }, extra, body || {}));
+  const attempts = retry ? 3 : 1;
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const res = await fetchWithTimeout(CFG.backendUrl, { method: 'POST', body: payload });
+      return await res.json();
+    } catch (e) { lastErr = e; if (i < attempts) await new Promise((r) => setTimeout(r, 700 * i + Math.random() * 500)); }
+  }
+  throw lastErr;
 }
 function showStatus(id, ok, msg) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.textContent = msg;
   el.className = 'status ' + (ok ? 'ok' : 'error');
+}
+let toastTimer = null;
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = isError ? 'error' : '';
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, isError ? 7000 : 3500);
 }
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -232,6 +295,24 @@ function displayName(name) {
   const s = String(name || '');
   const i = s.indexOf(',');
   return i === -1 ? s.trim() : (s.slice(i + 1).trim() + ' ' + s.slice(0, i).trim()).trim();
+}
+function newId(prefix) { return (prefix || 's') + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+// ---- dates (keys are YYYY-MM-DD) ----
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function keyDate(key) { return new Date(key + 'T12:00:00Z'); }
+function dowOf(key) { return keyDate(key).getUTCDay(); }
+function addDays(key, n) { const d = keyDate(key); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function dateShort(key) { const d = keyDate(key); return `${DOW[d.getUTCDay()]}, ${MON[d.getUTCMonth()]} ${d.getUTCDate()}`; }
+function dateLong(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}/${d.getUTCFullYear()}`; }
+function isPlayDay(key) { const d = dowOf(key); return d === 1 || d === 3 || d === 5; }
+// A millisecond timestamp as "Wed, Oct 7 at 7:10 AM" in the viewer's clock.
+function whenLabel(ms) {
+  const d = new Date(ms);
+  let h = d.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()} at ${h}:${String(d.getMinutes()).padStart(2, '0')} ${ap}`;
 }
 
 // ====================== SESSION ======================
@@ -252,8 +333,7 @@ function saveAdminSession(a) {
 
 // ====================== SIGN-IN SCREEN ======================
 // Email first, then PIN (or choose a PIN the first time). No names are shown
-// before someone signs in. The admin link lets an admin in with their admin
-// PIN — needed at the very start, before anyone's email has been entered.
+// before someone signs in. The admin link lets an admin in with their admin PIN.
 const gate = { step: 'email', email: '', err: '', busy: false };
 function showGate() {
   document.getElementById('app').hidden = true;
@@ -271,7 +351,7 @@ function drawGate() {
       <input id="gEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${escapeHtml(gate.email)}">
       <button class="primary" id="gNext">Continue</button>
       <div class="gate-alt">
-        <a class="link" href="live.html" style="font-size:0.85rem; color:var(--green);">Just viewing the tournament scoreboard</a>
+        <a class="link" href="live.html${escapeHtml(location.search)}" style="font-size:0.85rem; color:var(--green);">Just viewing the tournament scoreboard</a>
         <button class="link" id="gAdmin">League admin</button>
       </div>`;
   } else if (gate.step === 'pin') {
@@ -370,6 +450,7 @@ function finishSignIn(data) {
 function signOut() {
   saveSession(null);
   saveAdminSession(null);
+  board = null;
   gate.step = 'email'; gate.email = ''; gate.err = '';
   showGate();
 }
@@ -385,7 +466,7 @@ async function changeMyPin() {
     const res = await apiPost('memberChangePin', { newPin: a.trim() });
     if (!res.success) { handleSignedOut(res.error) || alert(res.error); return; }
     saveSession({ token: res.data.token, member: res.data.member });
-    alert('PIN changed.');
+    toast('PIN changed.');
   } catch (e) { alert('Could not reach the server — try again.'); }
 }
 // Any member request that comes back "signed out" (PIN reset, made inactive)
@@ -393,36 +474,468 @@ async function changeMyPin() {
 function handleSignedOut(err) {
   if (!/^SIGNED_OUT/.test(String(err || ''))) return false;
   saveSession(null);
+  if (adminSession) { showApp('admin'); return true; }
   gate.step = 'email'; gate.err = 'You were signed out (your PIN may have been reset). Please sign in again.';
   showGate();
   return true;
 }
+function cleanError(err) { return String(err || 'Something went wrong.').replace(/^SIGNED_OUT:\s*/, ''); }
 
 // ====================== APP SHELL ======================
+let currentTab = 'signups';
 function showApp(tab) {
   document.getElementById('gateWrap').hidden = true;
   document.getElementById('app').hidden = false;
-  const who = session ? displayName(session.member.Name) : (adminSession ? adminSession.name + ' (admin)' : '');
+  const who = session ? displayName(session.member.Name) + (adminSession ? ' · admin' : '') : (adminSession ? adminSession.name + ' (admin)' : '');
   document.getElementById('whoName').textContent = 'Signed in as ' + who;
   document.getElementById('changePinBtn').hidden = !session;
-  // Carry ?env= through to the tournament pages when testing locally.
   document.getElementById('lnkLive').href = 'live.html' + location.search;
   document.getElementById('lnkTAdmin').href = 'tournament-admin.html' + location.search;
-  selectTab(tab || 'signups');
+  selectTab(tab || currentTab || 'signups');
+  loadBoard();
 }
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 function selectTab(tab) {
+  currentTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== 'tab-' + tab; });
   if (tab === 'admin') renderAdminGate();
+  renderCurrent();
+}
+function renderCurrent() {
+  if (!board) return;
+  if (currentTab === 'signups') renderSignups();
+  else if (currentTab === 'duty') renderDuty();
+  else if (currentTab === 'admin' && adminSession) renderAdminSub();
+}
+
+// ====================== BOARD (shared data) ======================
+let board = null;          // whatever legendsGetBoard last returned
+let clockSkew = 0;         // server time minus this device's time
+let boardLoading = false;
+function serverNow() { return Date.now() + clockSkew; }
+function adoptBoard(b) {
+  board = b;
+  clockSkew = b.now - Date.now();
+  renderCurrent();
+}
+async function loadBoard(quiet) {
+  if (boardLoading) return;
+  boardLoading = true;
+  try {
+    const res = await apiPost('legendsGetBoard', {}, true);
+    if (!res.success) {
+      if (handleSignedOut(res.error)) return;
+      if (!quiet) document.getElementById('signupsBody').innerHTML = `<div class="card status error">${escapeHtml(cleanError(res.error))}</div>`;
+      return;
+    }
+    // Don't redraw underneath someone who is mid-way through typing in a form.
+    const ae = document.activeElement;
+    if (quiet && ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) { board = res.data; clockSkew = res.data.now - Date.now(); return; }
+    adoptBoard(res.data);
+  } catch (e) {
+    if (!quiet) document.getElementById('signupsBody').innerHTML = '<div class="card status error">Could not reach the server — check your connection and reload.</div>';
+  } finally { boardLoading = false; }
+}
+// Keep lists fresh while the page is open (others signing up) and flip a
+// date to "open" right at 7:10 without anyone needing to reload.
+setInterval(() => { if (!document.hidden && board && !document.getElementById('app').hidden) loadBoard(true); }, 60000);
+setInterval(() => {
+  if (!board || document.hidden) return;
+  const now = serverNow();
+  const flipped = board.dates.some((d) => (d.state === 'notyet' && now >= d.opensAt) || (d.state === 'open' && now > d.closesAt));
+  if (flipped) loadBoard(true);
+}, 10000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && board) loadBoard(true); });
+
+function rosterById(id) { return (board.roster || []).find((r) => String(r.PlayerID) === String(id)); }
+function myId() { return session ? String(session.member.PlayerID) : null; }
+function amAdmin() { return !!adminSession; }
+
+// ====================== SIGN-UPS TAB ======================
+let openForm = null; // { key, group, mode: 'join'|'edit', signupId? } — the one inline form being shown
+
+function groupList(key, group) { return (board.signups || []).filter((s) => s.DateKey === key && s.Group === group); }
+function detailText(s) {
+  if (s.Group !== 'fun') return '';
+  const holes = s.Holes === 'F9' ? 'Front 9' : s.Holes === 'B9' ? 'Back 9' : '18';
+  return [s.Tee, holes, s.Riding === 'TRUE' ? 'Riding' : ''].filter(Boolean).join(' ');
+}
+function dayState(d) {
+  const now = serverNow();
+  return now < d.opensAt ? 'notyet' : now > d.closesAt ? 'closed' : 'open';
+}
+
+function renderSignups() {
+  const el = document.getElementById('signupsBody');
+  const items = [];
+  board.dates.forEach((d) => items.push({ key: d.DateKey, type: 'day', d }));
+  (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE')
+    .forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
+  items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
+  const intro = `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
+  el.innerHTML = intro + (items.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
+  wireSignups(el);
+}
+
+function namesListHtml(list, from, to, key) {
+  const mine = myId();
+  return list.slice(from, to).map((s) => {
+    const det = detailText(s);
+    const rm = amAdmin() ? `<button class="rm" title="Remove ${escapeHtml(displayName(s.Name))}" data-admin-rm="${escapeHtml(s.SignupID)}">×</button>` : '';
+    return `<li class="${String(s.PlayerID) === mine ? 'me' : ''}">${escapeHtml(displayName(s.Name))}${det ? `<span class="det">${escapeHtml(det)}</span>` : ''}${s.Note ? `<span class="note">${escapeHtml(s.Note)}</span>` : ''}${rm}</li>`;
+  }).join('');
+}
+
+function groupBlockHtml(d, group, state) {
+  const isFun = group === 'fun';
+  const slots = isFun ? d.funSlots : d.nassauSlots;
+  const times = isFun ? d.funTimes : d.nassauTimes;
+  const list = groupList(d.DateKey, group);
+  const inList = list.slice(0, slots), standby = list.slice(slots);
+  const mineIdx = list.findIndex((s) => String(s.PlayerID) === myId());
+  const mineOther = groupList(d.DateKey, isFun ? 'nassau' : 'fun').find((s) => String(s.PlayerID) === myId());
+  const title = isFun ? 'Fun group' : 'Nassau group';
+  let actions = '';
+  if (session && !d.closed) {
+    if (mineIdx !== -1) {
+      const s = list[mineIdx];
+      const pos = mineIdx < slots ? `You're in — #${mineIdx + 1}` : `You're on standby — #${mineIdx - slots + 1}`;
+      actions = `<span class="mine ${mineIdx < slots ? '' : 'standby'}">${pos}</span>` +
+        (state === 'open' ? `<button class="secondary" data-edit="${escapeHtml(s.SignupID)}" data-key="${d.DateKey}" data-group="${group}">Change details</button>` : '') +
+        (state === 'open' ? `<button class="link" data-switch="${escapeHtml(s.SignupID)}" data-key="${d.DateKey}" data-group="${isFun ? 'nassau' : 'fun'}">Switch to ${isFun ? 'Nassau' : 'Fun'} group</button>` : '') +
+        `<button class="link danger" data-leave="${escapeHtml(s.SignupID)}" data-late="${state === 'closed' ? '1' : ''}">Remove me</button>`;
+    } else if (!mineOther) {
+      const full = list.length >= slots + d.standbySlots;
+      if (state === 'open' && !full) {
+        actions = `<button class="primary" data-join="${d.DateKey}" data-group="${group}">${list.length >= slots ? 'Join standby list' : 'Sign up'}</button>`;
+      } else if (state === 'open' && full) {
+        actions = `<span class="hint">Full, including standby.</span>`;
+      }
+    }
+  }
+  const form = openForm && openForm.key === d.DateKey && openForm.group === group ? joinFormHtml(d, group) : '';
+  const adminAdd = amAdmin() && !d.closed ? adminAddHtml(d.DateKey, group) : '';
+  return `
+    <div class="grp">
+      <div class="grp-head">
+        <span class="grp-title">${title} <span class="hint" style="font-weight:400;">${escapeHtml(times)}</span></span>
+        <span class="grp-count">${Math.min(list.length, slots)} of ${slots} slots filled${standby.length ? ` · ${standby.length} on standby` : ''}</span>
+      </div>
+      ${inList.length ? `<ol class="names">${namesListHtml(list, 0, slots)}</ol>` : '<div class="hint" style="margin:6px 0;">No one yet.</div>'}
+      ${standby.length ? `<div class="standby-head">${title} standby (up to ${d.standbySlots})</div><ol class="names standby">${namesListHtml(list, slots, list.length)}</ol>` : ''}
+      ${actions ? `<div class="grp-actions">${actions}</div>` : ''}
+      ${form}
+      ${adminAdd}
+    </div>`;
+}
+
+function joinFormHtml(d, group) {
+  const isFun = group === 'fun';
+  const editing = openForm.mode === 'edit' ? (board.signups || []).find((s) => s.SignupID === openForm.signupId) : null;
+  const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
+  const me = session ? rosterById(session.member.PlayerID) : null;
+  const tee = editing ? editing.Tee : (me && tees.indexOf(me.Tee) !== -1 ? me.Tee : tees[0]);
+  const holes = editing ? (editing.Holes || '18') : (openForm.holes || '18');
+  const riding = editing ? editing.Riding === 'TRUE' : false;
+  const note = editing ? editing.Note : '';
+  const funFields = isFun ? `
+      <div class="row"><label>Tees</label><select id="jfTee">${tees.map((t) => `<option ${t === tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
+        <label style="margin-left:8px;">Holes</label>
+        <span class="seg" id="jfHoles">${[['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']].map(([v, l]) => `<button type="button" data-h="${v}" class="${v === holes ? 'on' : ''}">${l}</button>`).join('')}</span></div>
+      <div class="row"><label><input type="checkbox" id="jfRiding" ${riding ? 'checked' : ''}> Riding (cart)</label><span class="hint">Leave unticked if walking.</span></div>` : '';
+  return `
+    <div class="join-form" id="joinForm">
+      ${funFields}
+      <div class="row"><input type="text" id="jfNote" maxlength="120" placeholder="Note (optional)${isFun ? ', e.g. last group please' : ', e.g. White/Gold hybrid'}" value="${escapeHtml(note)}"></div>
+      <div class="row"><button class="primary" id="jfGo">${editing ? 'Save changes' : 'Confirm sign-up'}</button><button class="link" id="jfCancel">Cancel</button></div>
+    </div>`;
+}
+
+function adminAddHtml(key, group) {
+  const taken = new Set((board.signups || []).filter((s) => s.DateKey === key && (group.indexOf('event:') === 0 ? s.Group === group : (s.Group === 'fun' || s.Group === 'nassau'))).map((s) => String(s.PlayerID)));
+  const opts = (board.roster || []).filter((r) => r.Active !== 'FALSE' && !taken.has(String(r.PlayerID)))
+    .sort((a, b) => a.Name.localeCompare(b.Name))
+    .map((r) => `<option value="${escapeHtml(r.PlayerID)}">${escapeHtml(r.Name)}</option>`).join('');
+  return `<div class="admin-add"><select data-admin-add="${key}" data-group="${escapeHtml(group)}"><option value="">+ Admin: add a player…</option>${opts}</select></div>`;
+}
+
+function dutyForDay(key) { return (board.duty || []).filter((x) => x.DateKey === key); }
+function dutyText(tpl, info) { return String(tpl || '').replace(/\{arrive\}/g, info ? info.arrive : '').replace(/\{call\}/g, info ? info.call : ''); }
+function dutyBoxHtml(key) {
+  const rows = dutyForDay(key);
+  if (!rows.length) return '';
+  const info = (board.dutyDayInfo || {})[key];
+  const inp = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name));
+  const ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
+  const target = info ? info.target : '';
+  if (info && info.targetClosed) {
+    return `<div class="duty-box"><b>Tee Time Duty today:</b> no need to make tee times — no Legends tee times on ${escapeHtml(dateShort(target))} (${escapeHtml(info.targetClosed)}). <span class="hint">(${escapeHtml(inp.concat(ph).join(', '))})</span></div>`;
+  }
+  return `<div class="duty-box"><b>Tee Time Duty today</b> (booking ${escapeHtml(dateShort(target))}):
+    ${inp.length ? `<div style="margin-top:4px;"><b>In person:</b> ${escapeHtml(inp.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyInPersonText, info))}</span></div>` : ''}
+    ${ph.length ? `<div style="margin-top:4px;"><b>Phone in:</b> ${escapeHtml(ph.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyPhoneText, info))}</span></div>` : ''}
+  </div>`;
+}
+
+function dayCardHtml(d) {
+  const state = dayState(d);
+  let stateHtml;
+  if (d.closed) stateHtml = '';
+  else if (state === 'notyet') stateHtml = `<span class="day-state">Sign-ups open ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>`;
+  else if (state === 'open') stateHtml = `<span class="day-state open">Open · closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`;
+  else stateHtml = `<span class="day-state">Sign-ups closed — call the pro shop and tell the admin about changes. You can still remove yourself.</span>`;
+  const body = d.closed
+    ? `<div class="day-closed">No Legends tee times — ${escapeHtml(d.closed)}</div>`
+    : (state === 'notyet' && !amAdmin() && !groupList(d.DateKey, 'fun').length && !groupList(d.DateKey, 'nassau').length
+        ? `<div class="hint" style="margin:6px 0;">Fun group ${escapeHtml(d.funTimes)} (${d.funSlots} slots) · Nassau group ${escapeHtml(d.nassauTimes)} (${d.nassauSlots} slots)</div>`
+        : groupBlockHtml(d, 'fun', state) + groupBlockHtml(d, 'nassau', state));
+  return `
+    <div class="card" id="day-${d.DateKey}">
+      <div class="day-head"><span class="day-title">${escapeHtml(dateLong(d.DateKey))}</span>${stateHtml}</div>
+      ${d.notice ? `<div class="day-notice">⚠️ ${escapeHtml(d.notice)}</div>` : ''}
+      ${body}
+      ${dutyBoxHtml(d.DateKey)}
+    </div>`;
+}
+
+function eventCardHtml(e) {
+  const group = 'event:' + e.EventID;
+  const list = (board.signups || []).filter((s) => s.Group === group);
+  const cap = parseInt(e.Capacity, 10) || 0;
+  const inList = cap ? list.slice(0, cap) : list, standby = cap ? list.slice(cap) : [];
+  const mineIdx = list.findIndex((s) => String(s.PlayerID) === myId());
+  let actions = '';
+  if (session) {
+    if (mineIdx !== -1) {
+      const s = list[mineIdx];
+      actions = `<span class="mine ${cap && mineIdx >= cap ? 'standby' : ''}">${cap && mineIdx >= cap ? `You're on standby — #${mineIdx - cap + 1}` : "You're signed up"}</span>
+        <button class="secondary" data-edit="${escapeHtml(s.SignupID)}" data-key="${e.DateKey}" data-group="${group}">Change ${e.GuestPrompt ? escapeHtml(e.GuestPrompt.toLowerCase()) : 'note'}</button>
+        <button class="link danger" data-leave="${escapeHtml(s.SignupID)}">Remove me</button>`;
+    } else if (!cap || list.length < cap + parseInt(board.settings.StandbySlots, 10)) {
+      actions = `<button class="primary" data-join="${e.DateKey}" data-group="${group}">${cap && list.length >= cap ? 'Join standby list' : 'Sign up'}</button>`;
+    }
+  }
+  const form = openForm && openForm.group === group ? eventFormHtml(e) : '';
+  return `
+    <div class="card">
+      <div class="day-head"><span class="day-title">${escapeHtml(dateLong(e.DateKey))} — ${escapeHtml(e.Title)}</span><span class="day-state">${cap ? `${Math.min(list.length, cap)} of ${cap} signed up` : `${list.length} signed up`}</span></div>
+      ${e.Description ? `<p class="hint" style="margin:4px 0 8px; white-space:pre-line;">${escapeHtml(e.Description)}</p>` : ''}
+      <div class="grp">
+        ${inList.length ? `<ol class="names">${namesListHtml(list, 0, cap || list.length)}</ol>` : '<div class="hint">No one yet.</div>'}
+        ${standby.length ? `<div class="standby-head">Standby</div><ol class="names standby">${namesListHtml(list, cap, list.length)}</ol>` : ''}
+        ${actions ? `<div class="grp-actions">${actions}</div>` : ''}
+        ${form}
+        ${amAdmin() ? adminAddHtml(e.DateKey, group) : ''}
+      </div>
+    </div>`;
+}
+function eventFormHtml(e) {
+  const editing = openForm.mode === 'edit' ? (board.signups || []).find((s) => s.SignupID === openForm.signupId) : null;
+  return `
+    <div class="join-form" id="joinForm">
+      <div class="row"><input type="text" id="jfNote" maxlength="120" placeholder="${escapeHtml(e.GuestPrompt || 'Note (optional)')}" value="${escapeHtml(editing ? editing.Note : '')}"></div>
+      <div class="row"><button class="primary" id="jfGo">${editing ? 'Save' : 'Confirm sign-up'}</button><button class="link" id="jfCancel">Cancel</button></div>
+    </div>`;
+}
+
+function wireSignups(el) {
+  el.querySelectorAll('[data-join]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.join, group: b.dataset.group, mode: 'join' }; renderSignups(); });
+  el.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.key, group: b.dataset.group, mode: 'edit', signupId: b.dataset.edit }; renderSignups(); });
+  el.querySelectorAll('[data-leave]').forEach((b) => b.onclick = () => leaveSignup(b.dataset.leave, !!b.dataset.late, false));
+  el.querySelectorAll('[data-admin-rm]').forEach((b) => b.onclick = () => leaveSignup(b.dataset.adminRm, false, true));
+  el.querySelectorAll('[data-switch]').forEach((b) => b.onclick = () => switchGroup(b.dataset.switch, b.dataset.key, b.dataset.group));
+  el.querySelectorAll('[data-admin-add]').forEach((s) => s.onchange = () => { if (s.value) adminAdd(s.dataset.adminAdd, s.dataset.group, s.value); });
+  const form = document.getElementById('joinForm');
+  if (form && openForm) {
+    form.querySelectorAll('#jfHoles button').forEach((b) => b.onclick = () => {
+      form.querySelectorAll('#jfHoles button').forEach((x) => x.classList.toggle('on', x === b));
+    });
+    document.getElementById('jfCancel').onclick = () => { openForm = null; renderSignups(); };
+    document.getElementById('jfGo').onclick = submitForm;
+    const note = document.getElementById('jfNote');
+    note.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitForm(); });
+    if (openForm.group.indexOf('event:') === 0 || openForm.group === 'nassau') note.focus();
+  }
+}
+function formValues() {
+  const v = { note: (document.getElementById('jfNote') || {}).value || '' };
+  if (openForm.group === 'fun') {
+    v.tee = document.getElementById('jfTee').value;
+    const on = document.querySelector('#jfHoles button.on');
+    v.holes = on ? on.dataset.h : '18';
+    v.riding = document.getElementById('jfRiding').checked;
+  }
+  return v;
+}
+let busy = false;
+async function act(action, body, okMsg) {
+  if (busy) return false;
+  busy = true;
+  try {
+    const res = await apiPost(action, body, true);
+    if (!res.success) { if (!handleSignedOut(res.error)) toast(cleanError(res.error), true); return false; }
+    openForm = null;
+    adoptBoard(res.data);
+    if (okMsg) toast(okMsg);
+    return true;
+  } catch (e) {
+    toast('Could not reach the server — check your connection and try again.', true);
+    return false;
+  } finally { busy = false; }
+}
+async function submitForm() {
+  const btn = document.getElementById('jfGo');
+  if (btn) btn.disabled = true;
+  const v = formValues();
+  if (openForm.mode === 'edit') {
+    await act('legendsUpdate', Object.assign({ signupId: openForm.signupId }, v), 'Saved.');
+  } else {
+    await act('legendsJoin', Object.assign({ signupId: newId('s'), dateKey: openForm.key, group: openForm.group }, v), "You're signed up.");
+  }
+  if (btn) btn.disabled = false;
+}
+async function leaveSignup(signupId, late, asAdmin) {
+  const s = (board.signups || []).find((x) => x.SignupID === signupId);
+  if (!s) return;
+  const who = asAdmin ? displayName(s.Name) : 'yourself';
+  const msg = late
+    ? 'Sign-ups for this date are closed. Remove yourself anyway? The admin will be emailed so the pro shop can be told, and the first person on standby moves up.'
+    : `Remove ${who} from the ${s.Group === 'fun' ? 'Fun group' : s.Group === 'nassau' ? 'Nassau group' : 'event'} on ${dateShort(s.DateKey)}?`;
+  if (!confirm(msg)) return;
+  await act('legendsLeave', { signupId, asAdmin: asAdmin || !session }, asAdmin ? `${displayName(s.Name)} removed.` : 'Removed.');
+}
+async function switchGroup(signupId, key, toGroup) {
+  if (!confirm(`Switch to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group? You'll go to the end of that list.`)) return;
+  const s = (board.signups || []).find((x) => x.SignupID === signupId);
+  const ok = await act('legendsLeave', { signupId });
+  if (!ok) return;
+  const body = { signupId: newId('s'), dateKey: key, group: toGroup, note: s ? s.Note : '' };
+  if (toGroup === 'fun') {
+    const me = rosterById(myId());
+    const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
+    body.tee = me && tees.indexOf(me.Tee) !== -1 ? me.Tee : tees[0];
+    body.holes = '18';
+  }
+  if (await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group.`) && toGroup === 'fun') {
+    const mine = groupList(key, 'fun').find((x) => String(x.PlayerID) === myId());
+    if (mine) { openForm = { key, group: 'fun', mode: 'edit', signupId: mine.SignupID }; renderSignups(); toast('Switched — check your tees and holes.'); }
+  }
+}
+async function adminAdd(key, group, playerId) {
+  const r = rosterById(playerId);
+  const body = { signupId: newId('a'), dateKey: key, group, playerId, asAdmin: true };
+  if (group === 'fun') {
+    const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
+    body.tee = r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0];
+    body.holes = '18';
+  }
+  await act('legendsJoin', body, `${displayName(r ? r.Name : '')} added.`);
+}
+
+// ====================== TEE TIME DUTY TAB ======================
+let dutyView = 'date';
+let dutyFilterVal = '';
+document.querySelectorAll('[data-dview]').forEach((b) => b.addEventListener('click', () => {
+  dutyView = b.dataset.dview;
+  document.querySelectorAll('[data-dview]').forEach((x) => x.classList.toggle('active', x === b));
+  renderDuty();
+}));
+document.getElementById('dutyFilter').addEventListener('change', (e) => { dutyFilterVal = e.target.value; renderDuty(); });
+
+function dutyDays() {
+  const byKey = {};
+  (board.duty || []).filter((x) => x.DateKey >= board.today).forEach((x) => { (byKey[x.DateKey] = byKey[x.DateKey] || []).push(x); });
+  return Object.keys(byKey).sort().map((k) => ({ key: k, rows: byKey[k], info: (board.dutyDayInfo || {})[k] || {} }));
+}
+function renderDuty() {
+  const sel = document.getElementById('dutyFilter');
+  const people = {};
+  (board.duty || []).forEach((x) => { people[x.PlayerID] = x.Name; });
+  const opts = [['', 'Everyone']].concat(session ? [['__me__', 'Just my dates']] : [])
+    .concat(Object.keys(people).sort((a, b) => people[a].localeCompare(people[b])).map((id) => [id, displayName(people[id])]));
+  sel.innerHTML = opts.map(([v, l]) => `<option value="${escapeHtml(v)}" ${v === dutyFilterVal ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('');
+  sel.hidden = dutyView === 'calendar';
+  const want = dutyFilterVal === '__me__' ? myId() : dutyFilterVal;
+  let days = dutyDays();
+  if (want && dutyView !== 'calendar') days = days.filter((d) => d.rows.some((r) => String(r.PlayerID) === String(want)));
+  const el = document.getElementById('dutyBody');
+  if (!dutyDays().length) { el.innerHTML = '<p class="hint">No tee time duty has been entered yet.</p>'; return; }
+  const names = (rows, role) => rows.filter((r) => r.Role === role).map((r) => `<span${String(r.PlayerID) === myId() ? ' style="font-weight:700;color:var(--green-dark)"' : ''}>${escapeHtml(displayName(r.Name))}</span>`).join(', ');
+
+  if (dutyView === 'date') {
+    el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Books round on</th></tr></thead><tbody>
+      ${days.map((d) => `<tr class="${d.rows.some((r) => String(r.PlayerID) === myId()) ? 'mine' : ''}">
+        <td><b>${escapeHtml(dateShort(d.key))}</b>${d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
+        <td>${names(d.rows, 'inperson') || '<span class="hint">—</span>'}</td>
+        <td>${names(d.rows, 'phone') || '<span class="hint">—</span>'}</td>
+        <td>${d.info.target ? escapeHtml(dateShort(d.info.target)) : ''}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">No tee times needed — ${escapeHtml(d.info.targetClosed)}</div>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+  } else if (dutyView === 'person') {
+    const byPerson = {};
+    days.forEach((d) => d.rows.forEach((r) => { if (want && String(r.PlayerID) !== String(want)) return; (byPerson[r.PlayerID] = byPerson[r.PlayerID] || { name: r.Name, items: [] }).items.push({ key: d.key, role: r.Role, info: d.info }); }));
+    const ids = Object.keys(byPerson).sort((a, b) => byPerson[a].name.localeCompare(byPerson[b].name));
+    el.innerHTML = ids.map((id) => `<h3>${escapeHtml(displayName(byPerson[id].name))}</h3><table class="dt"><tbody>
+      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b></td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</td></tr>`).join('')}
+      </tbody></table>`).join('') || '<p class="hint">Nothing matches.</p>';
+  } else {
+    const all = dutyDays();
+    const first = all[0].key, last = all[all.length - 1].key;
+    let start = addDays(first, -((dowOf(first) + 6) % 7)); // Monday of first week
+    const cells = [];
+    for (let k = start; k <= last; k = addDays(k, 1)) {
+      const dow = dowOf(k);
+      if (dow !== 1 && dow !== 3 && dow !== 5) {
+        const extra = all.find((d) => d.key === k);
+        if (!extra) continue;
+      }
+      cells.push(k);
+    }
+    // Lay out Mon/Wed/Fri columns; an odd duty day (e.g. a Thursday) shares the Wednesday column's row.
+    const rows = [];
+    let cur = null;
+    cells.forEach((k) => {
+      const dow = dowOf(k);
+      const col = dow <= 1 ? 0 : dow <= 3 ? 1 : 2;
+      const weekStart = addDays(k, -((dow + 6) % 7));
+      if (!cur || cur.week !== weekStart) { cur = { week: weekStart, cols: [[], [], []] }; rows.push(cur); }
+      cur.cols[col].push(k);
+    });
+    const cellHtml = (k) => {
+      const d = all.find((x) => x.key === k);
+      if (!d) return `<div><span class="d">${escapeHtml(dateShort(k))}</span><div class="hint">—</div></div>`;
+      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(none needed)</span>' : ''}
+        <div>${d.rows.filter((r) => r.Role === 'inperson').map((r) => escapeHtml(displayName(r.Name))).join('<br>')}</div>
+        ${d.rows.some((r) => r.Role === 'phone') ? `<div><span class="role-p">PHONE:</span> ${d.rows.filter((r) => r.Role === 'phone').map((r) => escapeHtml(displayName(r.Name))).join(', ')}</div>` : ''}</div>`;
+    };
+    el.innerHTML = `<div class="cal"><div class="cal-h">Monday</div><div class="cal-h">Wednesday</div><div class="cal-h">Friday</div>
+      ${rows.map((r) => r.cols.map((ks) => {
+        if (!ks.length) return '<div class="cal-c blank"></div>';
+        const mine = ks.some((k) => dutyForDay(k).some((x) => String(x.PlayerID) === myId()));
+        const closed = ks.every((k) => ((board.dutyDayInfo || {})[k] || {}).targetClosed);
+        return `<div class="cal-c ${mine ? 'mine' : ''} ${closed ? 'closed' : ''}">${ks.map(cellHtml).join('<hr style="border:none;border-top:1px dashed #ccc;margin:4px 0;">')}</div>`;
+      }).join('')).join('')}</div>`;
+  }
 }
 
 // ====================== ADMIN ======================
+let adminSub = 'members';
+document.querySelectorAll('#adminSubtabs [data-asub]').forEach((b) => b.addEventListener('click', () => {
+  if (adminDirty && !confirm('You have unsaved changes on this admin page. Leave without saving?')) return;
+  adminDirty = false;
+  adminSub = b.dataset.asub;
+  document.querySelectorAll('#adminSubtabs [data-asub]').forEach((x) => x.classList.toggle('active', x === b));
+  renderAdminSub();
+}));
+let adminDirty = false;
+function markDirty() { adminDirty = true; const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
+window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefault(); e.returnValue = ''; } });
+
 function renderAdminGate() {
   const unlocked = !!adminSession;
   document.getElementById('adminLocked').hidden = unlocked;
   document.getElementById('adminBody').hidden = !unlocked;
-  if (unlocked && !membersLoaded) loadMembers();
+  if (unlocked) renderAdminSub();
 }
 document.getElementById('adminPinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockAdmin(); });
 async function unlockAdmin() {
@@ -435,11 +948,9 @@ async function unlockAdmin() {
     saveAdminSession({ name: res.data.name, pin });
     document.getElementById('adminPinInput').value = '';
     showStatus('adminLockStatus', true, '');
-    renderAdminGate();
+    showApp('admin');
   } catch (e) { showStatus('adminLockStatus', false, 'Could not reach the server — try again.'); }
 }
-// An admin request that fails because the admin PIN is no longer valid
-// (changed on the Admin users list) re-locks the Admin tab.
 function handleAdminRejected(err) {
   if (!/Admin PIN missing or incorrect/i.test(String(err || ''))) return false;
   saveAdminSession(null);
@@ -447,33 +958,99 @@ function handleAdminRejected(err) {
   showStatus('adminLockStatus', false, 'Your admin PIN was not accepted — enter it again.');
   return true;
 }
+// Runs an admin save that returns a fresh board.
+async function adminSave(action, body, statusId, okMsg) {
+  showStatus(statusId, true, 'Saving…');
+  try {
+    const res = await apiPost(action, body);
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus(statusId, false, cleanError(res.error)); return false; }
+    adminDirty = false;
+    board = res.data;
+    clockSkew = res.data.now - Date.now();
+    renderAdminSub();
+    showStatus(statusId, true, okMsg || 'Saved.');
+    return true;
+  } catch (e) { showStatus(statusId, false, 'Could not reach the server — try again.'); return false; }
+}
+function renderAdminSub() {
+  const el = document.getElementById('adminContent');
+  if (adminSub === 'members') return renderMembersAdmin(el);
+  if (!board) { el.innerHTML = '<div class="card hint">Loading…</div>'; return; }
+  if (adminSub === 'duty') return renderDutyAdmin(el);
+  if (adminSub === 'days') return renderDaysAdmin(el);
+  if (adminSub === 'closures') return renderClosuresAdmin(el);
+  if (adminSub === 'teetimes') return renderTeeTimesAdmin(el);
+  if (adminSub === 'events') return renderEventsAdmin(el);
+  if (adminSub === 'rules') return renderRulesAdmin(el);
+  if (adminSub === 'activity') return renderActivityAdmin(el);
+}
+const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 
-// ---- Members ----
-let members = [];        // working copy: [{PlayerID, Name, Team, Email, Phone, Active, hasPin}]
+// ---------------- Members ----------------
+let members = [];
 let membersLoaded = false;
-let membersDirty = false;
-function setDirty(v) { membersDirty = v; document.getElementById('memDirty').hidden = !v; }
 async function loadMembers() {
-  showStatus('memStatus', true, 'Loading members…');
   try {
     const res = await apiPost('getMembersAdmin', {});
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     members = res.data;
     membersLoaded = true;
-    setDirty(false);
-    showStatus('memStatus', true, '');
-    renderMembers();
+    adminDirty = false;
+    if (adminSub === 'members') renderMembersAdmin(document.getElementById('adminContent'));
   } catch (e) { showStatus('memStatus', false, 'Could not reach the server — try again.'); }
 }
-function memberSortKey(m) { return String(m.Name || '').toLowerCase(); }
-function renderMembers() {
+function renderMembersAdmin(el) {
+  if (!membersLoaded) { el.innerHTML = '<div class="card hint">Loading members…</div><div id="memStatus" class="status"></div>'; loadMembers(); return; }
+  const q = (document.getElementById('memFilter') || {}).value || '';
+  const missing = !!(document.getElementById('memMissingOnly') || {}).checked;
+  el.innerHTML = `
+    <div class="card">
+      <h2>Members &amp; sign-in</h2>
+      <p class="hint">Every Legend who should be able to sign in needs an email address. The first time they sign in they choose a 4-digit PIN; <b>Reset</b> clears it so they choose a new one (and signs them out everywhere). Untick <em>Active</em> to stop someone signing in without deleting them. This is the same roster the tournament uses — team, handicap and tee are not touched here.</p>
+      <div class="row" style="margin-bottom:10px;">
+        <input type="text" id="memFilter" placeholder="Search names or emails" style="max-width:240px;" value="${escapeHtml(q)}">
+        <label class="hint"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
+        <span class="hint" id="memCounts"></span>
+      </div>
+      <div class="tbl-wrap"><table class="ad" style="min-width:680px;">
+        <thead><tr><th style="width:24%">Name (Last, First)</th><th style="width:30%">Email</th><th style="width:17%">Phone</th><th>Active</th><th>PIN</th></tr></thead>
+        <tbody id="memBody"></tbody>
+      </table></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="secondary" id="memAdd">+ Add member</button>
+        <button class="primary" id="memSave">Save members</button>
+        ${dirtyNote}
+      </div>
+      <div id="memStatus" class="status"></div>
+    </div>
+    <div class="card">
+      <h2>Import from the Roster of Legends spreadsheet</h2>
+      <p class="hint">Open <b>Roster of Legends</b> in Excel, go to the <b>Active Legends</b> tab, select the rows of people (from the first name down to the last email — the header row is fine to include) and copy. Paste below and click <b>Read</b>. You'll see who matched before anything changes; then <b>Apply</b> fills in emails and phones above, and <b>Save members</b> saves them.</p>
+      <textarea id="impText" rows="5" placeholder="Paste rows copied from Excel here"></textarea>
+      <div class="row" style="margin-top:8px;"><button class="secondary" id="impRead">Read</button><button class="primary" id="impApply" disabled>Apply to the list above</button></div>
+      <div id="impPreview" style="margin-top:8px;"></div>
+    </div>`;
+  drawMemberRows();
+  document.getElementById('memFilter').oninput = drawMemberRows;
+  document.getElementById('memMissingOnly').onchange = drawMemberRows;
+  document.getElementById('memAdd').onclick = () => {
+    members.push({ Name: '', Email: '', Phone: '', Active: 'TRUE', hasPin: false });
+    document.getElementById('memFilter').value = '';
+    document.getElementById('memMissingOnly').checked = false;
+    drawMemberRows(); markDirty();
+    const first = document.querySelector('#memBody input[data-f="Name"]'); if (first) first.focus();
+  };
+  document.getElementById('memSave').onclick = saveMembers;
+  document.getElementById('impRead').onclick = readImport;
+  document.getElementById('impApply').onclick = applyImport;
+}
+function drawMemberRows() {
   const q = document.getElementById('memFilter').value.trim().toLowerCase();
   const missingOnly = document.getElementById('memMissingOnly').checked;
-  const rows = members
-    .map((m, idx) => ({ m, idx }))
-    .filter(({ m }) => !q || String(m.Name).toLowerCase().includes(q) || String(m.Email).toLowerCase().includes(q) || m.PlayerID === undefined)
+  const rows = members.map((m, idx) => ({ m, idx }))
+    .filter(({ m }) => m.PlayerID === undefined || !q || String(m.Name).toLowerCase().includes(q) || String(m.Email).toLowerCase().includes(q))
     .filter(({ m }) => !missingOnly || !String(m.Email || '').trim())
-    .sort((a, b) => (a.m.PlayerID === undefined) - (b.m.PlayerID === undefined) || memberSortKey(a.m).localeCompare(memberSortKey(b.m)));
+    .sort((a, b) => (a.m.PlayerID === undefined) - (b.m.PlayerID === undefined) || String(a.m.Name).localeCompare(String(b.m.Name)));
   const body = document.getElementById('memBody');
   body.innerHTML = rows.map(({ m, idx }) => `
     <tr class="${m.Active === 'FALSE' ? 'inactive' : ''}">
@@ -490,28 +1067,17 @@ function renderMembers() {
       const m = members[Number(el.dataset.idx)];
       m[el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
       if (el.type === 'checkbox') el.closest('tr').classList.toggle('inactive', !el.checked);
-      setDirty(true);
+      markDirty();
     });
   });
   body.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => resetPin(Number(b.dataset.reset))));
   const active = members.filter((m) => m.PlayerID !== undefined && m.Active !== 'FALSE');
-  const withEmail = active.filter((m) => String(m.Email || '').trim()).length;
-  const withPin = active.filter((m) => m.hasPin).length;
-  document.getElementById('memCounts').textContent = `${active.length} active · ${withEmail} with email · ${withPin} have signed in`;
-}
-function addMemberRow() {
-  members.push({ Name: '', Email: '', Phone: '', Active: 'TRUE', hasPin: false });
-  document.getElementById('memFilter').value = '';
-  document.getElementById('memMissingOnly').checked = false;
-  renderMembers();
-  setDirty(true);
-  const inputs = document.querySelectorAll('#memBody input[data-f="Name"]');
-  if (inputs.length) inputs[0].focus();
+  document.getElementById('memCounts').textContent = `${active.length} active · ${active.filter((m) => String(m.Email || '').trim()).length} with email · ${active.filter((m) => m.hasPin).length} have signed in`;
 }
 async function saveMembers() {
   const bad = members.find((m) => String(m.Email || '').trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(m.Email).trim()));
   if (bad) { showStatus('memStatus', false, `${bad.Name || 'A member'}: "${bad.Email}" is not a valid email address.`); return; }
-  const btn = document.getElementById('saveMembersBtn');
+  const btn = document.getElementById('memSave');
   btn.disabled = true;
   showStatus('memStatus', true, 'Saving…');
   try {
@@ -519,9 +1085,11 @@ async function saveMembers() {
     const res = await apiPost('saveMembers', { members: JSON.stringify(payload) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     members = res.data;
-    setDirty(false);
-    renderMembers();
+    adminDirty = false;
+    drawMemberRows();
+    document.getElementById('adDirty').hidden = true;
     showStatus('memStatus', true, 'Saved.');
+    loadBoard(true);
   } catch (e) { showStatus('memStatus', false, 'Could not reach the server — try again.'); }
   finally { btn.disabled = false; }
 }
@@ -532,11 +1100,411 @@ async function resetPin(idx) {
     const res = await apiPost('resetMemberPin', { playerId: String(m.PlayerID) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     m.hasPin = false;
-    renderMembers();
+    drawMemberRows();
     showStatus('memStatus', true, `${displayName(m.Name)}'s PIN was reset.`);
   } catch (e) { showStatus('memStatus', false, 'Could not reach the server — try again.'); }
 }
-window.addEventListener('beforeunload', (e) => { if (membersDirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---- Roster spreadsheet import (pure parsing, unit-tested separately) ----
+// Each pasted line is one Excel row (cells separated by tabs). Finds the email
+// cell, a phone-looking cell, and the first/last name cells, then matches to
+// the roster by last name (and first name / nickname when a last name is shared).
+function parseRosterPaste(text) {
+  const out = [];
+  String(text || '').split(/\r?\n/).forEach((line) => {
+    const cells = line.split('\t').map((c) => c.trim());
+    const emailIdx = cells.findIndex((c) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c));
+    if (emailIdx === -1) return;
+    let i = 0;
+    if (/^\d+$/.test(cells[0] || '')) i = 1; // leading row number
+    const first = cells[i] || '', last = cells[i + 1] || '';
+    if (!last) return;
+    const phone = cells.find((c, k) => k !== emailIdx && /\d{3}[-. ]\d{3}[-. ]\d{4}/.test(c)) || '';
+    out.push({ first, last, email: cells[emailIdx], phone });
+  });
+  return out;
+}
+// First-name candidates from "Bill (Duke) & Sue" -> ['bill', 'duke'].
+function firstNameCandidates(first) {
+  const own = String(first || '').split('&')[0];
+  const nick = (own.match(/\(([^)]+)\)/) || [])[1];
+  const base = own.replace(/\([^)]*\)/g, '').trim().split(/\s+/)[0] || '';
+  return [base, nick].filter(Boolean).map((s) => s.toLowerCase());
+}
+function matchRosterPerson(roster, first, last) {
+  const ln = String(last || '').trim().toLowerCase();
+  const sameLast = roster.filter((m) => String(m.Name || '').split(',')[0].trim().toLowerCase() === ln);
+  if (sameLast.length === 1) return sameLast[0];
+  if (!sameLast.length) return null;
+  const cands = firstNameCandidates(first);
+  const hits = sameLast.filter((m) => {
+    const fn = String(m.Name || '').split(',').slice(1).join(',').trim().toLowerCase();
+    return cands.some((c) => fn === c || fn.startsWith(c) || c.startsWith(fn));
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+let importPlan = null;
+function readImport() {
+  const rows = parseRosterPaste(document.getElementById('impText').value);
+  const preview = document.getElementById('impPreview');
+  if (!rows.length) { preview.innerHTML = '<p class="status error">No rows with an email address were found in what you pasted.</p>'; document.getElementById('impApply').disabled = true; return; }
+  importPlan = rows.map((r) => {
+    const m = matchRosterPerson(members.filter((x) => x.PlayerID !== undefined), r.first, r.last);
+    const cleanFirst = firstNameCandidates(r.first);
+    const newName = r.last + ', ' + (String(r.first).split('&')[0].replace(/\([^)]*\)/g, '').trim().split(/\s+/)[0] || '');
+    return Object.assign({}, r, { member: m, newName: cleanFirst.length ? newName : r.last, add: !m });
+  });
+  const matched = importPlan.filter((p) => p.member).length;
+  preview.innerHTML = `<p class="hint"><b>${matched}</b> matched to the roster · <b>${importPlan.length - matched}</b> not found (tick to add as new members).</p>
+    <div class="tbl-wrap"><table class="ad"><thead><tr><th>From spreadsheet</th><th>Email</th><th>Phone</th><th>Roster match</th></tr></thead><tbody>
+    ${importPlan.map((p, i) => `<tr><td>${escapeHtml(p.first)} ${escapeHtml(p.last)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.phone)}</td>
+      <td>${p.member ? `<span class="imp-ok">✓ ${escapeHtml(p.member.Name)}</span>` : `<label class="imp-new"><input type="checkbox" data-impadd="${i}" checked> add as “${escapeHtml(p.newName)}”</label>`}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  preview.querySelectorAll('[data-impadd]').forEach((c) => c.onchange = () => { importPlan[Number(c.dataset.impadd)].add = c.checked; });
+  document.getElementById('impApply').disabled = false;
+}
+function applyImport() {
+  if (!importPlan) return;
+  let n = 0;
+  importPlan.forEach((p) => {
+    if (p.member) { p.member.Email = p.email; if (p.phone) p.member.Phone = p.phone; n++; }
+    else if (p.add) { members.push({ Name: p.newName, Email: p.email, Phone: p.phone, Active: 'TRUE', hasPin: false }); n++; }
+  });
+  importPlan = null;
+  document.getElementById('impApply').disabled = true;
+  document.getElementById('impPreview').innerHTML = `<p class="status ok">${n} member${n === 1 ? '' : 's'} filled in above — review, then click <b>Save members</b>.</p>`;
+  drawMemberRows(); markDirty();
+}
+
+// ---------------- Tee Time Duty (admin) ----------------
+let dutyEdit = null; // { from, to, days: { key: { inperson:[id,id,id], phone:[id], target } } }
+function mondayOf(key) { return addDays(key, -((dowOf(key) + 6) % 7)); }
+function startDutyEdit(from, to) {
+  const days = {};
+  for (let k = from; k <= to; k = addDays(k, 1)) if (isPlayDay(k)) days[k] = { inperson: [], phone: [], target: '' };
+  (board.duty || []).filter((x) => x.DateKey >= from && x.DateKey <= to).forEach((x) => {
+    const d = days[x.DateKey] || (days[x.DateKey] = { inperson: [], phone: [], target: '' });
+    d[x.Role === 'phone' ? 'phone' : 'inperson'].push(String(x.PlayerID));
+    if (x.TargetKey) d.target = x.TargetKey;
+  });
+  dutyEdit = { from, to, days };
+}
+function defaultTarget(key) { let t = addDays(key, 14); for (let i = 0; i < 7 && !isPlayDay(t); i++) t = addDays(t, 1); return t; }
+function renderDutyAdmin(el) {
+  if (!dutyEdit) { const m = mondayOf(board.today); startDutyEdit(m, addDays(m, 7 * 13 - 3)); }
+  const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
+  const sel = (key, role, i, val) => `<select data-dk="${key}" data-role="${role}" data-i="${i}" style="max-width:150px;"><option value=""></option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === String(val) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>`;
+  const keys = Object.keys(dutyEdit.days).sort();
+  el.innerHTML = `
+    <div class="card">
+      <h2>Tee Time Duty assignments</h2>
+      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. It books the round two weeks later (shown at right; change it for an unusual day like a Thursday standing in for a holiday). Fridays usually have three in-person and no phone-in. Use the date range to look back at past duty too. Nothing is saved until you click <b>Save duty</b>.</p>
+      <div class="row" style="margin-bottom:8px;">
+        <label class="hint">From <input type="date" id="dFrom" value="${dutyEdit.from}"></label>
+        <label class="hint">To <input type="date" id="dTo" value="${dutyEdit.to}"></label>
+        <button class="secondary" id="dLoad">Show</button>
+        <span class="hint">Add an extra duty day:</span><input type="date" id="dExtra"><button class="secondary" id="dAddExtra">Add</button>
+      </div>
+      <div class="tbl-wrap"><table class="ad" style="min-width:860px;"><thead><tr><th>Duty day</th><th>In person 1</th><th>In person 2</th><th>In person 3</th><th>Phone in</th><th>Books round on</th></tr></thead><tbody>
+      ${keys.map((k) => { const d = dutyEdit.days[k]; return `<tr class="${isPlayDay(k) ? '' : 'weekend'}">
+        <td><b>${escapeHtml(dateShort(k))}</b>${k < board.today ? ' <span class="hint">past</span>' : ''}</td>
+        <td>${sel(k, 'inperson', 0, d.inperson[0])}</td><td>${sel(k, 'inperson', 1, d.inperson[1])}</td><td>${sel(k, 'inperson', 2, d.inperson[2])}</td>
+        <td>${sel(k, 'phone', 0, d.phone[0])}</td>
+        <td><input type="date" data-target="${k}" value="${d.target || defaultTarget(k)}"></td></tr>`; }).join('')}
+      </tbody></table></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" id="dSave">Save duty</button>${dirtyNote}</div>
+      <div id="dStatus" class="status"></div>
+    </div>
+    <div class="card">
+      <h2>Import a quarter from the assignments spreadsheet</h2>
+      <p class="hint">From the quarterly <b>Tee Time Assignments</b> sheet, copy the <b>Date Order</b> table (the Date and Name columns) and paste it here. The same rules as the sheet apply: a full-week range like <code>Oct 05 - 09</code> is in person for that week's duty days; a Monday–Wednesday range like <code>Oct 05 - 07</code> is phone-in; single dates say <code>In-Person</code> or <code>Phone-in</code>. Names can be last names, with an initial for shared ones (<code>Davis J</code>). Read shows what it found; Put into table replaces those dates above (then Save duty).</p>
+      <div class="row"><label class="hint">Year of the first date <input type="number" id="impYear" value="${keyDate(board.today).getUTCFullYear()}" style="width:90px;"></label></div>
+      <textarea id="dutyPaste" rows="6" placeholder="Sep 28 - Oct 02	Webster" style="margin-top:6px;"></textarea>
+      <div class="row" style="margin-top:8px;"><button class="secondary" id="dRead">Read</button><button class="primary" id="dApply" disabled>Put into table</button></div>
+      <div id="dPreview" style="margin-top:8px;"></div>
+    </div>`;
+  el.querySelectorAll('select[data-dk]').forEach((s) => s.onchange = () => {
+    const d = dutyEdit.days[s.dataset.dk];
+    const arr = d[s.dataset.role];
+    arr[Number(s.dataset.i)] = s.value;
+    d[s.dataset.role] = arr.map((x) => x || '');
+    markDirty();
+  });
+  el.querySelectorAll('input[data-target]').forEach((i) => i.onchange = () => { dutyEdit.days[i.dataset.target].target = i.value; markDirty(); });
+  document.getElementById('dLoad').onclick = () => {
+    const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+    if (!f || !t || f > t) { showStatus('dStatus', false, 'Choose a valid range.'); return; }
+    if (adminDirty && !confirm('Discard unsaved changes?')) return;
+    adminDirty = false; startDutyEdit(f, t); renderDutyAdmin(el);
+  };
+  document.getElementById('dAddExtra').onclick = () => {
+    const k = document.getElementById('dExtra').value;
+    if (!k) return;
+    if (k < dutyEdit.from || k > dutyEdit.to) { showStatus('dStatus', false, 'That date is outside the range shown — widen the range first.'); return; }
+    if (!dutyEdit.days[k]) dutyEdit.days[k] = { inperson: [], phone: [], target: '' };
+    renderDutyAdmin(el); markDirty();
+  };
+  document.getElementById('dSave').onclick = saveDutyEdit;
+  document.getElementById('dRead').onclick = readDutyPaste;
+  document.getElementById('dApply').onclick = applyDutyPaste;
+  if (adminDirty) document.getElementById('adDirty').hidden = false;
+}
+async function saveDutyEdit() {
+  const rows = [];
+  Object.keys(dutyEdit.days).forEach((k) => {
+    const d = dutyEdit.days[k];
+    const seen = new Set();
+    ['inperson', 'phone'].forEach((role) => d[role].forEach((id) => {
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      rows.push({ DateKey: k, Role: role, PlayerID: id, TargetKey: d.target && d.target !== defaultTarget(k) ? d.target : '' });
+    }));
+  });
+  const ok = await adminSave('legendsSaveDuty', { fromKey: dutyEdit.from, toKey: dutyEdit.to, rows: JSON.stringify(rows) }, 'dStatus', `Saved ${rows.length} assignments.`);
+  if (ok) { startDutyEdit(dutyEdit.from, dutyEdit.to); renderDutyAdmin(document.getElementById('adminContent')); showStatus('dStatus', true, `Saved ${rows.length} assignments.`); }
+}
+
+// ---- duty paste parser (pure; unit-tested separately) ----
+// Returns [{ dates:[keys], role:'inperson'|'phone', nameText, raw }] or an error per line.
+const MON_IDX = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+function parseDutyPaste(text, firstYear) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  let prevMonth = null, year = firstYear;
+  const mk = (mon, day) => {
+    // Months only move forward through a quarter; wrapping Dec -> Jan means a new year.
+    if (prevMonth !== null && mon < prevMonth - 6) year++;
+    prevMonth = mon;
+    return `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+  const out = [];
+  lines.forEach((raw) => {
+    let cells = raw.split('\t').map((c) => c.trim()).filter(Boolean);
+    if (cells.length < 2) { const m = raw.match(/^(.*?\d)\s{2,}(\S.*)$/); if (m) cells = [m[1], m[2]]; }
+    if (cells.length < 2) { out.push({ raw, error: 'Expected a date and a name' }); return; }
+    // Either order: "date<tab>name" (Date Order table) or "name<tab>date" (Name Order).
+    const isDate = (c) => /^[A-Za-z]{3}\s+\d{1,2}\b/.test(c) && MON_IDX[c.slice(0, 3).toLowerCase()] !== undefined;
+    let dateText = cells[0], nameText = cells[1];
+    if (!isDate(dateText) && isDate(nameText)) { dateText = cells[1]; nameText = cells[0]; }
+    if (/^date$/i.test(dateText) || /^name$/i.test(dateText)) return; // header row
+    const t = dateText.replace(/\s+/g, ' ');
+    let m;
+    if ((m = t.match(/^([A-Za-z]{3}) (\d{1,2}) - (?:([A-Za-z]{3}) )?(\d{1,2})$/))) {
+      const m1 = MON_IDX[m[1].toLowerCase()], m2 = m[3] ? MON_IDX[m[3].toLowerCase()] : m1;
+      const start = mk(m1, parseInt(m[2], 10)), end = mk(m2, parseInt(m[4], 10));
+      const dates = [];
+      for (let k = start; k <= end; k = addDays(k, 1)) if (isPlayDay(k) || k === start || k === end) dates.push(k);
+      const role = dowOf(end) === 3 ? 'phone' : 'inperson'; // a Mon–Wed range is the phone-in person
+      out.push({ raw, dates, role, nameText });
+    } else if ((m = t.match(/^([A-Za-z]{3}) (\d{1,2})(?: & (?:([A-Za-z]{3}) )?(\d{1,2}))? (In-?Person|Phone-?in)$/i))) {
+      const m1 = MON_IDX[m[1].toLowerCase()];
+      const dates = [mk(m1, parseInt(m[2], 10))];
+      if (m[4]) dates.push(mk(m[3] ? MON_IDX[m[3].toLowerCase()] : m1, parseInt(m[4], 10)));
+      out.push({ raw, dates, role: /phone/i.test(m[5]) ? 'phone' : 'inperson', nameText });
+    } else {
+      out.push({ raw, error: 'Could not read the date "' + dateText + '"' });
+    }
+  });
+  return out;
+}
+// "Davis J" / "Webster" / "Davis, Jay" -> roster member.
+function matchDutyName(roster, nameText) {
+  const t = String(nameText || '').trim();
+  let last = t, init = '';
+  const comma = t.indexOf(',');
+  if (comma !== -1) { last = t.slice(0, comma).trim(); init = t.slice(comma + 1).trim().charAt(0); }
+  else { const m = t.match(/^(.+?)\s+([A-Za-z])\.?$/); if (m) { last = m[1]; init = m[2]; } }
+  const same = roster.filter((r) => String(r.Name || '').split(',')[0].trim().toLowerCase() === last.toLowerCase());
+  if (same.length === 1 && !init) return same[0];
+  const byInit = same.filter((r) => !init || (String(r.Name).split(',')[1] || '').trim().charAt(0).toLowerCase() === init.toLowerCase());
+  return byInit.length === 1 ? byInit[0] : null;
+}
+let dutyPastePlan = null;
+function readDutyPaste() {
+  const parsed = parseDutyPaste(document.getElementById('dutyPaste').value, parseInt(document.getElementById('impYear').value, 10));
+  const roster = (board.roster || []);
+  dutyPastePlan = parsed.map((p) => Object.assign({}, p, { member: p.error ? null : matchDutyName(roster, p.nameText) }));
+  const bad = dutyPastePlan.filter((p) => p.error || !p.member);
+  const allDates = [...new Set(dutyPastePlan.filter((p) => !p.error).flatMap((p) => p.dates))].sort();
+  document.getElementById('dPreview').innerHTML = `
+    <p class="hint">${dutyPastePlan.length - bad.length} lines read${bad.length ? `, <span class="imp-bad">${bad.length} need fixing</span>` : ''}${allDates.length ? ` · duty days ${escapeHtml(dateShort(allDates[0]))} to ${escapeHtml(dateShort(allDates[allDates.length - 1]))}` : ''}.</p>
+    <div class="tbl-wrap"><table class="ad"><thead><tr><th>Line</th><th>Who</th><th>Type</th><th>Duty days</th></tr></thead><tbody>
+    ${dutyPastePlan.map((p) => `<tr><td>${escapeHtml(p.raw)}</td>
+      <td>${p.error ? '' : p.member ? `<span class="imp-ok">${escapeHtml(p.member.Name)}</span>` : `<span class="imp-bad">no roster match for “${escapeHtml(p.nameText)}”</span>`}</td>
+      <td>${p.error ? `<span class="imp-bad">${escapeHtml(p.error)}</span>` : (p.role === 'phone' ? 'Phone in' : 'In person')}</td>
+      <td>${p.error ? '' : p.dates.map(dateShort).map(escapeHtml).join('; ')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  document.getElementById('dApply').disabled = !dutyPastePlan.some((p) => !p.error && p.member);
+}
+function applyDutyPaste() {
+  const good = dutyPastePlan.filter((p) => !p.error && p.member);
+  const dates = [...new Set(good.flatMap((p) => p.dates))].sort();
+  if (!dates.length) return;
+  const from = dates[0] < dutyEdit.from ? dates[0] : dutyEdit.from;
+  const to = dates[dates.length - 1] > dutyEdit.to ? dates[dates.length - 1] : dutyEdit.to;
+  if (from !== dutyEdit.from || to !== dutyEdit.to) {
+    // Widen the range shown so every pasted date is visible (keeps any edits already made).
+    const keep = dutyEdit.days;
+    startDutyEdit(from, to);
+    Object.keys(keep).forEach((k) => { dutyEdit.days[k] = keep[k]; });
+  }
+  dates.forEach((k) => { dutyEdit.days[k] = { inperson: [], phone: [], target: '' }; });
+  good.forEach((p) => p.dates.forEach((k) => {
+    const arr = dutyEdit.days[k][p.role];
+    if (arr.indexOf(String(p.member.PlayerID)) === -1) arr.push(String(p.member.PlayerID));
+  }));
+  // A duty day that isn't a Mon/Wed/Fri (e.g. Thursday Dec 24) gets its "books round on" set to the next play day automatically.
+  adminDirty = true;
+  renderDutyAdmin(document.getElementById('adminContent'));
+  showStatus('dStatus', true, `Filled in ${dates.length} duty days from the paste — review, then click Save duty.`);
+}
+
+// ---------------- Day setup ----------------
+function renderDaysAdmin(el) {
+  const cfgBy = {}; (board.dayConfig || []).forEach((c) => { cfgBy[c.DateKey] = c; });
+  const keys = [];
+  for (let k = board.today; keys.length < 24; k = addDays(k, 1)) if (isPlayDay(k)) keys.push(k);
+  const infoBy = {}; board.dates.forEach((d) => { infoBy[d.DateKey] = d; });
+  el.innerHTML = `
+    <div class="card">
+      <h2>Day setup</h2>
+      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> for that day (the default is ${escapeHtml(board.settings.LegendsFirstOffsetMin)} minutes after the club's first tee time). The Fun and Nassau times shown on Sign-ups are estimated from it; type exact ranges (e.g. <code>8:40 - 9:08</code>) to override. Change the slots if you got fewer or more tee times. <b>Open early</b> lets members sign up now — for a tournament or special event. Each row saves on its own.</p>
+      <div class="tbl-wrap"><table class="ad" style="min-width:840px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun times</th><th>Nassau times</th><th>Fun slots</th><th>Nassau slots</th><th>Open early</th><th></th></tr></thead><tbody>
+      ${keys.map((k) => { const c = cfgBy[k] || {}; const inf = infoBy[k]; const closed = (board.closures || []).find((x) => x.DateKey === k); return `<tr>
+        <td><b>${escapeHtml(dateShort(k))}</b>${closed ? '<div class="hint" style="color:var(--error)">closed</div>' : ''}</td>
+        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(inf ? inf.legendsFirst : '8:40 AM')}" style="width:95px;"></td>
+        <td><input type="text" data-c="FunTimes" data-k="${k}" value="${escapeHtml(c.FunTimes || '')}" placeholder="${escapeHtml(inf ? inf.funTimes : '')}" style="width:140px;"></td>
+        <td><input type="text" data-c="NassauTimes" data-k="${k}" value="${escapeHtml(c.NassauTimes || '')}" placeholder="${escapeHtml(inf ? inf.nassauTimes : '')}" style="width:140px;"></td>
+        <td><input type="number" min="0" data-c="FunSlots" data-k="${k}" value="${escapeHtml(c.FunSlots || '')}" placeholder="${escapeHtml(board.settings.FunSlots)}" style="width:64px;"></td>
+        <td><input type="number" min="0" data-c="NassauSlots" data-k="${k}" value="${escapeHtml(c.NassauSlots || '')}" placeholder="${escapeHtml(board.settings.NassauSlots)}" style="width:64px;"></td>
+        <td style="text-align:center;"><input type="checkbox" data-c="OpenEarly" data-k="${k}" ${String(c.OpenEarly).toUpperCase() === 'TRUE' ? 'checked' : ''}></td>
+        <td><button class="secondary" data-save-day="${k}">Save</button></td></tr>`; }).join('')}
+      </tbody></table></div>
+      <div id="daysStatus" class="status"></div>
+    </div>`;
+  el.querySelectorAll('[data-save-day]').forEach((b) => b.onclick = () => {
+    const k = b.dataset.saveDay;
+    const row = { DateKey: k };
+    el.querySelectorAll(`[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
+    adminSave('legendsSaveDayConfig', { row: JSON.stringify(row) }, 'daysStatus', `Saved ${dateShort(k)}.`);
+  });
+}
+
+// ---------------- simple list editors (closures, notices, club tee times, events) ----------------
+function listEditorHtml(id, title, hint, cols, rows) {
+  return `<div class="card"><h2>${title}</h2><p class="hint">${hint}</p>
+    <div class="tbl-wrap"><table class="ad"><thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead><tbody id="${id}Body">
+    ${rows.map((r, i) => `<tr>${cols.map((c) => `<td>${c.type === 'check'
+        ? `<input type="checkbox" data-le="${id}" data-i="${i}" data-f="${c.f}" ${String(r[c.f]).toUpperCase() !== 'FALSE' ? 'checked' : ''}>`
+        : `<input type="${c.type || 'text'}" data-le="${id}" data-i="${i}" data-f="${c.f}" value="${escapeHtml(r[c.f] || '')}" placeholder="${escapeHtml(c.ph || '')}" style="${c.w ? 'width:' + c.w : 'width:100%'}">`}</td>`).join('')}
+      <td><button class="link danger" data-le-rm="${id}" data-i="${i}">Remove</button></td></tr>`).join('') || `<tr><td colspan="${cols.length + 1}" class="hint">None yet.</td></tr>`}
+    </tbody></table></div>
+    <div class="row" style="margin-top:10px;"><button class="secondary" data-le-add="${id}">+ Add</button><button class="primary" data-le-save="${id}">Save</button>${dirtyNote}</div>
+    <div id="${id}Status" class="status"></div></div>`;
+}
+const listEdits = {};
+function wireListEditor(el, id, rows, action, cols, rerender) {
+  listEdits[id] = rows;
+  el.querySelectorAll(`[data-le="${id}"]`).forEach((inp) => inp.addEventListener(inp.type === 'checkbox' ? 'change' : 'input', () => {
+    rows[Number(inp.dataset.i)][inp.dataset.f] = inp.type === 'checkbox' ? (inp.checked ? 'TRUE' : 'FALSE') : inp.value;
+    markDirty();
+  }));
+  el.querySelectorAll(`[data-le-rm="${id}"]`).forEach((b) => b.onclick = () => { rows.splice(Number(b.dataset.i), 1); markDirty(); rerender(rows); });
+  el.querySelector(`[data-le-add="${id}"]`).onclick = () => { const o = {}; cols.forEach((c) => { o[c.f] = c.type === 'check' ? 'TRUE' : ''; }); rows.push(o); markDirty(); rerender(rows); };
+  el.querySelector(`[data-le-save="${id}"]`).onclick = () => adminSave(action, { rows: JSON.stringify(rows) }, id + 'Status');
+}
+const copyRows = (rows) => (rows || []).map((r) => Object.assign({}, r));
+
+function renderClosuresAdmin(el, cRows, nRows) {
+  cRows = cRows || copyRows(board.closures).filter((r) => r.DateKey >= addDays(board.today, -30));
+  nRows = nRows || copyRows(board.notices).filter((r) => r.DateKey >= addDays(board.today, -30));
+  const cCols = [{ f: 'DateKey', label: 'Date (no Legends tee times)', type: 'date', w: '160px' }, { f: 'Reason', label: 'Reason shown', ph: 'e.g. Club event' }];
+  const nCols = [{ f: 'DateKey', label: 'Date', type: 'date', w: '160px' }, { f: 'Text', label: 'Notice shown on that date', ph: 'e.g. Cart path only' }];
+  const oldC = (board.closures || []).filter((r) => r.DateKey < addDays(board.today, -30));
+  const oldN = (board.notices || []).filter((r) => r.DateKey < addDays(board.today, -30));
+  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to make tee times.', cCols, cRows) +
+    listEditorHtml('nt', 'Notices', 'A short note shown on a date in Sign-ups — anything worth flagging that isn\'t a closure.', nCols, nRows);
+  // Older rows (more than 30 days back) are kept as they are when saving.
+  wireListEditor(el, 'cl', cRows, 'legendsSaveClosures', cCols, (r) => renderClosuresAdmin(el, r, nRows));
+  wireListEditor(el, 'nt', nRows, 'legendsSaveNotices', nCols, (r) => renderClosuresAdmin(el, cRows, r));
+  el.querySelector('[data-le-save="cl"]').onclick = () => adminSave('legendsSaveClosures', { rows: JSON.stringify(oldC.concat(cRows)) }, 'clStatus');
+  el.querySelector('[data-le-save="nt"]').onclick = () => adminSave('legendsSaveNotices', { rows: JSON.stringify(oldN.concat(nRows)) }, 'ntStatus');
+}
+function renderTeeTimesAdmin(el, rows) {
+  rows = rows || copyRows(board.clubTeeTimes).sort((a, b) => (a.EffectiveDate < b.EffectiveDate ? -1 : 1));
+  const cols = [{ f: 'EffectiveDate', label: 'Effective from', type: 'date', w: '160px' }, { f: 'FirstTeeTime', label: "Club's first tee time", ph: '8:00 AM', w: '120px' }];
+  el.innerHTML = listEditorHtml('tt', "Club first tee times", `Enter a change whenever the <b>club's</b> first tee time shifts; it stays in effect until the next change. It sets the in-person arrival time (2 hours before), the phone-in time (30 minutes before) and the default first Legends time (${escapeHtml(board.settings.LegendsFirstOffsetMin)} minutes after). With nothing entered, ${escapeHtml(board.settings.DefaultClubFirstTee)} is used.`, cols, rows);
+  wireListEditor(el, 'tt', rows, 'legendsSaveClubTeeTimes', cols, (r) => renderTeeTimesAdmin(el, r));
+}
+function renderEventsAdmin(el, rows) {
+  rows = rows || copyRows(board.events).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
+  const cols = [
+    { f: 'Title', label: 'Event', ph: 'Legends Banquet', w: '170px' },
+    { f: 'DateKey', label: 'Date', type: 'date', w: '150px' },
+    { f: 'Description', label: 'Details', ph: 'Time, place, cost…' },
+    { f: 'Capacity', label: 'Limit', type: 'number', ph: 'none', w: '70px' },
+    { f: 'GuestPrompt', label: 'Ask for', ph: 'e.g. Spouse/guest name', w: '170px' },
+    { f: 'Active', label: 'Show', type: 'check' },
+  ];
+  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, $5 / $10 tournaments, divot filling day and anything else people sign up for. Events show on the Sign-ups tab in date order, open for sign-ups right away (any distance ahead). Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
+  wireListEditor(el, 'ev', rows, 'legendsSaveEvents', cols, (r) => renderEventsAdmin(el, r));
+}
+
+// ---------------- Sign-up rules ----------------
+function renderRulesAdmin(el) {
+  const s = board.settings;
+  const f = (k, label, type) => `<div><label>${label}</label><input type="${type || 'text'}" data-st="${k}" value="${escapeHtml(s[k])}"></div>`;
+  el.innerHTML = `
+    <div class="card">
+      <h2>Sign-up rules</h2>
+      <div class="grid2">
+        ${f('FunSlots', 'Fun group slots', 'number')}${f('NassauSlots', 'Nassau group slots', 'number')}${f('StandbySlots', 'Standby slots (each group)', 'number')}
+        ${f('SignupOpenDaysBefore', 'Sign-ups open this many days ahead', 'number')}${f('SignupOpenTime', 'Sign-ups open at')}${f('SignupCloseDaysBefore', 'Last sign-up day: days before play', 'number')}
+        ${f('DefaultClubFirstTee', 'Club first tee time (if none entered)')}${f('LegendsFirstOffsetMin', 'First Legends time: minutes after club first', 'number')}${f('TeeIntervalMin', 'Minutes between tee times (estimates)', 'number')}
+        ${f('FunTeeTimes', 'Fun group tee times', 'number')}${f('NassauTeeTimes', 'Nassau group tee times', 'number')}${f('BoardDaysAhead', 'Days shown on Sign-ups', 'number')}
+        ${f('AdminEmail', 'Admin email (late drop-out alerts)', 'email')}${f('TeeOptions', 'Tee choices (comma separated)')}
+      </div>
+      <h3>Tee Time Duty instructions</h3>
+      <p class="hint"><code>{arrive}</code> becomes 2 hours before the club's first tee time; <code>{call}</code> becomes 30 minutes before.</p>
+      <label class="hint">In person</label><textarea data-st="DutyInPersonText" rows="3">${escapeHtml(s.DutyInPersonText)}</textarea>
+      <label class="hint">Phone in</label><textarea data-st="DutyPhoneText" rows="3">${escapeHtml(s.DutyPhoneText)}</textarea>
+      <div class="row" style="margin-top:10px;"><button class="primary" id="rulesSave">Save rules</button>${dirtyNote}</div>
+      <div id="rulesStatus" class="status"></div>
+    </div>`;
+  el.querySelectorAll('[data-st]').forEach((i) => i.addEventListener('input', markDirty));
+  document.getElementById('rulesSave').onclick = () => {
+    const patch = {};
+    el.querySelectorAll('[data-st]').forEach((i) => { patch[i.dataset.st] = i.value; });
+    adminSave('legendsSaveAppSettings', { settings: JSON.stringify(patch) }, 'rulesStatus');
+  };
+}
+
+// ---------------- Activity ----------------
+async function renderActivityAdmin(el) {
+  el.innerHTML = `<div class="card"><h2>Activity</h2><p class="hint">Sign-ups, drop-outs, sign-ins and admin changes, newest first. The full history is in the ActivityLog tab of the Google Sheet.</p>
+    <div class="row"><select id="actWho"><option value="">Everyone</option></select><button class="secondary" id="actRefresh">Refresh</button></div>
+    <div id="actStatus" class="status">Loading…</div><div class="tbl-wrap"><table class="dt"><thead><tr><th style="width:150px">When</th><th style="width:140px">Who</th><th style="width:170px">What</th><th>Details</th></tr></thead><tbody id="actBody"></tbody></table></div></div>`;
+  let rows = [];
+  const draw = () => {
+    const who = document.getElementById('actWho').value;
+    document.getElementById('actBody').innerHTML = rows.filter((r) => !who || r.Admin === who).map((r) =>
+      `<tr><td>${escapeHtml(r.Timestamp)}</td><td>${escapeHtml(displayName(r.Admin) || '(unknown)')}</td><td>${escapeHtml(r.Action)}</td><td>${escapeHtml(r.Detail)}</td></tr>`).join('') || '<tr><td colspan="4" class="hint">Nothing yet.</td></tr>';
+  };
+  const load = async () => {
+    try {
+      const res = await apiPost('getActivityLog', { limit: 500 });
+      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('actStatus', false, res.error); return; }
+      rows = res.data;
+      const sel = document.getElementById('actWho');
+      const names = [...new Set(rows.map((r) => r.Admin).filter(Boolean))].sort();
+      sel.innerHTML = '<option value="">Everyone</option>' + names.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(displayName(n))}</option>`).join('');
+      showStatus('actStatus', true, '');
+      draw();
+    } catch (e) { showStatus('actStatus', false, 'Could not reach the server — try again.'); }
+  };
+  document.getElementById('actWho').onchange = draw;
+  document.getElementById('actRefresh').onclick = load;
+  load();
+}
 
 // ====================== BOOT ======================
 async function loadVersion() {
@@ -548,17 +1516,12 @@ async function loadVersion() {
   } catch (e) { el.textContent = `${ENV.toUpperCase()} · Page ${APP_VERSION} · Backend unreachable`; }
 }
 (function boot() {
+  if (typeof window === 'undefined' || !document.getElementById('app')) return;
   document.getElementById('testBanner').hidden = ENV !== 'test';
   loadSession();
   loadVersion();
   if (session && session.token) {
-    // Show the app straight away from what this device remembers, then
-    // confirm with the server that the sign-in is still good.
     showApp();
-    apiPost('memberMe', {}).then((res) => {
-      if (res.success) saveSession({ token: session.token, member: res.data.member });
-      else handleSignedOut(res.error);
-    }).catch(() => { /* offline — keep going; the next real action will check again */ });
   } else if (adminSession) {
     showApp('admin');
   } else {
