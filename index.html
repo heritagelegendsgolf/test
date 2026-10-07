@@ -140,7 +140,7 @@
       <div class="sub">Sign-ups &amp; Tee Time Duty</div>
     </div>
     <div class="who">
-      <div><span id="whoName"></span><button type="button" id="changePinBtn" onclick="changeMyPin()">Change PIN</button><button type="button" onclick="signOut()">Sign out</button></div>
+      <div><span id="whoName"></span><button type="button" id="myInfoBtn" onclick="openMyInfo()">My info</button><button type="button" id="changePinBtn" onclick="changeMyPin()">Change PIN</button><button type="button" onclick="signOut()">Sign out</button></div>
       <div class="ver" id="verBadge"></div>
     </div>
   </header>
@@ -232,7 +232,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07h';
+const APP_VERSION = '2026-10-07i';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -454,6 +454,50 @@ function signOut() {
   gate.step = 'email'; gate.email = ''; gate.err = '';
   showGate();
 }
+// ---- My info: members keep their own email and phone numbers current ----
+async function openMyInfo() {
+  if (!session) return;
+  let box = document.getElementById('myInfoBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'myInfoBox';
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px;z-index:50;overflow:auto;';
+    document.body.appendChild(box);
+  }
+  box.hidden = false;
+  box.innerHTML = '<div class="card" style="max-width:420px;width:100%;">Loading…</div>';
+  let c;
+  try {
+    const res = await apiPost('memberGetContact', {});
+    if (!res.success) { box.hidden = true; if (!handleSignedOut(res.error)) toast(cleanError(res.error), true); return; }
+    c = res.data;
+  } catch (e) { box.hidden = true; toast('Could not reach the server — try again.', true); return; }
+  box.innerHTML = `<div class="card" style="max-width:420px;width:100%;">
+      <h2 style="margin-top:0;">My info</h2>
+      <p class="hint">Keep these up to date so the Legends can reach you. Your email is also how you sign in. Only you and the admins can see these.</p>
+      <label>Email</label><input type="email" id="miEmail" value="${escapeHtml(c.Email)}" autocapitalize="off">
+      <label style="margin-top:8px;display:block;">Mobile phone</label><input type="tel" id="miMobile" value="${escapeHtml(c.MobilePhone)}">
+      <label style="margin-top:8px;display:block;">Home phone</label><input type="tel" id="miHome" value="${escapeHtml(c.HomePhone)}">
+      <div class="row" style="margin-top:12px;"><button class="primary" id="miSave">Save</button><button class="link" id="miCancel">Cancel</button></div>
+      <div id="miStatus" class="status"></div>
+    </div>`;
+  document.getElementById('miCancel').onclick = () => { box.hidden = true; };
+  box.onclick = (e) => { if (e.target === box) box.hidden = true; };
+  document.getElementById('miSave').onclick = async () => {
+    const email = document.getElementById('miEmail').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus('miStatus', false, 'Enter a valid email address.'); return; }
+    const btn = document.getElementById('miSave'); btn.disabled = true;
+    try {
+      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim() });
+      if (!res.success) { if (!handleSignedOut(res.error)) showStatus('miStatus', false, cleanError(res.error)); return; }
+      saveSession({ token: session.token, member: res.data.member });
+      box.hidden = true;
+      toast('Your info is saved.');
+      membersLoaded = false; // admin list refreshes next time it's opened
+    } catch (e) { showStatus('miStatus', false, 'Could not reach the server — try again.'); }
+    finally { btn.disabled = false; }
+  };
+}
 async function changeMyPin() {
   if (!session) return;
   const a = prompt('Choose a new 4-digit PIN:');
@@ -489,6 +533,7 @@ function showApp(tab) {
   const who = session ? displayName(session.member.Name) + (adminSession ? ' · admin' : '') : (adminSession ? adminSession.name + ' (admin)' : '');
   document.getElementById('whoName').textContent = 'Signed in as ' + who;
   document.getElementById('changePinBtn').hidden = !session;
+  document.getElementById('myInfoBtn').hidden = !session;
   document.getElementById('lnkLive').href = 'live.html' + location.search;
   document.getElementById('lnkTAdmin').href = 'tournament-admin.html' + location.search;
   selectTab(tab || currentTab || 'signups');
@@ -865,7 +910,7 @@ function renderDuty() {
   const names = (rows, role) => rows.filter((r) => r.Role === role).map((r) => `<span${String(r.PlayerID) === myId() ? ' style="font-weight:700;color:var(--green-dark)"' : ''}>${escapeHtml(displayName(r.Name))}</span>`).join(', ');
 
   if (dutyView === 'date') {
-    el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Books round on</th></tr></thead><tbody>
+    el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Books round for</th></tr></thead><tbody>
       ${days.map((d) => `<tr class="${d.rows.some((r) => String(r.PlayerID) === myId()) ? 'mine' : ''}">
         <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
         <td>${names(d.rows, 'inperson') || '<span class="hint">—</span>'}</td>
@@ -1054,6 +1099,7 @@ const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes<
 // ---------------- Members ----------------
 let members = [];
 let membersLoaded = false;
+let memTab = 'active'; // Members admin: 'active' or 'inactive' Legends
 async function loadMembers() {
   try {
     const res = await apiPost('getMembersAdmin', {});
@@ -1071,7 +1117,8 @@ function renderMembersAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Members &amp; sign-in</h2>
-      <p class="hint">Every Legend who should be able to sign in needs an email address. The first time they sign in they choose a 4-digit PIN; <b>Reset</b> clears it so they choose a new one (and signs them out everywhere). To remove someone, untick <em>Active</em> and save — they can no longer sign in and drop off the lists, but their history is kept. This is the same roster the tournament uses — team, handicap and tee are not touched here.</p>
+      <div class="seg" id="memTabs" style="margin-bottom:10px;"><button type="button" data-memtab="active" class="${memTab === 'active' ? 'on' : ''}">Active Legends</button><button type="button" data-memtab="inactive" class="${memTab === 'inactive' ? 'on' : ''}">Inactive Legends</button></div>
+      <p class="hint">Every Legend who should be able to sign in needs an email address. The first time they sign in they choose a 4-digit PIN; <b>Reset</b> clears it so they choose a new one (and signs them out everywhere). To retire someone, untick <em>Active</em> and save — they move to <b>Inactive Legends</b>, can no longer sign in and drop off the lists, but their history is kept (tick it again to bring them back). Members can also update their own email and phones with <b>My info</b> at the top of the page. This is the same roster the tournament uses — team, handicap and tee are not touched here.</p>
       <div class="row" style="margin-bottom:10px;">
         <input type="text" id="memFilter" placeholder="Search names or emails" style="max-width:240px;" value="${escapeHtml(q)}">
         <label class="hint"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
@@ -1092,14 +1139,16 @@ function renderMembersAdmin(el) {
       <h2>Import from the Roster of Legends spreadsheet</h2>
       <p class="hint">Open <b>Roster of Legends</b> in Excel, go to the <b>Active Legends</b> tab, select the rows of people (from the first name down to the last email — the header row is fine to include) and copy. Paste below and click <b>Read</b>. You'll see who matched before anything changes; then <b>Apply</b> fills in emails and phones above, and <b>Save members</b> saves them.</p>
       <textarea id="impText" rows="5" placeholder="Paste rows copied from Excel here"></textarea>
+      <label class="hint" style="display:block;margin-top:6px;"><input type="checkbox" id="impInactive"> These rows are from the <b>Inactive Legends</b> tab (they'll be saved as inactive)</label>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="impRead">Read</button><button class="primary" id="impApply" disabled>Apply to the list above</button></div>
       <div id="impPreview" style="margin-top:8px;"></div>
     </div>`;
   drawMemberRows();
   document.getElementById('memFilter').oninput = drawMemberRows;
   document.getElementById('memMissingOnly').onchange = drawMemberRows;
+  el.querySelectorAll('[data-memtab]').forEach((b) => b.onclick = () => { memTab = b.dataset.memtab; el.querySelectorAll('[data-memtab]').forEach((x) => x.classList.toggle('on', x === b)); drawMemberRows(); });
   document.getElementById('memAdd').onclick = () => {
-    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', Active: 'TRUE', hasPin: false });
+    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', Active: memTab === 'inactive' ? 'FALSE' : 'TRUE', hasPin: false });
     document.getElementById('memFilter').value = '';
     document.getElementById('memMissingOnly').checked = false;
     drawMemberRows(); markDirty();
@@ -1113,6 +1162,7 @@ function drawMemberRows() {
   const q = document.getElementById('memFilter').value.trim().toLowerCase();
   const missingOnly = document.getElementById('memMissingOnly').checked;
   const rows = members.map((m, idx) => ({ m, idx }))
+    .filter(({ m }) => m.PlayerID === undefined || m._tab === memTab || (!m._tab && (m.Active === 'FALSE') === (memTab === 'inactive')))
     .filter(({ m }) => m.PlayerID === undefined || !q || String(m.Name).toLowerCase().includes(q) || String(m.Email).toLowerCase().includes(q))
     .filter(({ m }) => !missingOnly || !String(m.Email || '').trim())
     .sort((a, b) => (a.m.PlayerID === undefined) - (b.m.PlayerID === undefined) || String(a.m.Name).localeCompare(String(b.m.Name)));
@@ -1132,12 +1182,14 @@ function drawMemberRows() {
     el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
       const m = members[Number(el.dataset.idx)];
       m[el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
-      if (el.type === 'checkbox') el.closest('tr').classList.toggle('inactive', !el.checked);
+      if (el.type === 'checkbox') { el.closest('tr').classList.toggle('inactive', !el.checked); m._tab = memTab; } // stays on this tab until saved
       markDirty();
     });
   });
   body.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => resetPin(Number(b.dataset.reset))));
   const active = members.filter((m) => m.PlayerID !== undefined && m.Active !== 'FALSE');
+  const inactiveN = members.filter((m) => m.PlayerID !== undefined && m.Active === 'FALSE').length;
+  document.querySelectorAll('[data-memtab]').forEach((b) => { b.textContent = b.dataset.memtab === 'active' ? `Active Legends (${active.length})` : `Inactive Legends (${inactiveN})`; });
   document.getElementById('memCounts').textContent = `${active.length} active · ${active.filter((m) => String(m.Email || '').trim()).length} with email · ${active.filter((m) => m.hasPin).length} have signed in`;
 }
 async function saveMembers() {
@@ -1244,9 +1296,10 @@ function readImport() {
 function applyImport() {
   if (!importPlan) return;
   let n = 0;
+  const inactive = !!(document.getElementById('impInactive') || {}).checked;
   importPlan.forEach((p) => {
-    if (p.member) { p.member.Email = p.email; if (p.home) p.member.HomePhone = p.home; if (p.mobile) p.member.MobilePhone = p.mobile; n++; }
-    else if (p.add) { members.push({ Name: p.newName, Email: p.email, HomePhone: p.home, MobilePhone: p.mobile, Active: 'TRUE', hasPin: false }); n++; }
+    if (p.member) { p.member.Email = p.email; if (p.home) p.member.HomePhone = p.home; if (p.mobile) p.member.MobilePhone = p.mobile; if (inactive) { p.member.Active = 'FALSE'; delete p.member._tab; } n++; }
+    else if (p.add) { members.push({ Name: p.newName, Email: p.email, HomePhone: p.home, MobilePhone: p.mobile, Active: inactive ? 'FALSE' : 'TRUE', hasPin: false }); n++; }
   });
   importPlan = null;
   document.getElementById('impApply').disabled = true;
@@ -1472,32 +1525,87 @@ function applyDutyPaste() {
 }
 
 // ---------------- Day setup ----------------
+// Same rules as the server (laParseTime_ / laNextTee_): 8 minutes apart, but the
+// club always restarts on the hour, so ...8:40, 8:48, 9:00, 9:08...
+function parseClock(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m || parseInt(m[1], 10) > 12 || parseInt(m[2], 10) > 59) return null;
+  let h = parseInt(m[1], 10) % 12;
+  const pm = m[3] ? m[3].toUpperCase() === 'PM' : (h >= 1 && h <= 5) || parseInt(m[1], 10) === 12;
+  if (pm) h += 12;
+  return h * 60 + parseInt(m[2], 10);
+}
+function fmtClock(mins) { mins = ((mins % 1440) + 1440) % 1440; const h = Math.floor(mins / 60), mi = mins % 60; return `${(h % 12) || 12}:${String(mi).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; }
+function teeSequence(first, count) {
+  const iv = Number(board.settings.TeeIntervalMin) || 8, out = [];
+  let t = first;
+  for (let i = 0; i < count; i++) { out.push(t); const m = t % 60; t = m + iv > 52 ? t - m + 60 : t + iv; }
+  return out;
+}
+function defaultLegendsFirst(key) {
+  const eff = (board.clubTeeTimes || []).filter((r) => r.EffectiveDate && r.EffectiveDate <= key && parseClock(r.FirstTeeTime) !== null)
+    .sort((a, b) => (a.EffectiveDate < b.EffectiveDate ? -1 : 1));
+  const club = parseClock(eff.length ? eff[eff.length - 1].FirstTeeTime : board.settings.DefaultClubFirstTee);
+  return fmtClock((club === null ? 480 : club) + (Number(board.settings.LegendsFirstOffsetMin) || 0));
+}
+function totalTeeTimes() { return (Number(board.settings.FunTeeTimes) || 0) + (Number(board.settings.NassauTeeTimes) || 0); }
+
 function renderDaysAdmin(el) {
   const cfgBy = {}; (board.dayConfig || []).forEach((c) => { cfgBy[c.DateKey] = c; });
   const keys = [];
   for (let k = board.today; keys.length < 24; k = addDays(k, 1)) if (isPlayDay(k)) keys.push(k);
-  const infoBy = {}; board.dates.forEach((d) => { infoBy[d.DateKey] = d; });
+  const total = totalTeeTimes();
   el.innerHTML = `
     <div class="card">
       <h2>Day setup</h2>
-      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> for that day (the default is ${escapeHtml(board.settings.LegendsFirstOffsetMin)} minutes after the club's first tee time). Set how many tee times each group got (e.g. 5 Fun and 4 Nassau); each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, so that sets the number of slots. The times are worked out from the first time, ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…); type exact ranges to override them. <b>Open early</b> lets members sign up now — for a tournament or special event. Each row saves on its own.</p>
-      <div class="tbl-wrap"><table class="ad" style="min-width:900px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th>Open early</th><th></th></tr></thead><tbody>
-      ${keys.map((k) => { const c = cfgBy[k] || {}; const inf = infoBy[k]; const closed = (board.closures || []).find((x) => x.DateKey === k); return `<tr>
+      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. <b>Open early</b> lets members sign up now — for a tournament or special event. Each row saves on its own.</p>
+      <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th>Open early</th><th></th></tr></thead><tbody>
+      ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); return `<tr>
         <td><b>${escapeHtml(dateShort(k))}</b>${closed ? '<div class="hint" style="color:var(--error)">closed</div>' : ''}</td>
-        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(inf ? inf.legendsFirst : '8:40 AM')}" style="width:95px;"></td>
-        <td><input type="number" min="0" max="9" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
-        <td><input type="number" min="0" max="9" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;">${c.FunSlots || c.NassauSlots ? `<div class="hint">older slot setting in use (${escapeHtml(c.FunSlots || '–')}/${escapeHtml(c.NassauSlots || '–')}); Save replaces it</div>` : ''}</td>
-        <td><input type="text" data-c="FunTimes" data-k="${k}" value="${escapeHtml(c.FunTimes || '')}" placeholder="${escapeHtml(inf ? inf.funTimes : '')}" style="width:140px;"></td>
-        <td><input type="text" data-c="NassauTimes" data-k="${k}" value="${escapeHtml(c.NassauTimes || '')}" placeholder="${escapeHtml(inf ? inf.nassauTimes : '')}" style="width:140px;"></td>
+        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(defaultLegendsFirst(k))}" style="width:95px;"></td>
+        <td><input type="number" min="0" max="14" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
+        <td><input type="number" min="0" max="14" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
+        <td data-show="fun" data-k="${k}" style="white-space:nowrap;"></td>
+        <td data-show="nassau" data-k="${k}" style="white-space:nowrap;"></td>
         <td style="text-align:center;"><input type="checkbox" data-c="OpenEarly" data-k="${k}" ${String(c.OpenEarly).toUpperCase() === 'TRUE' ? 'checked' : ''}></td>
         <td><button class="secondary" data-save-day="${k}">Save</button></td></tr>`; }).join('')}
       </tbody></table></div>
       <div id="daysStatus" class="status"></div>
     </div>`;
+  const inp = (k, f) => el.querySelector(`[data-k="${k}"][data-c="${f}"]`);
+  const val = (k, f) => { const i = inp(k, f); return i ? (i.value.trim() || i.placeholder) : ''; };
+  const refresh = (k) => {
+    const first = parseClock(val(k, 'LegendsFirst'));
+    const nf = Math.max(0, parseInt(val(k, 'FunTeeTimes'), 10) || 0), nn = Math.max(0, parseInt(val(k, 'NassauTeeTimes'), 10) || 0);
+    const funCell = el.querySelector(`[data-show="fun"][data-k="${k}"]`), nasCell = el.querySelector(`[data-show="nassau"][data-k="${k}"]`);
+    if (first === null) { funCell.innerHTML = nasCell.innerHTML = '<span class="hint" style="color:var(--error)">enter a time like 8:40</span>'; return; }
+    const seq = teeSequence(first, nf + nn);
+    const range = (a) => (a.length ? `${fmtClock(a[0])} – ${fmtClock(a[a.length - 1])}` : '—');
+    funCell.textContent = range(seq.slice(0, nf));
+    nasCell.textContent = range(seq.slice(nf));
+    funCell.title = seq.slice(0, nf).map(fmtClock).join(', ');
+    nasCell.title = seq.slice(nf).map(fmtClock).join(', ');
+  };
+  keys.forEach((k) => {
+    refresh(k);
+    const fun = inp(k, 'FunTeeTimes'), nas = inp(k, 'NassauTeeTimes'), first = inp(k, 'LegendsFirst');
+    fun.addEventListener('input', () => {
+      // Nassau gets the rest of the day's tee times.
+      const n = parseInt(fun.value, 10);
+      nas.value = fun.value.trim() === '' ? '' : String(Math.max(0, total - (isNaN(n) ? 0 : n)));
+      refresh(k);
+    });
+    nas.addEventListener('input', () => refresh(k));
+    first.addEventListener('input', () => refresh(k));
+    first.addEventListener('change', () => { const t = parseClock(first.value); if (t !== null) first.value = fmtClock(t); refresh(k); });
+  });
   el.querySelectorAll('[data-save-day]').forEach((b) => b.onclick = () => {
     const k = b.dataset.saveDay;
-    const row = { DateKey: k, FunSlots: '', NassauSlots: '' }; // slots now come from the tee time counts
-    el.querySelectorAll(`[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
+    if (inp(k, 'LegendsFirst').value.trim() && parseClock(inp(k, 'LegendsFirst').value) === null) { showStatus('daysStatus', false, `${dateShort(k)}: enter the first time like 8:40 AM.`); return; }
+    // Slots and times now come from the tee time counts, so older per-day overrides are cleared.
+    const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: '', NassauTimes: '' };
+    el.querySelectorAll(`input[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
+    if (row.LegendsFirst) row.LegendsFirst = fmtClock(parseClock(row.LegendsFirst));
     adminSave('legendsSaveDayConfig', { row: JSON.stringify(row) }, 'daysStatus', `Saved ${dateShort(k)}.`);
   });
 }
