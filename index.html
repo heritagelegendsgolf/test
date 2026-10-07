@@ -215,6 +215,7 @@
         <div class="subtabs" id="adminSubtabs">
           <button type="button" class="subtab-btn active" data-group="setup" data-asub="duty">Tee Time Duty</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="days">First Tee Time</button>
+          <button type="button" class="subtab-btn" data-group="setup" data-asub="proshop">Pro Shop</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="members" hidden>Members</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="closures" hidden>Closures &amp; notices</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
@@ -242,7 +243,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07p';
+const APP_VERSION = '2026-10-07q';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -565,7 +566,7 @@ function renderCurrent() {
   if (!board) return;
   if (currentTab === 'signups') renderSignups();
   else if (currentTab === 'duty') renderDuty();
-  else if (currentTab === 'admin' && adminSession && adminSub !== 'sugimport') renderAdminSub(); // don't wipe an import preview being checked
+  else if (currentTab === 'admin' && adminSession && adminSub !== 'sugimport' && adminSub !== 'proshop') renderAdminSub(); // don't wipe an import preview being checked
 }
 
 // ====================== BOARD (shared data) ======================
@@ -1173,6 +1174,7 @@ function renderAdminSub() {
   if (adminSub === 'activity') return renderActivityAdmin(el);
   if (adminSub === 'sugimport') return renderSugImportAdmin(el);
   if (adminSub === 'admins') return renderAdminsAdmin(el);
+  if (adminSub === 'proshop') return renderProShopAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 
@@ -2025,6 +2027,69 @@ async function doSugImport() {
   adoptBoard(res.data);
   const s = res.data.importSummary || { added: 0 };
   showStatus('sugStatus', true, `Imported ${s.added} sign-ups${s.skipped ? ` (${s.skipped} were already signed up and left alone)` : ''}${s.daysSet ? `, set ${s.daysSet} first tee times` : ''}${s.closuresAdded ? `, added ${s.closuresAdded} closures` : ''}. Check the Sign-ups tab.`);
+}
+
+// ---------------- Pro shop players list ----------------
+function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.DateKey === key).sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1))[0] || null; }
+function renderProShopAdmin(el) {
+  const st = board.settings;
+  const auto = String(st.ProShopAutoSend).toUpperCase() !== 'FALSE';
+  const rows = (board.dates || []).filter((d) => d.DateKey >= board.today).map((d) => {
+    const sent = proShopSentFor(d.DateKey);
+    const nIn = Math.min(groupList(d.DateKey, 'fun').length, d.funSlots) + Math.min(groupList(d.DateKey, 'nassau').length, d.nassauSlots);
+    let status;
+    if (d.closed) status = `<span class="hint">No Legends tee times — ${escapeHtml(d.closed)}</span>`;
+    else if (sent) status = `<span class="imp-ok">✓ Sent ${escapeHtml(whenLabel(Date.parse(sent.SentAt)))}</span> <span class="hint">${sent.SentBy === 'Automatic' ? 'automatically' : 'by ' + escapeHtml(sent.SentBy)} · ${escapeHtml(sent.Players)} players</span>`;
+    else if (serverNow() > d.closesAt) status = auto ? '<span class="hint">Sign-ups closed — sending within the hour</span>' : '<span class="imp-bad">Sign-ups closed — not sent yet</span>';
+    else status = `<span class="hint">${auto ? 'Sends automatically' : 'Ready to send'} after sign-ups close ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`;
+    return `<tr><td><b>${escapeHtml(dateShort(d.DateKey))}</b></td><td>${d.closed ? '' : nIn}</td><td>${status}</td>
+      <td style="white-space:nowrap;">${d.closed ? '' : `<button class="secondary" data-ps-preview="${d.DateKey}">Preview</button> <button class="${sent ? 'secondary' : 'primary'}" data-ps-send="${d.DateKey}">${sent ? 'Send again' : 'Send now'}</button>`}</td></tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="card">
+      <h2>Pro shop players list</h2>
+      <p class="hint">When a round's sign-ups close (11:59 PM ${escapeHtml(st.SignupCloseDaysBefore)} days before play), the app emails the list of players to the pro shop — in sign-up order, Fun group then Nassau group, with each Fun player's tees, holes and riding, and the standby lists marked as not playing. It goes from the Legends email, copied to the extra addresses below and to ${escapeHtml(st.AdminEmail)}. Changes after that are still phoned in to the pro shop. You can preview any day, or send it yourself at any time.</p>
+      <div class="tbl-wrap"><table class="ad"><thead><tr><th>Round</th><th>Playing</th><th>Pro shop list</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="hint">No upcoming rounds.</td></tr>'}</tbody></table></div>
+      <div id="psStatus" class="status"></div>
+      <div id="psPreview"></div>
+    </div>
+    <div class="card">
+      <h2>Who gets it</h2>
+      <label>Pro shop (To)</label><textarea data-ps="ProShopEmails" rows="2">${escapeHtml(st.ProShopEmails || '')}</textarea>
+      <label style="display:block;margin-top:8px;">Also copied to (Cc)</label><textarea data-ps="ProShopExtraEmails" rows="2">${escapeHtml(st.ProShopExtraEmails || '')}</textarea>
+      <p class="hint">Separate addresses with commas. ${escapeHtml(st.AdminEmail)} is always copied too.</p>
+      <label class="hint"><input type="checkbox" id="psAuto" ${auto ? 'checked' : ''}> Send automatically when sign-ups close</label>
+      <div class="row" style="margin-top:10px;"><button class="primary" id="psSave">Save</button>${dirtyNote}</div>
+      <div id="psSaveStatus" class="status"></div>
+    </div>`;
+  el.querySelectorAll('[data-ps]').forEach((i) => i.addEventListener('input', markDirty));
+  document.getElementById('psAuto').onchange = markDirty;
+  document.getElementById('psSave').onclick = () => {
+    const patch = { ProShopAutoSend: document.getElementById('psAuto').checked ? 'TRUE' : 'FALSE' };
+    el.querySelectorAll('[data-ps]').forEach((i) => { patch[i.dataset.ps] = i.value; });
+    adminSave('legendsSaveAppSettings', { settings: JSON.stringify(patch) }, 'psSaveStatus');
+  };
+  el.querySelectorAll('[data-ps-preview]').forEach((b) => b.onclick = async () => {
+    const box = document.getElementById('psPreview');
+    box.innerHTML = '<p class="hint">Loading preview…</p>';
+    try {
+      const res = await apiPost('legendsProShopPreview', { dateKey: b.dataset.psPreview });
+      if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
+      const m = res.data;
+      box.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;background:#fff;">
+        <div class="hint"><b>To:</b> ${escapeHtml(m.to.join(', '))}<br><b>Cc:</b> ${escapeHtml(m.cc.join(', '))}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div>
+        <hr style="border:none;border-top:1px solid var(--border);">${m.html}</div>`;
+      if (box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
+  });
+  el.querySelectorAll('[data-ps-send]').forEach((b) => b.onclick = async () => {
+    const k = b.dataset.psSend;
+    const again = !!proShopSentFor(k);
+    if (!confirm(`${again ? 'Send the list again' : 'Send the players list now'} for ${dateShort(k)} to the pro shop?${!again && serverNow() < ((board.dates.find((d) => d.DateKey === k) || {}).closesAt || 0) ? '\n\nSign-ups are still open for this day, so the list may still change.' : ''}`)) return;
+    b.disabled = true;
+    await adminSave('legendsProShopSend', { dateKey: k }, 'psStatus', `Sent the ${dateShort(k)} list to the pro shop.`);
+  });
+  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
 
 // ---------------- Admins (same list as the tournament admin page) ----------------
