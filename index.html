@@ -232,7 +232,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07b';
+const APP_VERSION = '2026-10-07d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -574,8 +574,9 @@ function renderSignups() {
     .forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
   items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
   const intro = `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
-  el.innerHTML = intro + (items.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
+  el.innerHTML = swapIncomingHtml() + intro + (items.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
   wireSignups(el);
+  wireSwaps(el);
 }
 
 function namesListHtml(list, from, to, key) {
@@ -619,7 +620,7 @@ function groupBlockHtml(d, group, state) {
   return `
     <div class="grp">
       <div class="grp-head">
-        <span class="grp-title">${title} <span class="hint" style="font-weight:400;">${escapeHtml(times)}</span></span>
+        <span class="grp-title">${title} <span class="hint" style="font-weight:400;" title="${escapeHtml(((isFun ? d.funTeeList : d.nassauTeeList) || []).join(', '))}">${escapeHtml(times)}${(isFun ? d.funTeeTimes : d.nassauTeeTimes) ? ` · ${isFun ? d.funTeeTimes : d.nassauTeeTimes} tee times` : ''}</span></span>
         <span class="grp-count">${Math.min(list.length, slots)} of ${slots} slots filled${standby.length ? ` · ${standby.length} on standby` : ''}</span>
       </div>
       ${inList.length ? `<ol class="names">${namesListHtml(list, 0, slots)}</ol>` : '<div class="hint" style="margin:6px 0;">No one yet.</div>'}
@@ -866,7 +867,7 @@ function renderDuty() {
   if (dutyView === 'date') {
     el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Books round on</th></tr></thead><tbody>
       ${days.map((d) => `<tr class="${d.rows.some((r) => String(r.PlayerID) === myId()) ? 'mine' : ''}">
-        <td><b>${escapeHtml(dateShort(d.key))}</b>${d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
+        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
         <td>${names(d.rows, 'inperson') || '<span class="hint">—</span>'}</td>
         <td>${names(d.rows, 'phone') || '<span class="hint">—</span>'}</td>
         <td>${d.info.target ? escapeHtml(dateShort(d.info.target)) : ''}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">No tee times needed — ${escapeHtml(d.info.targetClosed)}</div>` : ''}</td>
@@ -876,7 +877,7 @@ function renderDuty() {
     days.forEach((d) => d.rows.forEach((r) => { if (want && String(r.PlayerID) !== String(want)) return; (byPerson[r.PlayerID] = byPerson[r.PlayerID] || { name: r.Name, items: [] }).items.push({ key: d.key, role: r.Role, info: d.info }); }));
     const ids = Object.keys(byPerson).sort((a, b) => byPerson[a].name.localeCompare(byPerson[b].name));
     el.innerHTML = ids.map((id) => `<h3>${escapeHtml(displayName(byPerson[id].name))}</h3><table class="dt"><tbody>
-      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b></td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</td></tr>`).join('')}
+      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b>${String(id) === myId() ? swapBtnHtml({ key: it.key, rows: dutyForDay(it.key) }) : ''}</td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</td></tr>`).join('')}
       </tbody></table>`).join('') || '<p class="hint">Nothing matches.</p>';
   } else {
     const all = dutyDays();
@@ -916,6 +917,70 @@ function renderDuty() {
         return `<div class="cal-c ${mine ? 'mine' : ''} ${closed ? 'closed' : ''}">${ks.map(cellHtml).join('<hr style="border:none;border-top:1px dashed #ccc;margin:4px 0;">')}</div>`;
       }).join('')).join('')}</div>`;
   }
+  el.innerHTML = swapPanelHtml() + el.innerHTML;
+  wireSwaps(el);
+}
+
+// ---------------- duty swaps (members) ----------------
+let swapFrom = null; // the duty date I'm offering to swap
+function myPendingSwaps() { return (board.swaps || []).filter((x) => x.Status === 'pending'); }
+function swapBtnHtml(d) {
+  if (!session || d.key < board.today || !d.rows.some((r) => String(r.PlayerID) === myId())) return '';
+  return ` <button class="link" data-swap-from="${d.key}" style="font-size:13px;">Swap…</button>`;
+}
+function swapChoices(fromKey) {
+  // Everyone else's future duty, on days I'm not already on, whose person isn't already on my day.
+  const mine = new Set((board.duty || []).filter((x) => String(x.PlayerID) === myId()).map((x) => x.DateKey));
+  const onFrom = new Set(dutyForDay(fromKey).map((x) => String(x.PlayerID)));
+  return (board.duty || []).filter((x) => x.DateKey >= board.today && x.DateKey !== fromKey && !mine.has(x.DateKey) &&
+    String(x.PlayerID) !== myId() && !onFrom.has(String(x.PlayerID)))
+    .sort((a, b) => (a.DateKey < b.DateKey ? -1 : a.DateKey > b.DateKey ? 1 : a.Name.localeCompare(b.Name)));
+}
+function swapRoleOf(key, pid) { const r = dutyForDay(key).find((x) => String(x.PlayerID) === String(pid)); return r ? (r.Role === 'phone' ? 'phone in' : 'in person') : ''; }
+function swapIncomingHtml() {
+  if (!session) return '';
+  const inc = myPendingSwaps().filter((x) => String(x.TargetID) === myId());
+  return inc.map((x) => `<div class="card" style="border-left:4px solid var(--gold, #c9a227);">
+      <b>Swap request:</b> ${escapeHtml(displayName(x.RequesterName))} would like to give you <b>${escapeHtml(dateShort(x.FromKey))}</b> (${escapeHtml(swapRoleOf(x.FromKey, x.RequesterID))}) and take your <b>${escapeHtml(dateShort(x.ToKey))}</b> (${escapeHtml(swapRoleOf(x.ToKey, x.TargetID))}).
+      <div class="row" style="margin-top:8px;"><button class="primary" data-swap-accept="${escapeHtml(x.SwapID)}">Accept swap</button><button class="secondary" data-swap-decline="${escapeHtml(x.SwapID)}">Decline</button></div>
+    </div>`).join('');
+}
+function swapPanelHtml() {
+  let html = swapIncomingHtml();
+  const out = myPendingSwaps().filter((x) => session && String(x.RequesterID) === myId());
+  if (out.length) html += `<div class="card"><b>Your swap requests waiting for an answer</b>${out.map((x) => `<div style="margin-top:6px;">${escapeHtml(dateShort(x.FromKey))} ⇄ ${escapeHtml(displayName(x.TargetName))}, ${escapeHtml(dateShort(x.ToKey))} <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel request</button></div>`).join('')}</div>`;
+  if (amAdmin() && !session) {
+    const all = myPendingSwaps();
+    if (all.length) html += `<div class="card"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
+  }
+  if (swapFrom && session) {
+    const ch = swapChoices(swapFrom);
+    html += `<div class="card" id="swapForm"><h3 style="margin-top:0;">Swap your ${escapeHtml(dateShort(swapFrom))} duty (${escapeHtml(swapRoleOf(swapFrom, myId()))})</h3>
+      <p class="hint">Pick the date and person you'd like to trade with. They get an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>
+      ${ch.length ? `<select id="swapTo"><option value="">Choose a date and person…</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})</option>`).join('')}</select>` : '<p class="hint">There are no other upcoming duty dates to swap with.</p>'}
+      <div class="row" style="margin-top:8px;">${ch.length ? '<button class="primary" id="swapSend">Send swap request</button>' : ''}<button class="link" id="swapClose">Cancel</button></div></div>`;
+  }
+  return html;
+}
+function wireSwaps(el) {
+  el.querySelectorAll('[data-swap-from]').forEach((b) => b.onclick = () => { swapFrom = b.dataset.swapFrom; renderCurrent(); const f = document.getElementById('swapForm'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  const close = document.getElementById('swapClose'); if (close) close.onclick = () => { swapFrom = null; renderCurrent(); };
+  const send = document.getElementById('swapSend');
+  if (send) send.onclick = async () => {
+    const v = document.getElementById('swapTo').value;
+    if (!v) { toast('Choose a date and person first.', true); return; }
+    const [toKey, targetId] = v.split('|');
+    send.disabled = true;
+    const from = swapFrom;
+    if (await act('legendsSwapRequest', { fromKey: from, toKey, targetId, siteUrl: location.origin + location.pathname }, 'Swap request sent — they will get an email.')) { swapFrom = null; renderCurrent(); }
+    else send.disabled = false;
+  };
+  el.querySelectorAll('[data-swap-accept]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Accept this swap? Your tee time duty dates will change right away.')) return;
+    await act('legendsSwapRespond', { swapId: b.dataset.swapAccept, accept: true, siteUrl: location.origin + location.pathname }, 'Swap done — your duty date has changed.');
+  });
+  el.querySelectorAll('[data-swap-decline]').forEach((b) => b.onclick = () => act('legendsSwapRespond', { swapId: b.dataset.swapDecline, accept: false, siteUrl: location.origin + location.pathname }, 'Declined.'));
+  el.querySelectorAll('[data-swap-cancel]').forEach((b) => b.onclick = () => act('legendsSwapCancel', { swapId: b.dataset.swapCancel, asAdmin: amAdmin() && !session }, 'Request cancelled.'));
 }
 
 // ====================== ADMIN ======================
@@ -1006,14 +1071,14 @@ function renderMembersAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Members &amp; sign-in</h2>
-      <p class="hint">Every Legend who should be able to sign in needs an email address. The first time they sign in they choose a 4-digit PIN; <b>Reset</b> clears it so they choose a new one (and signs them out everywhere). Untick <em>Active</em> to stop someone signing in without deleting them. This is the same roster the tournament uses — team, handicap and tee are not touched here.</p>
+      <p class="hint">Every Legend who should be able to sign in needs an email address. The first time they sign in they choose a 4-digit PIN; <b>Reset</b> clears it so they choose a new one (and signs them out everywhere). To remove someone, untick <em>Active</em> and save — they can no longer sign in and drop off the lists, but their history is kept. This is the same roster the tournament uses — team, handicap and tee are not touched here.</p>
       <div class="row" style="margin-bottom:10px;">
         <input type="text" id="memFilter" placeholder="Search names or emails" style="max-width:240px;" value="${escapeHtml(q)}">
         <label class="hint"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
         <span class="hint" id="memCounts"></span>
       </div>
-      <div class="tbl-wrap"><table class="ad" style="min-width:680px;">
-        <thead><tr><th style="width:24%">Name (Last, First)</th><th style="width:30%">Email</th><th style="width:17%">Phone</th><th>Active</th><th>PIN</th></tr></thead>
+      <div class="tbl-wrap"><table class="ad" style="min-width:820px;">
+        <thead><tr><th style="width:21%">Name (Last, First)</th><th style="width:26%">Email</th><th style="width:14%">Home phone</th><th style="width:14%">Mobile phone</th><th>Active</th><th>PIN</th></tr></thead>
         <tbody id="memBody"></tbody>
       </table></div>
       <div class="row" style="margin-top:12px;">
@@ -1034,7 +1099,7 @@ function renderMembersAdmin(el) {
   document.getElementById('memFilter').oninput = drawMemberRows;
   document.getElementById('memMissingOnly').onchange = drawMemberRows;
   document.getElementById('memAdd').onclick = () => {
-    members.push({ Name: '', Email: '', Phone: '', Active: 'TRUE', hasPin: false });
+    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', Active: 'TRUE', hasPin: false });
     document.getElementById('memFilter').value = '';
     document.getElementById('memMissingOnly').checked = false;
     drawMemberRows(); markDirty();
@@ -1056,12 +1121,13 @@ function drawMemberRows() {
     <tr class="${m.Active === 'FALSE' ? 'inactive' : ''}">
       <td><input type="text" data-idx="${idx}" data-f="Name" value="${escapeHtml(m.Name)}" placeholder="Last, First"></td>
       <td><input type="email" data-idx="${idx}" data-f="Email" value="${escapeHtml(m.Email)}" placeholder="email" autocapitalize="off"></td>
-      <td><input type="tel" data-idx="${idx}" data-f="Phone" value="${escapeHtml(m.Phone)}" placeholder="phone"></td>
+      <td><input type="tel" data-idx="${idx}" data-f="HomePhone" value="${escapeHtml(m.HomePhone || '')}" placeholder="home"></td>
+      <td><input type="tel" data-idx="${idx}" data-f="MobilePhone" value="${escapeHtml(m.MobilePhone || '')}" placeholder="mobile"></td>
       <td style="text-align:center;"><input type="checkbox" data-idx="${idx}" data-f="Active" ${m.Active !== 'FALSE' ? 'checked' : ''}></td>
       <td>${m.PlayerID === undefined ? '<span class="pin-no">new</span>'
         : m.hasPin ? `<span class="pin-yes">✓ Set</span> <button class="link danger" data-reset="${idx}">Reset</button>`
         : '<span class="pin-no">Not set yet</span>'}</td>
-    </tr>`).join('') || '<tr><td colspan="5" class="hint">No members match.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="6" class="hint">No members match.</td></tr>';
   body.querySelectorAll('[data-f]').forEach((el) => {
     el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
       const m = members[Number(el.dataset.idx)];
@@ -1081,7 +1147,7 @@ async function saveMembers() {
   btn.disabled = true;
   showStatus('memStatus', true, 'Saving…');
   try {
-    const payload = members.map((m) => ({ PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, Phone: m.Phone, Active: m.Active }));
+    const payload = members.map((m) => ({ PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', Active: m.Active }));
     const res = await apiPost('saveMembers', { members: JSON.stringify(payload) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     members = res.data;
@@ -1119,10 +1185,22 @@ function parseRosterPaste(text) {
     if (/^\d+$/.test(cells[0] || '')) i = 1; // leading row number
     const first = cells[i] || '', last = cells[i + 1] || '';
     if (!last) return;
-    const phone = cells.find((c, k) => k !== emailIdx && /\d{3}[-. ]\d{3}[-. ]\d{4}/.test(c)) || '';
-    out.push({ first, last, email: cells[emailIdx], phone });
+    // Only the Telephone column (before the email) — the Emergency Contact column after it holds a spouse's number.
+    const phoneCells = cells.filter((c, k) => k < emailIdx && /\d{3}[-. )]+\d{3}[-. ]\d{4}/.test(c));
+    const ph = splitPhones(phoneCells.join(' '));
+    out.push({ first, last, email: cells[emailIdx], home: ph.home, mobile: ph.mobile });
   });
   return out;
+}
+// "919-453-1896 (H) 919-610-0433 (M)" -> { home, mobile }. (M) and (C) are
+// mobile; a number with no label is treated as mobile. Same rule as the server.
+function splitPhones(s) {
+  const out = { home: [], mobile: [] };
+  String(s || '').replace(/(\+?\(?\d[\d\s().-]{6,}\d)\s*(?:\(([HMC])\))?/gi, (all, num, tag) => {
+    (tag && tag.toUpperCase() === 'H' ? out.home : out.mobile).push(num.trim().replace(/[\s,]+$/, ''));
+    return all;
+  });
+  return { home: out.home.join(' / '), mobile: out.mobile.join(' / ') };
 }
 // First-name candidates from "Bill (Duke) & Sue" -> ['bill', 'duke'].
 function firstNameCandidates(first) {
@@ -1156,8 +1234,8 @@ function readImport() {
   });
   const matched = importPlan.filter((p) => p.member).length;
   preview.innerHTML = `<p class="hint"><b>${matched}</b> matched to the roster · <b>${importPlan.length - matched}</b> not found (tick to add as new members).</p>
-    <div class="tbl-wrap"><table class="ad"><thead><tr><th>From spreadsheet</th><th>Email</th><th>Phone</th><th>Roster match</th></tr></thead><tbody>
-    ${importPlan.map((p, i) => `<tr><td>${escapeHtml(p.first)} ${escapeHtml(p.last)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.phone)}</td>
+    <div class="tbl-wrap"><table class="ad"><thead><tr><th>From spreadsheet</th><th>Email</th><th>Home</th><th>Mobile</th><th>Roster match</th></tr></thead><tbody>
+    ${importPlan.map((p, i) => `<tr><td>${escapeHtml(p.first)} ${escapeHtml(p.last)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.home)}</td><td>${escapeHtml(p.mobile)}</td>
       <td>${p.member ? `<span class="imp-ok">✓ ${escapeHtml(p.member.Name)}</span>` : `<label class="imp-new"><input type="checkbox" data-impadd="${i}" checked> add as “${escapeHtml(p.newName)}”</label>`}</td></tr>`).join('')}
     </tbody></table></div>`;
   preview.querySelectorAll('[data-impadd]').forEach((c) => c.onchange = () => { importPlan[Number(c.dataset.impadd)].add = c.checked; });
@@ -1167,8 +1245,8 @@ function applyImport() {
   if (!importPlan) return;
   let n = 0;
   importPlan.forEach((p) => {
-    if (p.member) { p.member.Email = p.email; if (p.phone) p.member.Phone = p.phone; n++; }
-    else if (p.add) { members.push({ Name: p.newName, Email: p.email, Phone: p.phone, Active: 'TRUE', hasPin: false }); n++; }
+    if (p.member) { p.member.Email = p.email; if (p.home) p.member.HomePhone = p.home; if (p.mobile) p.member.MobilePhone = p.mobile; n++; }
+    else if (p.add) { members.push({ Name: p.newName, Email: p.email, HomePhone: p.home, MobilePhone: p.mobile, Active: 'TRUE', hasPin: false }); n++; }
   });
   importPlan = null;
   document.getElementById('impApply').disabled = true;
@@ -1177,39 +1255,53 @@ function applyImport() {
 }
 
 // ---------------- Tee Time Duty (admin) ----------------
-let dutyEdit = null; // { from, to, days: { key: { inperson:[id,id,id], phone:[id], target } } }
+let dutyEdit = null; // { from, to, days: { key: { slots: [{ id, role } x3], target } } }
+const DUTY_SLOTS = 3; // only three people get tee times each day
 function mondayOf(key) { return addDays(key, -((dowOf(key) + 6) % 7)); }
+// Usual pattern every duty day: two in person plus one phone-in.
+function defaultRole(key, i) { return i < 2 ? 'inperson' : 'phone'; }
+function emptyDutyDay(key) { return { slots: [0, 1, 2].map((i) => ({ id: '', role: defaultRole(key, i) })), target: '' }; }
+// Put people into a day's three slots: in-person people first, then phone-in.
+function fillDutySlots(key, people) {
+  const day = emptyDutyDay(key);
+  const ordered = people.filter((x) => x.role === 'inperson').concat(people.filter((x) => x.role !== 'inperson'));
+  ordered.slice(0, DUTY_SLOTS).forEach((x, i) => { day.slots[i] = { id: String(x.id), role: x.role }; });
+  return day;
+}
 function startDutyEdit(from, to) {
-  const days = {};
-  for (let k = from; k <= to; k = addDays(k, 1)) if (isPlayDay(k)) days[k] = { inperson: [], phone: [], target: '' };
+  const days = {}, people = {}, targets = {};
+  for (let k = from; k <= to; k = addDays(k, 1)) if (isPlayDay(k)) people[k] = [];
   (board.duty || []).filter((x) => x.DateKey >= from && x.DateKey <= to).forEach((x) => {
-    const d = days[x.DateKey] || (days[x.DateKey] = { inperson: [], phone: [], target: '' });
-    d[x.Role === 'phone' ? 'phone' : 'inperson'].push(String(x.PlayerID));
-    if (x.TargetKey) d.target = x.TargetKey;
+    (people[x.DateKey] = people[x.DateKey] || []).push({ id: x.PlayerID, role: x.Role === 'phone' ? 'phone' : 'inperson' });
+    if (x.TargetKey) targets[x.DateKey] = x.TargetKey;
   });
+  Object.keys(people).forEach((k) => { days[k] = fillDutySlots(k, people[k]); days[k].target = targets[k] || ''; });
   dutyEdit = { from, to, days };
 }
 function defaultTarget(key) { let t = addDays(key, 14); for (let i = 0; i < 7 && !isPlayDay(t); i++) t = addDays(t, 1); return t; }
 function renderDutyAdmin(el) {
   if (!dutyEdit) { const m = mondayOf(board.today); startDutyEdit(m, addDays(m, 7 * 13 - 3)); }
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
-  const sel = (key, role, i, val) => `<select data-dk="${key}" data-role="${role}" data-i="${i}" style="max-width:150px;"><option value=""></option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === String(val) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>`;
+  const slotHtml = (key, i, sl) => `<div class="duty-slot" style="display:flex;gap:4px;align-items:center;">
+      <select data-dk="${key}" data-i="${i}" data-sf="id" style="max-width:150px;"><option value="">— nobody —</option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === String(sl.id) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>
+      <select data-dk="${key}" data-i="${i}" data-sf="role" style="width:auto;"><option value="inperson" ${sl.role !== 'phone' ? 'selected' : ''}>In person</option><option value="phone" ${sl.role === 'phone' ? 'selected' : ''}>Phone in</option></select>
+      ${sl.id ? `<button class="link danger" title="Take this person off" data-clear="${key}" data-i="${i}" style="font-size:18px;line-height:1;">×</button>` : ''}
+    </div>`;
   const keys = Object.keys(dutyEdit.days).sort();
   el.innerHTML = `
     <div class="card">
       <h2>Tee Time Duty assignments</h2>
-      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. It books the round two weeks later (shown at right; change it for an unusual day like a Thursday standing in for a holiday). Fridays usually have three in-person and no phone-in. Use the date range to look back at past duty too. Nothing is saved until you click <b>Save duty</b>.</p>
+      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. There are three spots a day — normally two in person and one phone-in; for each pick the person and whether they go <b>in person</b> or <b>phone in</b>. To take someone off, click the <b>×</b> next to their name (or choose “— nobody —”). Each duty day books the round two weeks later (shown at right; change it for an unusual day like a Thursday standing in for a holiday). Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
       <div class="row" style="margin-bottom:8px;">
         <label class="hint">From <input type="date" id="dFrom" value="${dutyEdit.from}"></label>
         <label class="hint">To <input type="date" id="dTo" value="${dutyEdit.to}"></label>
         <button class="secondary" id="dLoad">Show</button>
         <span class="hint">Add an extra duty day:</span><input type="date" id="dExtra"><button class="secondary" id="dAddExtra">Add</button>
       </div>
-      <div class="tbl-wrap"><table class="ad" style="min-width:860px;"><thead><tr><th>Duty day</th><th>In person 1</th><th>In person 2</th><th>In person 3</th><th>Phone in</th><th>Books round on</th></tr></thead><tbody>
+      <div class="tbl-wrap"><table class="ad" style="min-width:960px;"><thead><tr><th>Duty day</th><th>Spot 1</th><th>Spot 2</th><th>Spot 3</th><th>Books round on</th></tr></thead><tbody>
       ${keys.map((k) => { const d = dutyEdit.days[k]; return `<tr class="${isPlayDay(k) ? '' : 'weekend'}">
         <td><b>${escapeHtml(dateShort(k))}</b>${k < board.today ? ' <span class="hint">past</span>' : ''}</td>
-        <td>${sel(k, 'inperson', 0, d.inperson[0])}</td><td>${sel(k, 'inperson', 1, d.inperson[1])}</td><td>${sel(k, 'inperson', 2, d.inperson[2])}</td>
-        <td>${sel(k, 'phone', 0, d.phone[0])}</td>
+        ${d.slots.map((sl, i) => `<td>${slotHtml(k, i, sl)}</td>`).join('')}
         <td><input type="date" data-target="${k}" value="${d.target || defaultTarget(k)}"></td></tr>`; }).join('')}
       </tbody></table></div>
       <div class="row" style="margin-top:12px;"><button class="primary" id="dSave">Save duty</button>${dirtyNote}</div>
@@ -1224,11 +1316,14 @@ function renderDutyAdmin(el) {
       <div id="dPreview" style="margin-top:8px;"></div>
     </div>`;
   el.querySelectorAll('select[data-dk]').forEach((s) => s.onchange = () => {
-    const d = dutyEdit.days[s.dataset.dk];
-    const arr = d[s.dataset.role];
-    arr[Number(s.dataset.i)] = s.value;
-    d[s.dataset.role] = arr.map((x) => x || '');
+    const sl = dutyEdit.days[s.dataset.dk].slots[Number(s.dataset.i)];
+    sl[s.dataset.sf] = s.value;
     markDirty();
+    if (s.dataset.sf === 'id') renderDutyAdmin(el); // show / hide the × button
+  });
+  el.querySelectorAll('[data-clear]').forEach((b) => b.onclick = () => {
+    dutyEdit.days[b.dataset.clear].slots[Number(b.dataset.i)].id = '';
+    markDirty(); renderDutyAdmin(el);
   });
   el.querySelectorAll('input[data-target]').forEach((i) => i.onchange = () => { dutyEdit.days[i.dataset.target].target = i.value; markDirty(); });
   document.getElementById('dLoad').onclick = () => {
@@ -1241,7 +1336,7 @@ function renderDutyAdmin(el) {
     const k = document.getElementById('dExtra').value;
     if (!k) return;
     if (k < dutyEdit.from || k > dutyEdit.to) { showStatus('dStatus', false, 'That date is outside the range shown — widen the range first.'); return; }
-    if (!dutyEdit.days[k]) dutyEdit.days[k] = { inperson: [], phone: [], target: '' };
+    if (!dutyEdit.days[k]) dutyEdit.days[k] = emptyDutyDay(k);
     renderDutyAdmin(el); markDirty();
   };
   document.getElementById('dSave').onclick = saveDutyEdit;
@@ -1249,17 +1344,24 @@ function renderDutyAdmin(el) {
   document.getElementById('dApply').onclick = applyDutyPaste;
   if (adminDirty) document.getElementById('adDirty').hidden = false;
 }
-async function saveDutyEdit() {
+function dutyRowsFromEdit() {
   const rows = [];
-  Object.keys(dutyEdit.days).forEach((k) => {
+  for (const k of Object.keys(dutyEdit.days).sort()) {
     const d = dutyEdit.days[k];
     const seen = new Set();
-    ['inperson', 'phone'].forEach((role) => d[role].forEach((id) => {
-      if (!id || seen.has(id)) return;
-      seen.add(id);
-      rows.push({ DateKey: k, Role: role, PlayerID: id, TargetKey: d.target && d.target !== defaultTarget(k) ? d.target : '' });
-    }));
-  });
+    for (const sl of d.slots) {
+      if (!sl.id) continue;
+      if (seen.has(sl.id)) { const r = rosterById(sl.id); return { error: `${displayName(r ? r.Name : 'Someone')} is in two spots on ${dateShort(k)}.` }; }
+      seen.add(sl.id);
+      rows.push({ DateKey: k, Role: sl.role === 'phone' ? 'phone' : 'inperson', PlayerID: sl.id, TargetKey: d.target && d.target !== defaultTarget(k) ? d.target : '' });
+    }
+  }
+  return { rows };
+}
+async function saveDutyEdit() {
+  const out = dutyRowsFromEdit();
+  if (out.error) { showStatus('dStatus', false, out.error); return; }
+  const rows = out.rows;
   const ok = await adminSave('legendsSaveDuty', { fromKey: dutyEdit.from, toKey: dutyEdit.to, rows: JSON.stringify(rows) }, 'dStatus', `Saved ${rows.length} assignments.`);
   if (ok) { startDutyEdit(dutyEdit.from, dutyEdit.to); renderDutyAdmin(document.getElementById('adminContent')); showStatus('dStatus', true, `Saved ${rows.length} assignments.`); }
 }
@@ -1347,15 +1449,22 @@ function applyDutyPaste() {
     startDutyEdit(from, to);
     Object.keys(keep).forEach((k) => { dutyEdit.days[k] = keep[k]; });
   }
-  dates.forEach((k) => { dutyEdit.days[k] = { inperson: [], phone: [], target: '' }; });
+  const people = {};
+  dates.forEach((k) => { people[k] = []; });
   good.forEach((p) => p.dates.forEach((k) => {
-    const arr = dutyEdit.days[k][p.role];
-    if (arr.indexOf(String(p.member.PlayerID)) === -1) arr.push(String(p.member.PlayerID));
+    if (!people[k].some((x) => x.id === String(p.member.PlayerID))) people[k].push({ id: String(p.member.PlayerID), role: p.role });
   }));
+  const over = dates.filter((k) => people[k].length > DUTY_SLOTS);
+  // On the quarterly sheet, three people in person on one day means the club is closed two weeks later.
+  const closedKeys = new Set((board.closures || []).map((c) => c.DateKey));
+  const looksClosed = dates.filter((k) => people[k].filter((x) => x.role === 'inperson').length >= 3 && !closedKeys.has(dutyEdit.days[k] && dutyEdit.days[k].target ? dutyEdit.days[k].target : defaultTarget(k)));
+  dates.forEach((k) => { dutyEdit.days[k] = fillDutySlots(k, people[k]); });
   // A duty day that isn't a Mon/Wed/Fri (e.g. Thursday Dec 24) gets its "books round on" set to the next play day automatically.
   adminDirty = true;
   renderDutyAdmin(document.getElementById('adminContent'));
-  showStatus('dStatus', true, `Filled in ${dates.length} duty days from the paste — review, then click Save duty.`);
+  showStatus('dStatus', !over.length, `Filled in ${dates.length} duty days from the paste — review, then click Save duty.` +
+    (over.length ? ` More than three people were listed on ${over.map(dateShort).join(', ')}; only the first three were kept.` : '') +
+    (looksClosed.length ? ` Three people in person usually means the club is closed two weeks later — check Closures for the round booked by ${looksClosed.map((k) => dateShort(k)).join(', ')} (${looksClosed.map((k) => dateShort(defaultTarget(k))).join(', ')}).` : ''));
 }
 
 // ---------------- Day setup ----------------
@@ -1367,15 +1476,15 @@ function renderDaysAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Day setup</h2>
-      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> for that day (the default is ${escapeHtml(board.settings.LegendsFirstOffsetMin)} minutes after the club's first tee time). The Fun and Nassau times shown on Sign-ups are estimated from it; type exact ranges (e.g. <code>8:40 - 9:08</code>) to override. Change the slots if you got fewer or more tee times. <b>Open early</b> lets members sign up now — for a tournament or special event. Each row saves on its own.</p>
-      <div class="tbl-wrap"><table class="ad" style="min-width:840px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun times</th><th>Nassau times</th><th>Fun slots</th><th>Nassau slots</th><th>Open early</th><th></th></tr></thead><tbody>
+      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> for that day (the default is ${escapeHtml(board.settings.LegendsFirstOffsetMin)} minutes after the club's first tee time). Set how many tee times each group got (e.g. 5 Fun and 4 Nassau); each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, so that sets the number of slots. The times are worked out from the first time, ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…); type exact ranges to override them. <b>Open early</b> lets members sign up now — for a tournament or special event. Each row saves on its own.</p>
+      <div class="tbl-wrap"><table class="ad" style="min-width:900px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th>Open early</th><th></th></tr></thead><tbody>
       ${keys.map((k) => { const c = cfgBy[k] || {}; const inf = infoBy[k]; const closed = (board.closures || []).find((x) => x.DateKey === k); return `<tr>
         <td><b>${escapeHtml(dateShort(k))}</b>${closed ? '<div class="hint" style="color:var(--error)">closed</div>' : ''}</td>
         <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(inf ? inf.legendsFirst : '8:40 AM')}" style="width:95px;"></td>
+        <td><input type="number" min="0" max="9" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
+        <td><input type="number" min="0" max="9" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;">${c.FunSlots || c.NassauSlots ? `<div class="hint">older slot setting in use (${escapeHtml(c.FunSlots || '–')}/${escapeHtml(c.NassauSlots || '–')}); Save replaces it</div>` : ''}</td>
         <td><input type="text" data-c="FunTimes" data-k="${k}" value="${escapeHtml(c.FunTimes || '')}" placeholder="${escapeHtml(inf ? inf.funTimes : '')}" style="width:140px;"></td>
         <td><input type="text" data-c="NassauTimes" data-k="${k}" value="${escapeHtml(c.NassauTimes || '')}" placeholder="${escapeHtml(inf ? inf.nassauTimes : '')}" style="width:140px;"></td>
-        <td><input type="number" min="0" data-c="FunSlots" data-k="${k}" value="${escapeHtml(c.FunSlots || '')}" placeholder="${escapeHtml(board.settings.FunSlots)}" style="width:64px;"></td>
-        <td><input type="number" min="0" data-c="NassauSlots" data-k="${k}" value="${escapeHtml(c.NassauSlots || '')}" placeholder="${escapeHtml(board.settings.NassauSlots)}" style="width:64px;"></td>
         <td style="text-align:center;"><input type="checkbox" data-c="OpenEarly" data-k="${k}" ${String(c.OpenEarly).toUpperCase() === 'TRUE' ? 'checked' : ''}></td>
         <td><button class="secondary" data-save-day="${k}">Save</button></td></tr>`; }).join('')}
       </tbody></table></div>
@@ -1383,7 +1492,7 @@ function renderDaysAdmin(el) {
     </div>`;
   el.querySelectorAll('[data-save-day]').forEach((b) => b.onclick = () => {
     const k = b.dataset.saveDay;
-    const row = { DateKey: k };
+    const row = { DateKey: k, FunSlots: '', NassauSlots: '' }; // slots now come from the tee time counts
     el.querySelectorAll(`[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
     adminSave('legendsSaveDayConfig', { row: JSON.stringify(row) }, 'daysStatus', `Saved ${dateShort(k)}.`);
   });
@@ -1457,10 +1566,11 @@ function renderRulesAdmin(el) {
     <div class="card">
       <h2>Sign-up rules</h2>
       <div class="grid2">
-        ${f('FunSlots', 'Fun group slots', 'number')}${f('NassauSlots', 'Nassau group slots', 'number')}${f('StandbySlots', 'Standby slots (each group)', 'number')}
+        ${f('FunTeeTimes', 'Fun group tee times (usual)', 'number')}${f('NassauTeeTimes', 'Nassau group tee times (usual)', 'number')}${f('PlayersPerTeeTime', 'Players per tee time', 'number')}
+        ${f('StandbySlots', 'Standby slots (each group)', 'number')}
         ${f('SignupOpenDaysBefore', 'Sign-ups open this many days ahead', 'number')}${f('SignupOpenTime', 'Sign-ups open at')}${f('SignupCloseDaysBefore', 'Last sign-up day: days before play', 'number')}
-        ${f('DefaultClubFirstTee', 'Club first tee time (if none entered)')}${f('LegendsFirstOffsetMin', 'First Legends time: minutes after club first', 'number')}${f('TeeIntervalMin', 'Minutes between tee times (estimates)', 'number')}
-        ${f('FunTeeTimes', 'Fun group tee times', 'number')}${f('NassauTeeTimes', 'Nassau group tee times', 'number')}${f('BoardDaysAhead', 'Days shown on Sign-ups', 'number')}
+        ${f('DefaultClubFirstTee', 'Club first tee time (if none entered)')}${f('LegendsFirstOffsetMin', 'First Legends time: minutes after club first', 'number')}${f('TeeIntervalMin', 'Minutes between tee times', 'number')}
+        ${f('BoardDaysAhead', 'Days shown on Sign-ups', 'number')}
         ${f('AdminEmail', 'Admin email (late drop-out alerts)', 'email')}${f('TeeOptions', 'Tee choices (comma separated)')}
       </div>
       <h3>Tee Time Duty instructions</h3>
