@@ -41,6 +41,9 @@
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .subtab-btn { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font: inherit; font-size: 0.86rem; cursor: pointer; }
+  .admin-groups { display: flex; gap: 0; margin-bottom: 10px; border-bottom: 2px solid var(--border); }
+  .admin-group { padding: 8px 22px; border: none; background: none; font: inherit; font-weight: 600; font-size: 1rem; color: #666; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+  .admin-group.active { color: var(--green-dark, var(--green)); border-bottom-color: var(--green); }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -204,15 +207,19 @@
         <div id="adminLockStatus" class="status"></div>
       </div>
       <div id="adminBody" hidden>
+        <div class="admin-groups" id="adminGroups">
+          <button type="button" class="admin-group active" data-agroup="setup">Setup</button>
+          <button type="button" class="admin-group" data-agroup="info">Info</button>
+        </div>
         <div class="subtabs" id="adminSubtabs">
-          <button type="button" class="subtab-btn active" data-asub="members">Members</button>
-          <button type="button" class="subtab-btn" data-asub="duty">Tee Time Duty</button>
-          <button type="button" class="subtab-btn" data-asub="days">Day setup</button>
-          <button type="button" class="subtab-btn" data-asub="closures">Closures &amp; notices</button>
-          <button type="button" class="subtab-btn" data-asub="teetimes">Club first tee times</button>
-          <button type="button" class="subtab-btn" data-asub="events">Events</button>
-          <button type="button" class="subtab-btn" data-asub="rules">Sign-up rules</button>
-          <button type="button" class="subtab-btn" data-asub="activity">Activity</button>
+          <button type="button" class="subtab-btn active" data-group="setup" data-asub="duty">Tee Time Duty</button>
+          <button type="button" class="subtab-btn" data-group="setup" data-asub="days">First Tee Time</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="members" hidden>Members</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="closures" hidden>Closures &amp; notices</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="events" hidden>Events</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="rules" hidden>Sign-up rules</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
         </div>
         <div id="adminContent"></div>
       </div>
@@ -232,7 +239,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07i';
+const APP_VERSION = '2026-10-07l';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1029,13 +1036,32 @@ function wireSwaps(el) {
 }
 
 // ====================== ADMIN ======================
-let adminSub = 'members';
-document.querySelectorAll('#adminSubtabs [data-asub]').forEach((b) => b.addEventListener('click', () => {
-  if (adminDirty && !confirm('You have unsaved changes on this admin page. Leave without saving?')) return;
-  adminDirty = false;
-  adminSub = b.dataset.asub;
-  document.querySelectorAll('#adminSubtabs [data-asub]').forEach((x) => x.classList.toggle('active', x === b));
+// Admin has two groups: Setup (Tee Time Duty, First Tee Time) and Info (everything else).
+let adminSub = 'duty';
+function showAdminSub(sub) {
+  adminSub = sub;
+  const btn = document.querySelector(`#adminSubtabs [data-asub="${sub}"]`);
+  const group = btn ? btn.dataset.group : 'setup';
+  document.querySelectorAll('#adminGroups [data-agroup]').forEach((x) => x.classList.toggle('active', x.dataset.agroup === group));
+  document.querySelectorAll('#adminSubtabs [data-asub]').forEach((x) => { x.hidden = x.dataset.group !== group; x.classList.toggle('active', x.dataset.asub === sub); });
   renderAdminSub();
+}
+function leaveAdminPageOk() {
+  if (adminDirty && !confirm('You have unsaved changes on this admin page. Leave without saving?')) return false;
+  adminDirty = false;
+  return true;
+}
+document.querySelectorAll('#adminSubtabs [data-asub]').forEach((b) => b.addEventListener('click', () => {
+  if (b.dataset.asub === adminSub || !leaveAdminPageOk()) return;
+  showAdminSub(b.dataset.asub);
+}));
+const lastSubInGroup = { setup: 'duty', info: 'members' };
+document.querySelectorAll('#adminGroups [data-agroup]').forEach((b) => b.addEventListener('click', () => {
+  const cur = document.querySelector(`#adminSubtabs [data-asub="${adminSub}"]`);
+  if (cur && cur.dataset.group === b.dataset.agroup) return;
+  if (!leaveAdminPageOk()) return;
+  if (cur) lastSubInGroup[cur.dataset.group] = adminSub;
+  showAdminSub(lastSubInGroup[b.dataset.agroup]);
 }));
 let adminDirty = false;
 function markDirty() { adminDirty = true; const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
@@ -1524,7 +1550,7 @@ function applyDutyPaste() {
     (over.length ? ` More people than fit the columns were listed on ${over.map(dateShort).join(', ')} — remove the extras with × before saving.` : ''));
 }
 
-// ---------------- Day setup ----------------
+// ---------------- First Tee Time (per-day setup) ----------------
 // Same rules as the server (laParseTime_ / laNextTee_): 8 minutes apart, but the
 // club always restarts on the hour, so ...8:40, 8:48, 9:00, 9:08...
 function parseClock(s) {
@@ -1557,9 +1583,9 @@ function renderDaysAdmin(el) {
   const total = totalTeeTimes();
   el.innerHTML = `
     <div class="card">
-      <h2>Day setup</h2>
-      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. <b>Open early</b> lets members sign up now — for a tournament or special event. Each row saves on its own.</p>
-      <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th>Open early</th><th></th></tr></thead><tbody>
+      <h2>First Tee Time <span class="hint" style="font-weight:400;">— the Legends tee times for each day</span></h2>
+      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. Each row saves on its own.</p>
+      <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th></th></tr></thead><tbody>
       ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); return `<tr>
         <td><b>${escapeHtml(dateShort(k))}</b>${closed ? '<div class="hint" style="color:var(--error)">closed</div>' : ''}</td>
         <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(defaultLegendsFirst(k))}" style="width:95px;"></td>
@@ -1567,7 +1593,6 @@ function renderDaysAdmin(el) {
         <td><input type="number" min="0" max="14" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
         <td data-show="fun" data-k="${k}" style="white-space:nowrap;"></td>
         <td data-show="nassau" data-k="${k}" style="white-space:nowrap;"></td>
-        <td style="text-align:center;"><input type="checkbox" data-c="OpenEarly" data-k="${k}" ${String(c.OpenEarly).toUpperCase() === 'TRUE' ? 'checked' : ''}></td>
         <td><button class="secondary" data-save-day="${k}">Save</button></td></tr>`; }).join('')}
       </tbody></table></div>
       <div id="daysStatus" class="status"></div>
@@ -1603,7 +1628,7 @@ function renderDaysAdmin(el) {
     const k = b.dataset.saveDay;
     if (inp(k, 'LegendsFirst').value.trim() && parseClock(inp(k, 'LegendsFirst').value) === null) { showStatus('daysStatus', false, `${dateShort(k)}: enter the first time like 8:40 AM.`); return; }
     // Slots and times now come from the tee time counts, so older per-day overrides are cleared.
-    const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: '', NassauTimes: '' };
+    const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: '', NassauTimes: '', OpenEarly: '' };
     el.querySelectorAll(`input[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
     if (row.LegendsFirst) row.LegendsFirst = fmtClock(parseClock(row.LegendsFirst));
     adminSave('legendsSaveDayConfig', { row: JSON.stringify(row) }, 'daysStatus', `Saved ${dateShort(k)}.`);
