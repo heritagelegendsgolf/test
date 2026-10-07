@@ -219,6 +219,7 @@
           <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="events" hidden>Events</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="rules" hidden>Sign-up rules</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="sugimport" hidden>SignUp Genius import</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
         </div>
         <div id="adminContent"></div>
@@ -239,7 +240,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07l';
+const APP_VERSION = '2026-10-07m';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1119,6 +1120,7 @@ function renderAdminSub() {
   if (adminSub === 'events') return renderEventsAdmin(el);
   if (adminSub === 'rules') return renderRulesAdmin(el);
   if (adminSub === 'activity') return renderActivityAdmin(el);
+  if (adminSub === 'sugimport') return renderSugImportAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 
@@ -1599,6 +1601,7 @@ function renderDaysAdmin(el) {
     </div>`;
   const inp = (k, f) => el.querySelector(`[data-k="${k}"][data-c="${f}"]`);
   const val = (k, f) => { const i = inp(k, f); return i ? (i.value.trim() || i.placeholder) : ''; };
+  const touched = {}; // rows changed on screen; untouched rows keep any times imported from SignUp Genius
   const refresh = (k) => {
     const first = parseClock(val(k, 'LegendsFirst'));
     const nf = Math.max(0, parseInt(val(k, 'FunTeeTimes'), 10) || 0), nn = Math.max(0, parseInt(val(k, 'NassauTeeTimes'), 10) || 0);
@@ -1610,6 +1613,9 @@ function renderDaysAdmin(el) {
     nasCell.textContent = range(seq.slice(nf));
     funCell.title = seq.slice(0, nf).map(fmtClock).join(', ');
     nasCell.title = seq.slice(nf).map(fmtClock).join(', ');
+    const c = cfgBy[k] || {};
+    if (!touched[k] && c.FunTimes) { funCell.textContent = c.FunTimes; funCell.title = 'As SignUp Genius had it'; }
+    if (!touched[k] && c.NassauTimes) { nasCell.textContent = c.NassauTimes; nasCell.title = 'As SignUp Genius had it'; }
   };
   keys.forEach((k) => {
     refresh(k);
@@ -1618,17 +1624,18 @@ function renderDaysAdmin(el) {
       // Nassau gets the rest of the day's tee times.
       const n = parseInt(fun.value, 10);
       nas.value = fun.value.trim() === '' ? '' : String(Math.max(0, total - (isNaN(n) ? 0 : n)));
-      refresh(k);
+      touched[k] = true; refresh(k);
     });
-    nas.addEventListener('input', () => refresh(k));
-    first.addEventListener('input', () => refresh(k));
+    nas.addEventListener('input', () => { touched[k] = true; refresh(k); });
+    first.addEventListener('input', () => { touched[k] = true; refresh(k); });
     first.addEventListener('change', () => { const t = parseClock(first.value); if (t !== null) first.value = fmtClock(t); refresh(k); });
   });
   el.querySelectorAll('[data-save-day]').forEach((b) => b.onclick = () => {
     const k = b.dataset.saveDay;
     if (inp(k, 'LegendsFirst').value.trim() && parseClock(inp(k, 'LegendsFirst').value) === null) { showStatus('daysStatus', false, `${dateShort(k)}: enter the first time like 8:40 AM.`); return; }
     // Slots and times now come from the tee time counts, so older per-day overrides are cleared.
-    const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: '', NassauTimes: '', OpenEarly: '' };
+    const c = cfgBy[k] || {};
+    const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: touched[k] ? '' : (c.FunTimes || ''), NassauTimes: touched[k] ? '' : (c.NassauTimes || ''), OpenEarly: '' };
     el.querySelectorAll(`input[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
     if (row.LegendsFirst) row.LegendsFirst = fmtClock(parseClock(row.LegendsFirst));
     adminSave('legendsSaveDayConfig', { row: JSON.stringify(row) }, 'daysStatus', `Saved ${dateShort(k)}.`);
@@ -1723,6 +1730,234 @@ function renderRulesAdmin(el) {
     el.querySelectorAll('[data-st]').forEach((i) => { patch[i.dataset.st] = i.value; });
     adminSave('legendsSaveAppSettings', { settings: JSON.stringify(patch) }, 'rulesStatus');
   };
+}
+
+// ---- SignUp Genius import (pure parsing; unit-tested separately) ----
+// Reads text copied from the SignUp Genius page (or its PDF) and returns
+// [{ key, closed, fun:{ range, slots, people:[{name, comment}] }, nassau:{...} }].
+// People are in sign-up order: the group list first, then its standby list.
+const SUG_GOLF_WORDS = /\b(gold|god|golf|red|white|hybrid|walk|walking|ride|riding|cart|holes?|nine|group|last|first|please|tees?|second|join|if|available|possibly|opening|front|back)\b/i;
+function parseSugPaste(text) {
+  const days = [];
+  let day = null, list = null, cur = null;
+  const segs = []; // strip the icons SignUp Genius puts beside names
+  String(text || '').split(/\r?\n/).forEach((line) => line.split(/\t| {2,}/).forEach((x) => { x = x.replace(/[-✀-➿]/g, '').replace(/^[^A-Za-z0-9(]+/, '').trim(); if (x) segs.push(x); }));
+  const grp = (g) => (day[g] = day[g] || { range: null, slots: null, main: { names: [], expected: null, cap: null }, standby: { names: [], expected: null, cap: null }, dropped: [], people: [] });
+  const open = (g, which, seg) => {
+    const G = grp(g);
+    const m = seg.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/), c = seg.match(/\((\d+)\)\s*$/);
+    if (m) G.range = [m[1], m[2]];
+    if (c) { G[which].cap = parseInt(c[1], 10); if (which === 'main') G.slots = G[which].cap; }
+    list = G[which]; cur = null;
+  };
+  for (let seg of segs) {
+    const dm = seg.match(/^(\d{2})\/(\d{2})\/(\d{4})\b\s*(\([A-Za-z.]+\))?\s*(.*)$/);
+    if (dm) {
+      day = { key: `${dm[3]}-${dm[1]}-${dm[2]}`, closed: '', fun: null, nassau: null };
+      days.push(day); list = null; cur = null;
+      seg = dm[5].trim();
+      if (!seg) continue;
+    }
+    if (!day) continue;
+    let m;
+    if (/^fun group\b/i.test(seg)) { open('fun', 'main', seg); continue; }
+    if (/^fun standby\b/i.test(seg)) { open('fun', 'standby', seg); continue; }
+    if (/^nassau group\b/i.test(seg)) { open('nassau', 'main', seg); continue; }
+    if (/^nassau standby\b/i.test(seg)) { open('nassau', 'standby', seg); continue; }
+    if (/^no tee times\b/i.test(seg)) { day.closed = seg.replace(/^no tee times\s*[-–:]?\s*/i, '').trim() || 'No tee times'; list = null; cur = null; continue; }
+    if (/^(request in-person|phone-in|no need to make tee times)/i.test(seg)) { list = null; cur = null; continue; }
+    if ((m = seg.match(/^(\d+) of (\d+) slots filled$/i))) { if (list && list.expected === null) list.expected = parseInt(m[1], 10); cur = null; continue; }
+    if (/^all slots filled$/i.test(seg)) { if (list && list.expected === null) list.expected = list.cap; cur = null; continue; }
+    if (/^sign up$/i.test(seg)) { cur = null; continue; }
+    if (/^\(\d+\)$/.test(seg) || !list) continue;
+    const looksLikeName = /^[A-Z][A-Za-z.'’-]*(\s+[A-Z][A-Za-z.'’-]*){1,2}$/.test(seg) && !SUG_GOLF_WORDS.test(seg);
+    if (looksLikeName) { cur = { name: seg, comment: '' }; list.names.push(cur); }
+    else if (cur) cur.comment = (cur.comment ? cur.comment + ' ' : '') + seg;
+  }
+  // When text is copied from a PDF, names from the neighbouring Tee Time Duty
+  // column can land at the top of a list. SignUp Genius says how many are in
+  // each list ("15 of 16 slots filled"), so extra names at the top are set aside.
+  days.forEach((d) => ['fun', 'nassau'].forEach((g) => {
+    const G = d[g];
+    if (!G) return;
+    ['main', 'standby'].forEach((w) => {
+      const L = G[w];
+      if (L.expected !== null && L.names.length > L.expected) G.dropped = G.dropped.concat(L.names.splice(0, L.names.length - L.expected));
+    });
+    G.people = G.main.names.concat(G.standby.names);
+  }));
+  return days;
+}
+// "Robert Grosso" -> roster "Grosso, Bob". A unique last name is enough; a shared
+// one (Davis) needs the first name, allowing common nicknames.
+const NICKNAMES = [['robert', 'bob', 'rob', 'bobby'], ['william', 'bill', 'will', 'billy'], ['james', 'jim', 'jimmy'], ['charles', 'chuck', 'charlie'],
+  ['richard', 'dick', 'rick'], ['thomas', 'tom', 'tommy'], ['michael', 'mike'], ['daniel', 'dan', 'danny'], ['joseph', 'joe'], ['edward', 'ed', 'eddie'],
+  ['lawrence', 'larry'], ['ronald', 'ron'], ['raymond', 'ray'], ['kenneth', 'ken'], ['stephen', 'steve', 'steven'], ['gregory', 'greg'], ['gerald', 'jerry'],
+  ['donald', 'don'], ['david', 'dave'], ['albert', 'al'], ['alfred', 'al'], ['peter', 'pete'], ['randall', 'randy'], ['irwin', 'irv', 'irving'], ['lewis', 'lou', 'louis'],
+  ['jeffrey', 'jeff'], ['john', 'jack'], ['frederick', 'fred'], ['douglas', 'doug'], ['patrick', 'pat'], ['anthony', 'tony'], ['nicholas', 'nick']];
+function sameFirstName(a, b) {
+  a = String(a || '').toLowerCase().replace(/[^a-z]/g, ''); b = String(b || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!a || !b) return false;
+  if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
+  return NICKNAMES.some((g) => g.includes(a) && g.includes(b));
+}
+function matchSugName(roster, full) {
+  const parts = String(full || '').trim().split(/\s+/);
+  const last = parts[parts.length - 1].toLowerCase(), first = parts[0];
+  const same = roster.filter((r) => String(r.Name || '').split(',')[0].trim().toLowerCase() === last);
+  if (same.length === 1) return same[0];
+  const hits = same.filter((r) => sameFirstName(first, String(r.Name || '').split(',').slice(1).join(',').trim()));
+  return hits.length === 1 ? hits[0] : null;
+}
+// Fun-group comment -> { tee, holes, riding, note }. "Red 18 Ride", "18RR", "R18R",
+// "Gold 9 Riding", "Red/Gold 18 walk"... Anything not fully understood (or a
+// 9-hole round, since SignUp Genius never said which nine) keeps the comment as a note.
+function parseSugFunComment(comment, teeOptions) {
+  const raw = String(comment || '').trim();
+  const out = { tee: '', holes: '18', riding: false, note: '' };
+  if (!raw) return out;
+  const toks = raw.toLowerCase().match(/[a-z]+|\d+/g) || [];
+  let red = false, gold = false, white = false, unsure = false, unknown = false, holes = null, back = false;
+  toks.forEach((t, i) => {
+    const prevNum = i > 0 && /^\d+$/.test(toks[i - 1]), nextNum = i < toks.length - 1 && /^\d+$/.test(toks[i + 1]);
+    if (t === 'gold') gold = true;
+    else if (t === 'god' || t === 'golf') { gold = true; unsure = true; }
+    else if (t === 'red') red = true;
+    else if (t === 'white' || t === 'hybrid') white = true;
+    else if (t === 'rr') { red = true; out.riding = true; }
+    else if (t === 'g') gold = true;
+    else if (t === 'r' && (toks[i + 1] === 'g' || toks[i - 1] === 'g')) red = true;
+    else if (t === 'r' && prevNum) out.riding = true;
+    else if (t === 'r' && nextNum) red = true;
+    else if (/^(ride|riding|rider|cart)$/.test(t)) out.riding = true;
+    else if (/^c?walk(ing)?$/.test(t)) out.riding = false;
+    else if (t === '18') holes = '18';
+    else if (t === '9' || t === 'nine') holes = '9';
+    else if (t === 'second' || t === 'back') back = true;
+    else if (t === 'holes' || t === 'hole') { /* filler */ }
+    else unknown = true;
+  });
+  const tee = white && gold ? 'White/Gold' : red && gold ? 'Red/Gold' : gold ? 'Gold' : red ? 'Red' : white ? 'White/Gold' : '';
+  out.tee = (teeOptions || []).indexOf(tee) !== -1 ? tee : '';
+  if (tee && !out.tee) unknown = true;
+  if (holes === '9') { out.holes = back ? 'B9' : 'F9'; unsure = true; }
+  else out.holes = '18';
+  if (unknown || unsure) out.note = raw.slice(0, 120);
+  return out;
+}
+
+// ---------------- SignUp Genius import ----------------
+let sugPlan = null; // parsed days with each person matched to the roster
+function sugFunDetail(x) { return [x.tee, x.holes === 'F9' ? 'Front 9' : x.holes === 'B9' ? 'Back 9' : '18', x.riding ? 'Riding' : ''].filter(Boolean).join(' '); }
+function renderSugImportAdmin(el) {
+  el.innerHTML = `
+    <div class="card">
+      <h2>Import sign-ups from SignUp Genius</h2>
+      <p class="hint">Use this once, when switching over. Open the Legends sign-up page on SignUp Genius in a browser, press <b>Ctrl+A</b> (on a Mac <b>⌘+A</b>) to select the whole page, then <b>Ctrl+C</b> (<b>⌘+C</b>) to copy, and paste it below. Copying all the text from a PDF of the page works too. Click <b>Read</b> to see what was found — nothing changes until you click <b>Import</b>.</p>
+      <p class="hint">What comes across: each day's Fun and Nassau lists in sign-up order (standby after the main list), each Fun player's tees / holes / riding read from their SignUp Genius comment, the first tee time and number of tee times for each day, and “No tee times” days as closures. Comments that can't be fully understood — and 9-hole rounds, since SignUp Genius never said which nine — are kept as the person's note so nothing is lost. Tee Time Duty is not imported (it comes from the quarterly sheet).</p>
+      <textarea id="sugText" rows="6" placeholder="Paste the SignUp Genius page here"></textarea>
+      <div class="row" style="margin-top:8px;"><button class="secondary" id="sugRead">Read</button></div>
+      <div id="sugPreview" style="margin-top:10px;"></div>
+      <div id="sugStatus" class="status"></div>
+    </div>`;
+  document.getElementById('sugRead').onclick = () => {
+    const days = parseSugPaste(document.getElementById('sugText').value);
+    const roster = (board.roster || []);
+    const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
+    days.forEach((d) => ['fun', 'nassau'].forEach((g) => {
+      if (!d[g]) return;
+      const mainN = d[g].main.names.length;
+      d[g].people.forEach((p, i) => {
+        p.member = matchSugName(roster, p.name);
+        p.pick = p.member ? String(p.member.PlayerID) : '';
+        p.standby = i >= mainN;
+        p.parsed = g === 'fun' ? parseSugFunComment(p.comment, tees) : { note: String(p.comment || '').slice(0, 120) };
+      });
+    }));
+    sugPlan = days;
+    drawSugPreview();
+  };
+}
+function sugDayConfig(d) {
+  const per = Number(board.settings.PlayersPerTeeTime) || 4;
+  const f = d.fun, n = d.nassau;
+  const firstRange = (f && f.range) || (n && n.range);
+  if (!firstRange) return null;
+  const first = parseClock(firstRange[0]);
+  if (first === null) return null;
+  const nf = f && f.slots ? Math.round(f.slots / per) : 0, nn = n && n.slots ? Math.round(n.slots / per) : 0;
+  const seq = teeSequence(first, nf + nn);
+  const txt = (a, b) => `${fmtClock(a)} - ${fmtClock(b)}`;
+  const cfg = { LegendsFirst: fmtClock(first), FunTeeTimes: f ? String(nf) : '', NassauTeeTimes: n ? String(nn) : '', FunTimes: '', NassauTimes: '' };
+  // Keep SignUp Genius's own times when the club's times that day didn't follow the usual pattern.
+  const sug = (r) => (r ? txt(parseClock(r[0]), parseClock(r[1])) : '');
+  if (f && f.range && nf && sug(f.range) !== txt(seq[0], seq[nf - 1])) cfg.FunTimes = sug(f.range);
+  if (n && n.range && nn && sug(n.range) !== txt(seq[nf], seq[nf + nn - 1])) cfg.NassauTimes = sug(n.range);
+  return cfg;
+}
+function drawSugPreview() {
+  const box = document.getElementById('sugPreview');
+  if (!sugPlan || !sugPlan.length) { box.innerHTML = '<p class="status error">No SignUp Genius dates were found in what you pasted. Make sure you copied the whole page (Ctrl+A, then Ctrl+C).</p>'; return; }
+  const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
+  const futureDays = sugPlan.filter((d) => d.key >= board.today);
+  let total = 0, unmatched = 0;
+  const personRow = (d, g, p, i) => {
+    if (d.key >= board.today) { total++; if (!p.pick) unmatched++; }
+    const who = p.member ? `<span class="imp-ok">${escapeHtml(p.member.Name)}</span>`
+      : `<span class="imp-bad">“${escapeHtml(p.name)}” not found —</span> <select data-sugpick="${d.key}|${g}|${i}" style="max-width:170px;"><option value="">skip</option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === p.pick ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>`;
+    const det = g === 'fun' ? sugFunDetail(p.parsed) : '';
+    return `<li>${who}${p.standby ? ' <span class="hint">(standby)</span>' : ''}${det ? ` <span class="det">${escapeHtml(det)}</span>` : ''}${p.parsed.note ? ` <span class="note">${escapeHtml(p.parsed.note)}</span>` : ''}</li>`;
+  };
+  const groupHtml = (d, g) => {
+    const G = d[g];
+    if (!G) return '';
+    return `<div style="margin-top:6px;"><b>${g === 'fun' ? 'Fun' : 'Nassau'}</b> <span class="hint">${G.main.names.length} in${G.standby.names.length ? ` + ${G.standby.names.length} standby` : ''}</span>
+      <ol class="names" style="margin:4px 0 0;">${G.people.map((p, i) => personRow(d, g, p, i)).join('')}</ol>
+      ${G.dropped.length ? `<div class="hint">Set aside (these looked like Tee Time Duty names caught in the copy): ${G.dropped.map((x) => escapeHtml(x.name)).join(', ')}</div>` : ''}</div>`;
+  };
+  const html = sugPlan.map((d) => {
+    const past = d.key < board.today;
+    const cfg = sugDayConfig(d);
+    return `<div class="card" style="margin:8px 0;padding:10px 12px;${past ? 'opacity:.55;' : ''}">
+      <b>${escapeHtml(dateShort(d.key))}</b>${past ? ' <span class="hint">— already past, not imported</span>' : ''}
+      ${d.closed ? ` <span class="hint" style="color:var(--error)">No tee times — ${escapeHtml(d.closed)}</span> <span class="hint">(added to Closures)</span>` : ''}
+      ${cfg ? `<div class="hint">First Legends time ${escapeHtml(cfg.LegendsFirst)} · ${cfg.FunTeeTimes || 0} Fun and ${cfg.NassauTeeTimes || 0} Nassau tee times${cfg.FunTimes || cfg.NassauTimes ? ` · keeping SignUp Genius's times (${escapeHtml([cfg.FunTimes && 'Fun ' + cfg.FunTimes, cfg.NassauTimes && 'Nassau ' + cfg.NassauTimes].filter(Boolean).join(', '))})` : ''}</div>` : ''}
+      ${groupHtml(d, 'fun')}${groupHtml(d, 'nassau')}</div>`;
+  }).join('');
+  box.innerHTML = `<p class="hint"><b>${futureDays.length}</b> dates · <b>${total}</b> sign-ups${unmatched ? ` · <span class="imp-bad">${unmatched} not matched to the roster</span> (pick the person, or leave “skip”)` : ' · everyone matched to the roster'}.</p>
+    ${html}
+    <label class="hint" style="display:block;margin-top:8px;"><input type="checkbox" id="sugReplace"> Replace any Fun / Nassau sign-ups already in the app for these dates (otherwise anyone already signed up that day is left as they are)</label>
+    <label class="hint" style="display:block;"><input type="checkbox" id="sugSetDays" checked> Set each day's First Tee Time and number of tee times from SignUp Genius</label>
+    <div class="row" style="margin-top:10px;"><button class="primary" id="sugGo" ${futureDays.length ? '' : 'disabled'}>Import</button></div>`;
+  box.querySelectorAll('[data-sugpick]').forEach((s) => s.onchange = () => {
+    const [k, g, i] = s.dataset.sugpick.split('|');
+    sugPlan.find((d) => d.key === k)[g].people[Number(i)].pick = s.value;
+  });
+  document.getElementById('sugGo').onclick = doSugImport;
+}
+function sugImportDays() {
+  const setDays = document.getElementById('sugSetDays').checked;
+  return sugPlan.filter((d) => d.key >= board.today).map((d) => {
+    const signups = [];
+    ['fun', 'nassau'].forEach((g) => d[g] && d[g].people.forEach((p) => {
+      if (!p.pick) return;
+      const x = p.parsed;
+      signups.push(g === 'fun' ? { Group: 'fun', PlayerID: p.pick, Tee: x.tee, Holes: x.holes, Riding: x.riding ? 'TRUE' : '', Note: x.note } : { Group: 'nassau', PlayerID: p.pick, Note: x.note });
+    }));
+    return { DateKey: d.key, signups, dayConfig: setDays && !d.closed ? sugDayConfig(d) : null, closure: d.closed || '' };
+  });
+}
+async function doSugImport() {
+  const replace = document.getElementById('sugReplace').checked;
+  const days = sugImportDays();
+  const n = days.reduce((a, d) => a + d.signups.length, 0);
+  if (!confirm(`Import ${n} sign-ups for ${days.length} dates${replace ? ', replacing what is already in the app for those dates' : ''}?`)) return;
+  const btn = document.getElementById('sugGo'); btn.disabled = true;
+  const ok = await adminSave('legendsImportSignups', { days: JSON.stringify(days), replace: replace ? 'true' : 'false' }, 'sugStatus', 'Imported.');
+  if (ok && board.importSummary) {
+    const s = board.importSummary;
+    showStatus('sugStatus', true, `Imported ${s.added} sign-ups${s.skipped ? ` (${s.skipped} were already signed up and left alone)` : ''}${s.daysSet ? `, set ${s.daysSet} first tee times` : ''}${s.closuresAdded ? `, added ${s.closuresAdded} closures` : ''}. Check the Sign-ups tab.`);
+  } else if (!ok) btn.disabled = false;
 }
 
 // ---------------- Activity ----------------
