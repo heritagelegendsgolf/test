@@ -129,6 +129,11 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
+  .my-summary .sum-list { list-style:none; padding:0; margin:4px 0 10px; }
+  .my-summary .sum-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; margin:0; }
+  .my-summary .sum-row:last-child { border-bottom:none; } .my-summary .sum-text { flex:1; min-width:0; }
+  .my-summary .ts-signup-select { padding:6px 10px; font-size:12.5px; }
+  @media (max-width:640px) { .my-summary .sum-row { flex-wrap:wrap; } .my-summary .ts-toggle-wrap { width:100%; } .my-summary .ts-signup-select { width:100%; } }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -325,7 +330,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-08b';
+const APP_VERSION = '2026-10-08c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -726,30 +731,30 @@ function mySummaryHtml(items) {
         const det = detailText(list[idx]);
         found = `${g === 'fun' ? 'Fun' : 'Nassau'} group ${escapeHtml(times)} — ${idx < slots ? `<b>in</b> (#${idx + 1})` : `<b class="standby-txt">standby #${idx - slots + 1}</b>`}${det ? ` · ${escapeHtml(det)}` : ''}`;
       });
-      if (found) mine.push({ key: d.DateKey, html: `<a href="#day-${d.DateKey}">${escapeHtml(dateShort(d.DateKey))}</a> · ${found}` });
+      if (found) mine.push({ key: d.DateKey, html: `<b>${escapeHtml(dateShort(d.DateKey))}</b> · ${found}`, toggle: toggleHtml(d, state, true) });
       else if (state === 'open') {
         const f = groupList(d.DateKey, 'fun').length, n = groupList(d.DateKey, 'nassau').length;
         const room = (c, slots) => (c < slots ? `${slots - c} open` : c < slots + d.standbySlots ? 'standby only' : 'full');
-        canJoin.push({ key: d.DateKey, html: `<a href="#day-${d.DateKey}">${escapeHtml(dateShort(d.DateKey))}</a> · Fun: ${room(f, d.funSlots)} · Nassau: ${room(n, d.nassauSlots)} <span class="hint">· closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>` });
+        canJoin.push({ key: d.DateKey, html: `<b>${escapeHtml(dateShort(d.DateKey))}</b> · Fun: ${room(f, d.funSlots)} · Nassau: ${room(n, d.nassauSlots)} <span class="hint">· closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`, toggle: toggleHtml(d, state, true) });
       } else if (state === 'notyet') {
-        canJoin.push({ key: d.DateKey, html: `${escapeHtml(dateShort(d.DateKey))} <span class="hint">· sign-ups open ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>` });
+        canJoin.push({ key: d.DateKey, html: `<b>${escapeHtml(dateShort(d.DateKey))}</b> <span class="hint">· sign-ups open ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>`, toggle: '' });
       }
     } else {
       const e = it.e, group = 'event:' + e.EventID;
       const list = (board.signups || []).filter((x) => x.Group === group);
       const cap = parseInt(e.Capacity, 10) || 0, idx = list.findIndex((x) => String(x.PlayerID) === me);
-      if (idx !== -1) mine.push({ key: e.DateKey, html: `<a href="#event-${escapeHtml(e.EventID)}">${escapeHtml(dateShort(e.DateKey))}</a> · ${escapeHtml(e.Title)} — ${cap && idx >= cap ? `<b class="standby-txt">standby #${idx - cap + 1}</b>` : '<b>signed up</b>'}${list[idx].Note ? ` · ${escapeHtml(list[idx].Note)}` : ''}` });
-      else if (!cap || list.length < cap + parseInt(board.settings.StandbySlots, 10)) canJoin.push({ key: e.DateKey, html: `<a href="#event-${escapeHtml(e.EventID)}">${escapeHtml(dateShort(e.DateKey))}</a> · ${escapeHtml(e.Title)}${cap ? ` <span class="hint">· ${Math.max(cap - list.length, 0)} of ${cap} places left</span>` : ''}` });
+      if (idx !== -1) mine.push({ key: e.DateKey, toggle: eventToggleHtml(e), html: `<b>${escapeHtml(dateShort(e.DateKey))}</b> · ${escapeHtml(e.Title)} — ${cap && idx >= cap ? `<b class="standby-txt">standby #${idx - cap + 1}</b>` : '<b>signed up</b>'}${list[idx].Note ? ` · ${escapeHtml(list[idx].Note)}` : ''}` });
+      else if (!cap || list.length < cap + parseInt(board.settings.StandbySlots, 10)) canJoin.push({ key: e.DateKey, toggle: eventToggleHtml(e), html: `<b>${escapeHtml(dateShort(e.DateKey))}</b> · ${escapeHtml(e.Title)}${cap ? ` <span class="hint">· ${Math.max(cap - list.length, 0)} of ${cap} places left</span>` : ''}` });
     }
   });
   const duty = (board.duty || []).filter((x) => String(x.PlayerID) === me && x.DateKey >= board.today).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
   const dutyInfo = board.dutyDayInfo || {};
-  const li = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => `<li>${x.html}</li>`).join('');
+  const li = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => `<li class="sum-row"><div class="sum-text">${x.html}</div>${x.toggle || ''}</li>`).join('');
   return `<div class="card my-summary">
       <h3 style="margin-top:0;">What I'm signed up for</h3>
-      ${mine.length ? `<ul>${li(mine)}</ul>` : '<p class="hint">Nothing yet.</p>'}
+      ${mine.length ? `<ul class="sum-list">${li(mine)}</ul>` : '<p class="hint">Nothing yet.</p>'}
       <h3>What I can sign up for</h3>
-      ${canJoin.length ? `<ul>${li(canJoin)}</ul>` : '<p class="hint">Nothing open right now.</p>'}
+      ${canJoin.length ? `<ul class="sum-list">${li(canJoin)}</ul>` : '<p class="hint">Nothing open right now.</p>'}
       ${duty.length ? `<h3>My Tee Time Duty</h3><ul>${duty.map((x) => { const inf = dutyInfo[x.DateKey] || {}; return `<li>${escapeHtml(dateShort(x.DateKey))} · ${x.Role === 'phone' ? `phone in at ${escapeHtml(inf.call || '')}` : `in person, arrive ${escapeHtml(inf.arrive || '')}`}${inf.target ? ` <span class="hint">· books round for ${escapeHtml(dateShort(inf.target))}</span>` : ''}${inf.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</li>`; }).join('')}</ul>` : ''}
     </div>`;
 }
@@ -815,7 +820,7 @@ function stateChipHtml(d, state) {
   if (state === 'notyet') return `<span class="ts-win win-later">Opens ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>`;
   return '<span class="ts-win win-soon">Sign-ups closed</span>';
 }
-function toggleHtml(d, state) {
+function toggleHtml(d, state, compact) {
   if (d.closed) return '<span class="ts-closed-toggle-label">No tee times</span>';
   if (!session) return '';
   const mine = mySignupOn(d.DateKey);
@@ -833,7 +838,8 @@ function toggleHtml(d, state) {
   const pos = groupPos(d.DateKey, mine), other = mine.Group === 'fun' ? 'nassau' : 'fun';
   const inLabel = `${pos.standby ? `Standby #${pos.n}` : 'Signed up'} · ${label(mine.Group)} ✓`;
   let extra = '';
-  if (mine.Group === 'fun' && state === 'open') {
+  if (compact) extra = '';
+  else if (mine.Group === 'fun' && state === 'open') {
     extra = `<div class="ts-holes-group">${HOLES_PILLS.map(([v, l]) => `<button type="button" class="ts-holes-pill ${(mine.Holes || '18') === v ? 'active' : ''}" data-holes-set="${escapeHtml(mine.SignupID)}|${v}">${l}</button>`).join('')}</div>
       <div class="ts-holes-group"><select class="ts-tee-select" data-tee-set="${escapeHtml(mine.SignupID)}">${TEE_LIST().map((t) => `<option ${t === mine.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
       <button type="button" class="ts-holes-pill ${mine.Riding === 'TRUE' ? 'active' : ''}" data-ride-set="${escapeHtml(mine.SignupID)}">${mine.Riding === 'TRUE' ? 'Riding' : 'Walking'}</button></div>`;
@@ -880,6 +886,21 @@ function schedDayCardHtml(d) {
       </div>
     </div>`;
 }
+function eventToggleHtml(e) {
+  if (!session) return '';
+  const group = 'event:' + e.EventID;
+  const list = (board.signups || []).filter((s) => s.Group === group);
+  const cap = parseInt(e.Capacity, 10) || 0;
+  const mineIdx = list.findIndex((s) => String(s.PlayerID) === myId());
+  const mine = mineIdx === -1 ? null : list[mineIdx];
+  const full = cap && list.length >= cap + parseInt(board.settings.StandbySlots, 10);
+  return mine
+    ? `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${cap && mineIdx >= cap ? 'standby' : ''}" data-event-select="${escapeHtml(e.EventID)}" data-mine="${escapeHtml(mine.SignupID)}">
+        <option value="in" selected>${cap && mineIdx >= cap ? `Standby #${mineIdx - cap + 1}` : 'Signed up'} ✓</option><option value="out">Not signed up</option></select></div>`
+    : full ? '<span class="ts-closed-toggle-label">Full</span>'
+      : `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-event-select="${escapeHtml(e.EventID)}">
+        <option value="out" selected>Not signed up</option><option value="in">${cap && list.length >= cap ? 'Join standby' : 'Sign up'}</option></select></div>`;
+}
 function schedEventCardHtml(e) {
   const group = 'event:' + e.EventID, key = 'ev-' + e.EventID, open = !!schedExpanded[key];
   const list = (board.signups || []).filter((s) => s.Group === group);
@@ -887,15 +908,7 @@ function schedEventCardHtml(e) {
   const mineIdx = session ? list.findIndex((s) => String(s.PlayerID) === myId()) : -1;
   const mine = mineIdx === -1 ? null : list[mineIdx];
   const full = cap && list.length >= cap + parseInt(board.settings.StandbySlots, 10);
-  let toggle = '';
-  if (session) {
-    toggle = mine
-      ? `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${cap && mineIdx >= cap ? 'standby' : ''}" data-event-select="${escapeHtml(e.EventID)}" data-mine="${escapeHtml(mine.SignupID)}">
-          <option value="in" selected>${cap && mineIdx >= cap ? `Standby #${mineIdx - cap + 1}` : 'Signed up'} ✓</option><option value="out">Not signed up</option></select></div>`
-      : full ? '<span class="ts-closed-toggle-label">Full</span>'
-        : `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-event-select="${escapeHtml(e.EventID)}">
-          <option value="out" selected>Not signed up</option><option value="in">${cap && list.length >= cap ? 'Join standby' : 'Sign up'}</option></select></div>`;
-  }
+  const toggle = eventToggleHtml(e);
   return `<div class="ts-card event" id="event-${escapeHtml(e.EventID)}">
       <div class="ts-card-row" data-expand="${key}">
         ${dateBlockHtml(e.DateKey)}
@@ -926,7 +939,8 @@ function renderSignups() {
   const items = schedItems();
   const filterId = schedFilter === '__me__' ? myId() : schedFilter;
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
-  const views = [['calendar', 'Calendar view'], ['date', 'List by date'], ['person', 'List by person'], ['grid', 'Grid view']];
+  if (['calendar', 'date', 'person'].indexOf(schedView) === -1) schedView = 'date';
+  const views = [['calendar', 'Calendar view'], ['date', 'List by date'], ['person', 'List by person']];
   const controls = `
     <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next ${board.dates.length ? Math.round((keyDate(board.dates[board.dates.length - 1].DateKey) - keyDate(board.today)) / 86400000) + 1 : 0} days</span></h2>
       <button class="ts-print-btn" id="schedPrint">🖨️ Print</button></div>
@@ -964,21 +978,6 @@ function renderSignups() {
       if (!rows.length && !filterId) return '';
       return `<div class="ts-person-group"><div class="ts-person-name">${escapeHtml(displayName(p.Name))}</div>${rows.length ? `<table class="ts-person-table"><tbody>${rows.join('')}</tbody></table>` : '<p class="ts-empty">Not signed up for anything yet.</p>'}</div>`;
     }).join('') || '<p class="ts-empty">No one is signed up yet.</p>';
-  } else {
-    const head = roster.map((r) => `<th>${escapeHtml(String(r.Name).split(',')[0])}${String(r.Name).split(',')[0] && roster.filter((x) => String(x.Name).split(',')[0] === String(r.Name).split(',')[0]).length > 1 ? ' ' + escapeHtml((String(r.Name).split(',')[1] || '').trim().charAt(0)) : ''}</th>`).join('');
-    const rowsHtml = board.dates.map((d) => {
-      const lbl = `${DOW[dowOf(d.DateKey)]} ${MON[keyDate(d.DateKey).getUTCMonth()]} ${keyDate(d.DateKey).getUTCDate()}`;
-      if (d.closed) return `<tr><td class="ts-grid-date">${lbl}</td><td class="ts-grid-closed" colspan="${roster.length}">No tee times — ${escapeHtml(d.closed)}</td></tr>`;
-      const cell = (r) => {
-        const s = ['fun', 'nassau'].map((g) => groupList(d.DateKey, g).find((x) => String(x.PlayerID) === String(r.PlayerID))).find(Boolean);
-        if (!s) return '<td></td>';
-        const sb = groupPos(d.DateKey, s).standby;
-        return `<td class="${s.Group === 'fun' ? 'g-fun' : 'g-nas'} ${sb ? 'g-sb' : ''}">${s.Group === 'fun' ? 'Fun' : 'Nas'}${sb ? '*' : ''}</td>`;
-      };
-      return `<tr><td class="ts-grid-date">${lbl}</td>${roster.map(cell).join('')}</tr>`;
-    }).join('');
-    body = `<p class="ts-grid-disclaimer">For information only — sign up from List by date or Calendar view. Fun = Fun group, Nas = Nassau group, * = standby.</p>
-      <div class="ts-grid-wrap"><table class="ts-grid-table"><thead><tr><th class="ts-grid-date-head">Date</th>${head}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
   }
   el.innerHTML = swapIncomingHtml() + (session ? mySummaryHtml(items) : '') + controls + `<div id="schedBody">${body}</div>`;
   wireSchedule(el);
