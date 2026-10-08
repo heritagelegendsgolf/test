@@ -255,7 +255,7 @@
 
       <div class="card">
         <h2>Backups</h2>
-        <p class="hint">The Google Sheet automatically keeps hidden snapshot tabs named <code>Backup_&lt;date&gt;-&lt;time&gt;_&lt;tab&gt;</code> — one is taken just before a change is saved, at most once every 2 hours, and the newest 8 are kept. Every change to a score is also recorded in the <code>ScoreLog</code> tab (when, which match and hole, old and new value, and whether it came from a scorekeeper or the admin). To recover something, open the Google Sheet, choose View &gt; Hidden sheets, open the backup from the time you want, and copy its contents back over the live tab (or ask Claude to help).</p>
+        <p class="hint">Automatic backups are kept in a separate Google Sheet named <b>Heritage Legends Backups</b> (in the Google Drive of the account that runs the app) — one tab per snapshot, taken every couple of hours by the hourly job (and at least once a day when changes are saved), with the newest 8 kept. Each tab holds every data tab, one after another under a <code>=== TabName ===</code> line. Every change to a score is also recorded in the <code>ScoreLog</code> tab. To recover something, open the backups sheet, find the snapshot from the time you want, and copy the rows back (or ask Claude to help).</p>
         <button class="secondary" onclick="backupNow()">Back up now</button>
         <button class="secondary" onclick="showBackups()">Show saved backups</button>
         <div id="backupStatus" class="status"></div>
