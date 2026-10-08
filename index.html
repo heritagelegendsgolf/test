@@ -350,7 +350,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-08f';
+const APP_VERSION = '2026-10-08g';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -363,7 +363,7 @@ async function fetchWithTimeout(url, options, ms) {
   finally { clearTimeout(timer); }
 }
 async function apiGet(action, extra) {
-  const url = CFG.backendUrl + '?' + new URLSearchParams(Object.assign({ action, key: CFG.key }, extra || {})).toString();
+  const url = CFG.backendUrl + '?' + new URLSearchParams(Object.assign({ action, key: CFG.key, keyEnc: encodeURIComponent(CFG.key) }, extra || {})).toString();
   let lastErr;
   for (let i = 1; i <= 3; i++) {
     try { const res = await fetchWithTimeout(url, undefined, 35000); return await res.json(); }
@@ -379,13 +379,16 @@ async function apiPost(action, body, retry, timeoutMs) {
   const extra = {};
   if (adminSession) extra.adminPin = adminSession.pin;
   if (session) extra.token = session.token;
-  const payload = JSON.stringify(Object.assign({ action, key: CFG.key }, extra, body || {}));
+  const payload = JSON.stringify(Object.assign({ action, key: CFG.key, keyEnc: encodeURIComponent(CFG.key) }, extra, body || {}));
   const attempts = retry ? 3 : 1;
   let lastErr;
   for (let i = 1; i <= attempts; i++) {
     try {
       const res = await fetchWithTimeout(CFG.backendUrl, { method: 'POST', body: payload }, timeoutMs);
-      return await res.json();
+      const data = await res.json();
+      // A stray "Invalid key" (seen just after a new deployment) usually clears on a second try.
+      if (!data.success && data.error === 'Invalid key' && i === 1) { await new Promise((r) => setTimeout(r, 1500)); const again = await fetchWithTimeout(CFG.backendUrl, { method: 'POST', body: payload }, timeoutMs); return await again.json(); }
+      return data;
     } catch (e) { lastErr = e; if (i < attempts) await new Promise((r) => setTimeout(r, 700 * i + Math.random() * 500)); }
   }
   throw lastErr;
