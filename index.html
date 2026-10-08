@@ -45,6 +45,90 @@
   .admin-group { padding: 8px 22px; border: none; background: none; font: inherit; font-weight: 600; font-size: 1rem; color: #666; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
   .admin-group.active { color: var(--green-dark, var(--green)); border-bottom-color: var(--green); }
   .my-summary ul { margin: 4px 0 10px; padding-left: 20px; } .my-summary li { margin: 3px 0; } .my-summary h3 { margin: 10px 0 2px; font-size: 1rem; } .standby-txt { color: #9a6b00; }
+
+  /* ---- Sign-ups: Upcoming Dates cards (same look as the Gibson Group app) ---- */
+  .ts-section-title-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:18px 0 8px; }
+  .ts-section-title { margin:0; font-size:1.25rem; color:var(--green-dark); display:flex; align-items:baseline; gap:8px; }
+  .ts-section-title span { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; color:#8b8a7c; font-weight:400; }
+  .ts-print-btn { background:#fff; border:1.5px solid var(--green-dark); color:var(--green-dark); border-radius:20px; padding:6px 14px; font:inherit; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .ts-duty-sort { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+  .ts-duty-sort-btn { font:inherit; font-size:12.5px; color:#555; background:#f1efe6; border:1px solid #e3dfcf; border-radius:16px; padding:6px 12px; cursor:pointer; }
+  .ts-duty-sort-btn.active { background:var(--green-dark); color:#fff; border-color:var(--green-dark); font-weight:600; }
+  .ts-filter-row { margin:6px 0; } .ts-filter-row select { width:auto; max-width:260px; padding:5px 8px; font-size:.9rem; }
+  .ts-card { background:#fff; border:1px solid #e3dfcf; border-radius:10px; margin-bottom:10px; overflow:hidden; }
+  .ts-card.closed { background:#fbf7f0; } .ts-card.event { border-left:4px solid var(--gold); }
+  .ts-card-row { display:flex; align-items:center; gap:14px; padding:13px 15px; cursor:pointer; }
+  .ts-card-row:hover { background:#fbfaf5; }
+  .ts-date-block { font-family:ui-monospace,Menlo,Consolas,monospace; text-align:center; width:52px; flex-shrink:0; border-right:1px dashed #e3dfcf; padding-right:12px; }
+  .ts-date-dow { font-size:10.5px; letter-spacing:.08em; color:#7c9a79; text-transform:uppercase; }
+  .ts-date-num { font-size:20px; font-weight:500; line-height:1.1; }
+  .ts-date-mon { font-size:10px; color:#8b8a7c; text-transform:uppercase; }
+  .ts-card-mid { flex:1; min-width:0; }
+  .ts-card-mid-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .ts-count { font-size:14px; font-weight:600; }
+  .ts-standby-count { color:#b8863b; font-weight:600; font-size:13px; }
+  .ts-win { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10.5px; padding:2px 7px; border-radius:10px; }
+  .win-open { background:#e4efe1; color:#3e6b3a; } .win-soon { background:#fbf0ea; color:#a6432e; } .win-later { background:#f0eee3; color:#8b8a7c; }
+  .ts-duty { font-size:12px; color:#6b6a5e; margin-top:4px; display:flex; gap:5px; align-items:flex-start; }
+  .ts-closed-line { display:flex; gap:8px; align-items:center; } .closed-text { font-size:13.5px; font-weight:600; color:#a6432e; }
+  .notice-text { font-size:13px; font-weight:600; color:#b8863b; }
+  .ts-toggle-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
+  .ts-signup-select { width:auto; font:inherit; font-size:13px; font-weight:600; padding:9px 12px; border-radius:20px; border:1.5px solid var(--green-dark); background:#fff; color:var(--green-dark); cursor:pointer; }
+  .ts-signup-select.in { background:var(--green-dark); color:#fff; }
+  .ts-signup-select.standby { background:#b8863b; border-color:#b8863b; color:#fff; }
+  .ts-closed-toggle-label { flex-shrink:0; font-size:12px; font-weight:600; color:#a3a293; padding:8px 12px; border:1.5px dashed #d8d4c4; border-radius:20px; }
+  .ts-holes-group { display:flex; gap:4px; align-items:center; }
+  .ts-holes-pill { font:inherit; font-size:11.5px; padding:3px 9px; border-radius:12px; border:1px solid #d8d4c4; background:#fff; color:#555; cursor:pointer; }
+  .ts-holes-pill.active { background:#e4efe1; border-color:#9fc39a; color:#2e5a2a; font-weight:600; }
+  .ts-tee-select { width:auto; font-size:11.5px; padding:3px 6px; border-radius:10px; }
+  .ts-mini { font-size:11.5px; color:#6b6a5e; }
+  .ts-players { padding:0 15px 14px 81px; font-size:12.5px; color:#6b6a5e; line-height:1.6; display:none; }
+  .ts-players.open { display:block; }
+  .ts-chip-group-label { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:#7c9a79; margin:8px 0 4px; }
+  .ts-chip-group-label.standby { color:#b8863b; }
+  .name-chip { display:inline-block; background:#f6f1e4; border:1px solid #e7dfc9; border-radius:20px; padding:2px 9px; margin:2px 4px 2px 0; font-size:12px; color:#333; }
+  .name-chip.me { border-color:#b8863b; background:#fbf3e4; font-weight:600; color:#7a5a20; }
+  .chip-n { color:#999; margin-right:4px; font-size:10.5px; } .chip-det { color:#a6432e; font-size:10.5px; margin-left:5px; } .chip-note { color:#777; font-style:italic; font-size:10.5px; margin-left:5px; }
+  .chip-remove { background:none; border:none; color:#a3a293; cursor:pointer; font-size:13px; padding:0 0 0 5px; }
+  .chip-remove:hover { color:#a6432e; }
+  .ts-empty { color:#8b8a7c; font-style:italic; }
+  .ts-note-edit { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:10px; } .ts-note-edit input { flex:1; min-width:160px; }
+  .ts-cal-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; align-items:start; margin-top:10px; }
+  .ts-cal-header { font-weight:700; color:#fff; text-align:center; padding:8px 4px; background:var(--green-dark); border-radius:8px; }
+  .ts-cal-cell .ts-card { margin-bottom:0; } .ts-cal-cell .ts-players { padding-left:15px; } .ts-cal-blank { visibility:hidden; }
+  .ts-cal-cell .ts-card-row { flex-wrap:wrap; gap:10px; padding:11px 12px; }
+  .ts-cal-cell .ts-card-mid { flex:1 1 140px; } .ts-cal-cell .ts-win { display:none; }
+  .ts-cal-cell .ts-toggle-wrap, .ts-cal-cell .ts-closed-toggle-label { width:100%; align-items:stretch; text-align:center; }
+  .ts-cal-cell .ts-signup-select { width:100%; } .ts-cal-cell .ts-holes-group { justify-content:center; }
+  .ts-sub-title { margin:18px 0 8px; color:var(--green-dark); }
+  .ts-person-group { margin-bottom:16px; } .ts-person-name { font-weight:700; color:var(--green-dark); margin-bottom:4px; }
+  .ts-person-table { border-collapse:collapse; width:100%; background:#fff; border:1px solid #e3dfcf; border-radius:8px; font-size:13px; }
+  .ts-person-table td { padding:6px 10px; border-bottom:1px dashed #e7dfc9; } .ts-person-date { width:120px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
+  .ts-grid-disclaimer { font-size:12px; color:#8b8a7c; font-style:italic; margin:10px 0 0; }
+  .ts-grid-wrap { overflow:auto; max-height:75vh; margin-top:10px; border:1px solid #e7dfc9; border-radius:8px; background:#fff; }
+  .ts-grid-table { border-collapse:collapse; font-size:12px; }
+  .ts-grid-table th, .ts-grid-table td { border:1px solid #e7dfc9; padding:4px 7px; white-space:nowrap; text-align:center; }
+  .ts-grid-table thead th { background:var(--green-dark); color:#fff; font-size:10.5px; text-transform:uppercase; position:sticky; top:0; z-index:2; }
+  .ts-grid-date, .ts-grid-date-head { position:sticky; left:0; z-index:1; text-align:left !important; } .ts-grid-date-head { z-index:3 !important; }
+  .ts-grid-date { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; background:#fbfaf5; }
+  .ts-grid-closed { color:#a6432e; font-style:italic; }
+  .g-fun { background:#e4efe1; color:#2e5a2a; font-weight:600; } .g-nas { background:#e6edf6; color:#2c4a6e; font-weight:600; } .g-sb { opacity:.6; font-style:italic; }
+  @media (max-width:640px) {
+    .ts-cal-grid { grid-template-columns:1fr; } .ts-cal-header { display:none; } .ts-cal-blank { display:none; }
+    .ts-card-row { gap:10px; padding:11px 10px; } .ts-players { padding-left:15px; }
+    .ts-card-row { flex-wrap:wrap; } .ts-toggle-wrap { width:100%; align-items:stretch; } .ts-signup-select { width:100%; }
+  }
+  @media print {
+    header, nav, .no-print, .ts-toggle-wrap, .ts-closed-toggle-label, .my-summary, .admin-add, .ts-note-edit, #testBanner { display:none !important; }
+    body { background:#fff; } .ts-card, .cal-c { break-inside:avoid; } .card { border:none; padding:0; } .ts-grid-wrap { max-height:none; overflow:visible; }
+  }
+  .files-cat { margin:16px 0 4px; font-size:.95rem; color:var(--green-dark); border-bottom:1px solid var(--border); padding-bottom:3px; }
+  .file-row { display:flex; align-items:center; gap:12px; padding:9px 4px; border-bottom:1px dashed #e7dfc9; }
+  .file-row.hidden-file { opacity:.55; }
+  .file-icon { font-size:1.5rem; flex-shrink:0; } .file-mid { flex:1; min-width:0; } .file-title { font-weight:600; }
+  .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
+  label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
+  @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -102,7 +186,8 @@
   .role-p { color: #1565c0; font-weight: 600; font-size: 0.8em; }
   .cal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cal-h { background: var(--green); color: #fff; font-weight: 700; text-align: center; padding: 6px; border-radius: 6px; }
-  .cal-c { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 6px 7px; font-size: 0.8rem; min-height: 54px; }
+  .cal-c { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px 9px; font-size: 0.95rem; line-height: 1.45; min-height: 60px; }
+  .cal-c .arr { color: #6b6a5e; font-size: 0.85em; white-space: nowrap; }
   .cal-c .d { font-weight: 700; color: var(--green-dark); }
   .cal-c.blank { visibility: hidden; }
   .cal-c.closed { background: #f6f0ee; }
@@ -162,12 +247,12 @@
 
     <section id="tab-duty" class="tab-panel" hidden>
       <div class="card">
-        <h2>Tee Time Duty</h2>
+        <div class="ts-section-title-row" style="margin-top:0;"><h2 style="margin:0;">Tee Time Duty</h2><button class="ts-print-btn no-print" id="dutyPrint" onclick="window.print()">🖨️ Print</button></div>
         <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day books the round two weeks later.</p>
-        <div class="view-btns">
+        <div class="view-btns no-print">
+          <button class="subtab-btn" data-dview="calendar">Calendar view</button>
           <button class="subtab-btn active" data-dview="date">List by date</button>
           <button class="subtab-btn" data-dview="person">List by person</button>
-          <button class="subtab-btn" data-dview="calendar">Calendar view</button>
           <select id="dutyFilter" style="margin-left:auto;"></select>
         </div>
         <div id="dutyBody"></div>
@@ -175,10 +260,7 @@
     </section>
 
     <section id="tab-files" class="tab-panel" hidden>
-      <div class="card">
-        <h2>Related Files</h2>
-        <p class="hint">Coming in a later step: Legends History, Stableford scoring, photos and the quarterly tee time assignments, ready to download.</p>
-      </div>
+      <div id="filesBody"><div class="card hint">Loading…</div></div>
     </section>
 
     <section id="tab-tournament" class="tab-panel" hidden>
@@ -243,7 +325,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-07q';
+const APP_VERSION = '2026-10-08b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -566,6 +648,7 @@ function renderCurrent() {
   if (!board) return;
   if (currentTab === 'signups') renderSignups();
   else if (currentTab === 'duty') renderDuty();
+  else if (currentTab === 'files') renderFiles();
   else if (currentTab === 'admin' && adminSession && adminSub !== 'sugimport' && adminSub !== 'proshop') renderAdminSub(); // don't wipe an import preview being checked
 }
 
@@ -670,18 +753,290 @@ function mySummaryHtml(items) {
       ${duty.length ? `<h3>My Tee Time Duty</h3><ul>${duty.map((x) => { const inf = dutyInfo[x.DateKey] || {}; return `<li>${escapeHtml(dateShort(x.DateKey))} · ${x.Role === 'phone' ? `phone in at ${escapeHtml(inf.call || '')}` : `in person, arrive ${escapeHtml(inf.arrive || '')}`}${inf.target ? ` <span class="hint">· books round for ${escapeHtml(dateShort(inf.target))}</span>` : ''}${inf.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</li>`; }).join('')}</ul>` : ''}
     </div>`;
 }
+// ====================== SIGN-UPS: "Upcoming Dates" (same layout as the Gibson Group app) ======================
+// Each date is a card that expands to show who's signed up. The big toggle on the
+// right signs you up ("Signed up · Fun" / "Signed up · Nassau") or takes you off
+// ("Not signed up"). Views: list by date, calendar, list by person, grid.
+let schedView = 'date';
+try { schedView = localStorage.getItem('legends_sched_view') || 'date'; } catch (e) {}
+let schedFilter = '';
+const schedExpanded = {};
+const TEE_LIST = () => String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
+const HOLES_PILLS = [['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']];
+
+function mySignupOn(key) {
+  const me = myId();
+  return (board.signups || []).find((s) => s.DateKey === key && (s.Group === 'fun' || s.Group === 'nassau') && String(s.PlayerID) === me) || null;
+}
+function groupPos(key, s) {
+  const d = board.dates.find((x) => x.DateKey === key);
+  const list = groupList(key, s.Group), idx = list.findIndex((x) => x.SignupID === s.SignupID);
+  const slots = s.Group === 'fun' ? d.funSlots : d.nassauSlots;
+  return { idx, standby: idx >= slots, n: idx >= slots ? idx - slots + 1 : idx + 1 };
+}
+// The tees / holes / riding a member used last time, so a new Fun sign-up starts there.
+function myFunDefaults() {
+  const me = myId();
+  const last = (board.signups || []).filter((s) => s.Group === 'fun' && String(s.PlayerID) === me).sort((a, b) => Number(b.SignedUpAt || 0) - Number(a.SignedUpAt || 0))[0];
+  const r = rosterById(me), tees = TEE_LIST();
+  return {
+    tee: last && tees.indexOf(last.Tee) !== -1 ? last.Tee : (r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0]),
+    holes: last ? (last.Holes || '18') : '18',
+    riding: last ? last.Riding === 'TRUE' : false,
+  };
+}
+function chipHtml(s, n, key) {
+  const det = s.Group === 'fun' ? detailText(s) : '';
+  const rm = amAdmin() ? `<button class="chip-remove" title="Remove ${escapeHtml(displayName(s.Name))}" data-admin-rm="${escapeHtml(s.SignupID)}">×</button>` : '';
+  return `<span class="name-chip ${String(s.PlayerID) === myId() ? 'me' : ''}"><span class="chip-n">${n}</span>${escapeHtml(displayName(s.Name))}${det ? `<span class="chip-det">${escapeHtml(det)}</span>` : ''}${s.Note ? `<span class="chip-note">${escapeHtml(s.Note)}</span>` : ''}${rm}</span>`;
+}
+function groupChipsHtml(d, g) {
+  const list = groupList(d.DateKey, g), slots = g === 'fun' ? d.funSlots : d.nassauSlots;
+  const inL = list.slice(0, slots), sb = list.slice(slots);
+  const n = g === 'fun' ? d.funTeeTimes : d.nassauTeeTimes;
+  return `<div class="grp2">
+      <div class="ts-chip-group-label">${g === 'fun' ? 'Fun group' : 'Nassau group'} · ${escapeHtml(g === 'fun' ? d.funTimes : d.nassauTimes)}${n ? ` · ${n} tee times` : ''} · ${inL.length} of ${slots}</div>
+      ${inL.length ? inL.map((s, i) => chipHtml(s, i + 1, d.DateKey)).join('') : '<span class="ts-empty">No one signed up yet</span>'}
+      ${sb.length ? `<div class="ts-chip-group-label standby">Standby (${sb.length} of ${d.standbySlots})</div>${sb.map((s, i) => chipHtml(s, i + 1, d.DateKey)).join('')}` : ''}
+      ${amAdmin() && !d.closed ? adminAddHtml(d.DateKey, g) : ''}
+    </div>`;
+}
+function dutyLineHtml(key) {
+  const rows = dutyForDay(key);
+  if (!rows.length) return '';
+  const info = (board.dutyDayInfo || {})[key] || {};
+  if (info.targetClosed) return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty: no tee times needed — ${escapeHtml(info.targetClosed)} in two weeks</span></div>`;
+  const ip = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name)), ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
+  const who = [ip.length ? `in person: ${ip.join(', ')}` : '', ph.length ? `phone in: ${ph.join(', ')}` : ''].filter(Boolean).join(' · ');
+  return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty (booking for ${escapeHtml(dateShort(info.target || ''))}) — ${escapeHtml(who)}</span></div>`;
+}
+function stateChipHtml(d, state) {
+  if (state === 'open') return `<span class="ts-win win-open">Open · closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`;
+  if (state === 'notyet') return `<span class="ts-win win-later">Opens ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>`;
+  return '<span class="ts-win win-soon">Sign-ups closed</span>';
+}
+function toggleHtml(d, state) {
+  if (d.closed) return '<span class="ts-closed-toggle-label">No tee times</span>';
+  if (!session) return '';
+  const mine = mySignupOn(d.DateKey);
+  const full = (g) => groupList(d.DateKey, g).length >= (g === 'fun' ? d.funSlots : d.nassauSlots) + d.standbySlots;
+  const wouldStandby = (g) => groupList(d.DateKey, g).length >= (g === 'fun' ? d.funSlots : d.nassauSlots);
+  const label = (g) => (g === 'fun' ? 'Fun' : 'Nassau');
+  if (!mine) {
+    if (state === 'notyet') return `<span class="ts-closed-toggle-label">Opens ${escapeHtml(DOW[new Date(d.opensAt - clockSkew).getDay()])}</span>`;
+    if (state === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
+    return `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-signup-select="${d.DateKey}">
+        <option value="out" selected>Not signed up</option>
+        ${['fun', 'nassau'].map((g) => `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
+      </select></div>`;
+  }
+  const pos = groupPos(d.DateKey, mine), other = mine.Group === 'fun' ? 'nassau' : 'fun';
+  const inLabel = `${pos.standby ? `Standby #${pos.n}` : 'Signed up'} · ${label(mine.Group)} ✓`;
+  let extra = '';
+  if (mine.Group === 'fun' && state === 'open') {
+    extra = `<div class="ts-holes-group">${HOLES_PILLS.map(([v, l]) => `<button type="button" class="ts-holes-pill ${(mine.Holes || '18') === v ? 'active' : ''}" data-holes-set="${escapeHtml(mine.SignupID)}|${v}">${l}</button>`).join('')}</div>
+      <div class="ts-holes-group"><select class="ts-tee-select" data-tee-set="${escapeHtml(mine.SignupID)}">${TEE_LIST().map((t) => `<option ${t === mine.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
+      <button type="button" class="ts-holes-pill ${mine.Riding === 'TRUE' ? 'active' : ''}" data-ride-set="${escapeHtml(mine.SignupID)}">${mine.Riding === 'TRUE' ? 'Riding' : 'Walking'}</button></div>`;
+  } else if (mine.Group === 'fun') {
+    extra = `<span class="ts-mini">${escapeHtml(detailText(mine))}</span>`;
+  }
+  return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${pos.standby ? 'standby' : ''}" data-signup-select="${d.DateKey}" data-mine="${escapeHtml(mine.SignupID)}">
+      <option value="${mine.Group}" selected>${inLabel}</option>
+      ${state === 'open' && !full(other) ? `<option value="${other}">Switch to ${label(other)}</option>` : ''}
+      <option value="out">${state === 'closed' ? 'Remove me (late)' : 'Not signed up'}</option>
+    </select>${extra}</div>`;
+}
+function myNoteEditorHtml(key, s) {
+  if (!s) return '';
+  return `<div class="ts-note-edit"><label class="hint">My note</label><input type="text" maxlength="120" data-note-input="${escapeHtml(s.SignupID)}" value="${escapeHtml(s.Note || '')}" placeholder="${s.Group === 'fun' ? 'e.g. last group please' : 'e.g. White/Gold hybrid'}"><button class="secondary" data-note-save="${escapeHtml(s.SignupID)}">Save note</button></div>`;
+}
+function dateBlockHtml(key) {
+  const d = keyDate(key);
+  return `<div class="ts-date-block"><div class="ts-date-dow">${DOW[d.getUTCDay()]}</div><div class="ts-date-num">${d.getUTCDate()}</div><div class="ts-date-mon">${MON[d.getUTCMonth()]}</div></div>`;
+}
+function schedDayCardHtml(d) {
+  const key = d.DateKey, state = dayState(d), open = !!schedExpanded[key];
+  const f = groupList(key, 'fun'), n = groupList(key, 'nassau');
+  const sbF = Math.max(0, f.length - d.funSlots), sbN = Math.max(0, n.length - d.nassauSlots);
+  const mine = session ? mySignupOn(key) : null;
+  const notice = d.notice ? `<span class="ts-notice-inline">⚠️ <span class="notice-text">${escapeHtml(d.notice)}</span></span>` : '';
+  const mid = d.closed
+    ? `<div class="ts-closed-line"><span class="closed-flag">🚫</span><span class="closed-text">No Legends tee times — ${escapeHtml(d.closed)}</span></div>${notice ? `<div>${notice}</div>` : ''}`
+    : `<div class="ts-card-mid-top">
+        <span class="ts-count">Fun ${Math.min(f.length, d.funSlots)}/${d.funSlots} · Nassau ${Math.min(n.length, d.nassauSlots)}/${d.nassauSlots}</span>
+        ${sbF + sbN ? `<span class="ts-standby-count">+${sbF + sbN} standby</span>` : ''}
+        ${stateChipHtml(d, state)} ${notice}
+      </div>`;
+  return `<div class="ts-card ${d.closed ? 'closed' : ''}" id="day-${key}">
+      <div class="ts-card-row" data-expand="${key}">
+        ${dateBlockHtml(key)}
+        <div class="ts-card-mid">${mid}${dutyLineHtml(key)}</div>
+        ${toggleHtml(d, state)}
+      </div>
+      <div class="ts-players ${open ? 'open' : ''}">
+        ${open ? `${d.closed ? '' : groupChipsHtml(d, 'fun') + groupChipsHtml(d, 'nassau')}
+          ${mine && state !== 'closed' ? myNoteEditorHtml(key, mine) : ''}
+          ${dutyBoxHtml(key)}` : ''}
+      </div>
+    </div>`;
+}
+function schedEventCardHtml(e) {
+  const group = 'event:' + e.EventID, key = 'ev-' + e.EventID, open = !!schedExpanded[key];
+  const list = (board.signups || []).filter((s) => s.Group === group);
+  const cap = parseInt(e.Capacity, 10) || 0;
+  const mineIdx = session ? list.findIndex((s) => String(s.PlayerID) === myId()) : -1;
+  const mine = mineIdx === -1 ? null : list[mineIdx];
+  const full = cap && list.length >= cap + parseInt(board.settings.StandbySlots, 10);
+  let toggle = '';
+  if (session) {
+    toggle = mine
+      ? `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${cap && mineIdx >= cap ? 'standby' : ''}" data-event-select="${escapeHtml(e.EventID)}" data-mine="${escapeHtml(mine.SignupID)}">
+          <option value="in" selected>${cap && mineIdx >= cap ? `Standby #${mineIdx - cap + 1}` : 'Signed up'} ✓</option><option value="out">Not signed up</option></select></div>`
+      : full ? '<span class="ts-closed-toggle-label">Full</span>'
+        : `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-event-select="${escapeHtml(e.EventID)}">
+          <option value="out" selected>Not signed up</option><option value="in">${cap && list.length >= cap ? 'Join standby' : 'Sign up'}</option></select></div>`;
+  }
+  return `<div class="ts-card event" id="event-${escapeHtml(e.EventID)}">
+      <div class="ts-card-row" data-expand="${key}">
+        ${dateBlockHtml(e.DateKey)}
+        <div class="ts-card-mid"><div class="ts-card-mid-top"><span class="ts-count">🏆 ${escapeHtml(e.Title)}</span><span class="ts-win win-later">${cap ? `${Math.min(list.length, cap)} of ${cap}` : `${list.length}`} signed up</span></div>
+          ${e.Description ? `<div class="ts-duty">${escapeHtml(e.Description.split('\n')[0])}</div>` : ''}</div>
+        ${toggle}
+      </div>
+      <div class="ts-players ${open ? 'open' : ''}">${open ? `
+        ${e.Description ? `<p class="hint" style="margin:0 0 6px;white-space:pre-line;">${escapeHtml(e.Description)}</p>` : ''}
+        ${(cap ? list.slice(0, cap) : list).map((s, i) => chipHtml(s, i + 1)).join('') || '<span class="ts-empty">No one signed up yet</span>'}
+        ${cap && list.length > cap ? `<div class="ts-chip-group-label standby">Standby</div>${list.slice(cap).map((s, i) => chipHtml(s, i + 1)).join('')}` : ''}
+        ${mine ? myNoteEditorHtml(key, mine).replace('My note', escapeHtml(e.GuestPrompt || 'My note')) : ''}
+        ${amAdmin() ? adminAddHtml(e.DateKey, group) : ''}` : ''}
+      </div>
+    </div>`;
+}
+function schedItems() {
+  const items = board.dates.map((d) => ({ key: d.DateKey, type: 'day', d }));
+  (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE').forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
+  return items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
+}
+function personOn(it, pid) {
+  if (it.type === 'day') return ['fun', 'nassau'].some((g) => groupList(it.key, g).some((s) => String(s.PlayerID) === String(pid)));
+  return (board.signups || []).some((s) => s.Group === 'event:' + it.e.EventID && String(s.PlayerID) === String(pid));
+}
 function renderSignups() {
   const el = document.getElementById('signupsBody');
-  const items = [];
-  board.dates.forEach((d) => items.push({ key: d.DateKey, type: 'day', d }));
-  (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE')
-    .forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
-  items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
-  // Members land on their own summary (what I'm on / what I can join / my duty), with every date below it.
-  const top = (session ? mySummaryHtml(items) : '') + `<div class="card"><p class="hint" style="margin:0;">Sign-ups for each Monday, Wednesday and Friday open at <b>${escapeHtml(board.settings.SignupOpenTime)}</b> ${escapeHtml(board.settings.SignupOpenDaysBefore)} days ahead and close at 11:59 PM ${escapeHtml(board.settings.SignupCloseDaysBefore)} days before play. Lists are in the order people signed up; once a group is full, new sign-ups go on its standby list and move up automatically (with an email) if someone drops out.${amAdmin() ? ' <b>Admin:</b> you can add or remove anyone below, any time.' : ''}</p></div>`;
-  el.innerHTML = swapIncomingHtml() + top + (items.map((it) => it.type === 'day' ? dayCardHtml(it.d) : eventCardHtml(it.e)).join('') || '<div class="card hint">No dates to show.</div>');
+  const items = schedItems();
+  const filterId = schedFilter === '__me__' ? myId() : schedFilter;
+  const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
+  const views = [['calendar', 'Calendar view'], ['date', 'List by date'], ['person', 'List by person'], ['grid', 'Grid view']];
+  const controls = `
+    <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next ${board.dates.length ? Math.round((keyDate(board.dates[board.dates.length - 1].DateKey) - keyDate(board.today)) / 86400000) + 1 : 0} days</span></h2>
+      <button class="ts-print-btn" id="schedPrint">🖨️ Print</button></div>
+    <div class="ts-duty-sort no-print">${views.map(([v, l]) => `<button class="ts-duty-sort-btn ${schedView === v ? 'active' : ''}" data-sched-view="${v}">${l}</button>`).join('')}</div>
+    ${schedView === 'date' || schedView === 'person' ? `<div class="ts-filter-row no-print"><select id="schedFilter">
+        <option value="">All players</option>${session ? `<option value="__me__" ${schedFilter === '__me__' ? 'selected' : ''}>Just my dates</option>` : ''}
+        ${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${schedFilter === String(r.PlayerID) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select></div>` : ''}
+    ${schedView === 'date' || schedView === 'calendar' ? `<div class="ts-duty-sort no-print"><button class="ts-duty-sort-btn" id="schedExpandAll">Expand All</button><button class="ts-duty-sort-btn" id="schedCollapseAll">Collapse All</button></div>` : ''}`;
+  let body = '';
+  if (schedView === 'date') {
+    const shown = filterId ? items.filter((it) => personOn(it, filterId)) : items;
+    body = shown.map((it) => (it.type === 'day' ? schedDayCardHtml(it.d) : schedEventCardHtml(it.e))).join('') || '<p class="ts-empty">No dates match this filter.</p>';
+  } else if (schedView === 'calendar') {
+    const days = board.dates;
+    const col = (k) => { const w = dowOf(k); return w === 1 ? 0 : w === 3 ? 1 : 2; };
+    const pad = days.length ? col(days[0].DateKey) : 0;
+    body = `<div class="ts-cal-grid"><div class="ts-cal-header">Monday</div><div class="ts-cal-header">Wednesday</div><div class="ts-cal-header">Friday</div>
+      ${'<div class="ts-cal-cell ts-cal-blank"></div>'.repeat(pad)}${days.map((d) => `<div class="ts-cal-cell">${schedDayCardHtml(d)}</div>`).join('')}</div>
+      ${items.some((it) => it.type === 'event') ? `<h3 class="ts-sub-title">Events</h3>${items.filter((it) => it.type === 'event').map((it) => schedEventCardHtml(it.e)).join('')}` : ''}`;
+  } else if (schedView === 'person') {
+    const people = filterId ? roster.filter((r) => String(r.PlayerID) === String(filterId)) : roster;
+    body = people.map((p) => {
+      const rows = [];
+      items.forEach((it) => {
+        if (it.type === 'day') {
+          const s = ['fun', 'nassau'].map((g) => groupList(it.key, g).find((x) => String(x.PlayerID) === String(p.PlayerID))).find(Boolean);
+          if (!s) return;
+          const pos = groupPos(it.key, s);
+          rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${s.Group === 'fun' ? 'Fun' : 'Nassau'}${pos.standby ? ` <span class="ts-standby-count">standby #${pos.n}</span>` : ''}</td><td class="hint">${escapeHtml([s.Group === 'fun' ? detailText(s) : '', s.Note].filter(Boolean).join(' · '))}</td></tr>`);
+        } else if (personOn(it, p.PlayerID)) {
+          const s = (board.signups || []).find((x) => x.Group === 'event:' + it.e.EventID && String(x.PlayerID) === String(p.PlayerID));
+          rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${escapeHtml(it.e.Title)}</td><td class="hint">${escapeHtml(s.Note || '')}</td></tr>`);
+        }
+      });
+      if (!rows.length && !filterId) return '';
+      return `<div class="ts-person-group"><div class="ts-person-name">${escapeHtml(displayName(p.Name))}</div>${rows.length ? `<table class="ts-person-table"><tbody>${rows.join('')}</tbody></table>` : '<p class="ts-empty">Not signed up for anything yet.</p>'}</div>`;
+    }).join('') || '<p class="ts-empty">No one is signed up yet.</p>';
+  } else {
+    const head = roster.map((r) => `<th>${escapeHtml(String(r.Name).split(',')[0])}${String(r.Name).split(',')[0] && roster.filter((x) => String(x.Name).split(',')[0] === String(r.Name).split(',')[0]).length > 1 ? ' ' + escapeHtml((String(r.Name).split(',')[1] || '').trim().charAt(0)) : ''}</th>`).join('');
+    const rowsHtml = board.dates.map((d) => {
+      const lbl = `${DOW[dowOf(d.DateKey)]} ${MON[keyDate(d.DateKey).getUTCMonth()]} ${keyDate(d.DateKey).getUTCDate()}`;
+      if (d.closed) return `<tr><td class="ts-grid-date">${lbl}</td><td class="ts-grid-closed" colspan="${roster.length}">No tee times — ${escapeHtml(d.closed)}</td></tr>`;
+      const cell = (r) => {
+        const s = ['fun', 'nassau'].map((g) => groupList(d.DateKey, g).find((x) => String(x.PlayerID) === String(r.PlayerID))).find(Boolean);
+        if (!s) return '<td></td>';
+        const sb = groupPos(d.DateKey, s).standby;
+        return `<td class="${s.Group === 'fun' ? 'g-fun' : 'g-nas'} ${sb ? 'g-sb' : ''}">${s.Group === 'fun' ? 'Fun' : 'Nas'}${sb ? '*' : ''}</td>`;
+      };
+      return `<tr><td class="ts-grid-date">${lbl}</td>${roster.map(cell).join('')}</tr>`;
+    }).join('');
+    body = `<p class="ts-grid-disclaimer">For information only — sign up from List by date or Calendar view. Fun = Fun group, Nas = Nassau group, * = standby.</p>
+      <div class="ts-grid-wrap"><table class="ts-grid-table"><thead><tr><th class="ts-grid-date-head">Date</th>${head}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+  }
+  el.innerHTML = swapIncomingHtml() + (session ? mySummaryHtml(items) : '') + controls + `<div id="schedBody">${body}</div>`;
+  wireSchedule(el);
   wireSignups(el);
   wireSwaps(el);
+}
+function wireSchedule(el) {
+  el.querySelectorAll('[data-sched-view]').forEach((b) => b.onclick = () => { schedView = b.dataset.schedView; try { localStorage.setItem('legends_sched_view', schedView); } catch (e) {} renderSignups(); });
+  const f = document.getElementById('schedFilter'); if (f) f.onchange = () => { schedFilter = f.value; renderSignups(); };
+  const pr = document.getElementById('schedPrint'); if (pr) pr.onclick = () => window.print();
+  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { schedItems().forEach((it) => { schedExpanded[it.type === 'day' ? it.key : 'ev-' + it.e.EventID] = true; }); renderSignups(); };
+  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); renderSignups(); };
+  el.querySelectorAll('[data-expand]').forEach((row) => row.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('.ts-toggle-wrap, select, button, input, a')) return;
+    const k = row.dataset.expand; schedExpanded[k] = !schedExpanded[k]; renderSignups();
+  }));
+  el.querySelectorAll('[data-signup-select]').forEach((s) => s.onchange = () => onSignupSelect(s));
+  el.querySelectorAll('[data-event-select]').forEach((s) => s.onchange = () => onEventSelect(s));
+  el.querySelectorAll('[data-holes-set]').forEach((b) => b.onclick = () => { const [id, h] = b.dataset.holesSet.split('|'); act('legendsUpdate', { signupId: id, holes: h }, 'Saved.'); });
+  el.querySelectorAll('[data-tee-set]').forEach((s) => s.onchange = () => act('legendsUpdate', { signupId: s.dataset.teeSet, tee: s.value }, 'Saved.'));
+  el.querySelectorAll('[data-ride-set]').forEach((b) => b.onclick = () => { const s = (board.signups || []).find((x) => x.SignupID === b.dataset.rideSet); act('legendsUpdate', { signupId: b.dataset.rideSet, riding: !(s && s.Riding === 'TRUE') }, 'Saved.'); });
+  el.querySelectorAll('[data-note-save]').forEach((b) => b.onclick = () => {
+    const i = el.querySelector(`[data-note-input="${b.dataset.noteSave}"]`);
+    act('legendsUpdate', { signupId: b.dataset.noteSave, note: i ? i.value : '' }, 'Note saved.');
+  });
+}
+async function onSignupSelect(sel) {
+  const key = sel.dataset.signupSelect, v = sel.value, mineId = sel.dataset.mine;
+  const d = board.dates.find((x) => x.DateKey === key);
+  const restore = () => renderSignups();
+  if (!mineId) {
+    if (v === 'out') return;
+    const body = { signupId: newId('s'), dateKey: key, group: v, note: '' };
+    if (v === 'fun') { const df = myFunDefaults(); body.tee = df.tee; body.holes = df.holes; body.riding = df.riding; }
+    const ok = await act('legendsJoin', body, v === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group.');
+    if (!ok) restore();
+    return;
+  }
+  if (v === 'out') {
+    const late = dayState(d) === 'closed';
+    const before = (board.signups || []).length;
+    await leaveSignup(mineId, late, false);
+    if ((board.signups || []).length === before) restore(); // cancelled
+    return;
+  }
+  const cur = (board.signups || []).find((x) => x.SignupID === mineId);
+  if (cur && v !== cur.Group) { await switchGroup(mineId, key, v); restore(); }
+}
+async function onEventSelect(sel) {
+  const id = sel.dataset.eventSelect, v = sel.value, mineId = sel.dataset.mine;
+  const e = (board.events || []).find((x) => x.EventID === id);
+  if (mineId && v === 'out') { const before = (board.signups || []).length; await leaveSignup(mineId, false, false); if ((board.signups || []).length === before) renderSignups(); return; }
+  if (!mineId && v === 'in') {
+    let note = '';
+    if (e && e.GuestPrompt) { note = prompt(`${e.GuestPrompt} (optional):`, '') ; if (note === null) { renderSignups(); return; } }
+    const ok = await act('legendsJoin', { signupId: newId('s'), dateKey: e.DateKey, group: 'event:' + id, note: String(note || '').trim() }, `Signed up for ${e.Title}.`);
+    if (!ok) renderSignups();
+  }
 }
 
 function namesListHtml(list, from, to, key) {
@@ -1010,7 +1365,7 @@ function renderDuty() {
     const cellHtml = (k) => {
       const d = all.find((x) => x.key === k);
       if (!d) return `<div><span class="d">${escapeHtml(dateShort(k))}</span><div class="hint">—</div></div>`;
-      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(none needed)</span>' : ''}
+      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(none needed)</span>' : d.info.arrive ? ` <span class="arr">arrive by ${escapeHtml(d.info.arrive)}</span>` : ''}
         <div>${d.rows.filter((r) => r.Role === 'inperson').map((r) => escapeHtml(displayName(r.Name))).join('<br>')}</div>
         ${d.rows.some((r) => r.Role === 'phone') ? `<div><span class="role-p">PHONE:</span> ${d.rows.filter((r) => r.Role === 'phone').map((r) => escapeHtml(displayName(r.Name))).join(', ')}</div>` : ''}</div>`;
     };
@@ -1045,7 +1400,7 @@ function swapRoleOf(key, pid) { const r = dutyForDay(key).find((x) => String(x.P
 function swapIncomingHtml() {
   if (!session) return '';
   const inc = myPendingSwaps().filter((x) => String(x.TargetID) === myId());
-  return inc.map((x) => `<div class="card" style="border-left:4px solid var(--gold, #c9a227);">
+  return inc.map((x) => `<div class="card no-print" style="border-left:4px solid var(--gold, #c9a227);">
       <b>Swap request:</b> ${escapeHtml(displayName(x.RequesterName))} would like to give you <b>${escapeHtml(dateShort(x.FromKey))}</b> (${escapeHtml(swapRoleOf(x.FromKey, x.RequesterID))}) and take your <b>${escapeHtml(dateShort(x.ToKey))}</b> (${escapeHtml(swapRoleOf(x.ToKey, x.TargetID))}).
       <div class="row" style="margin-top:8px;"><button class="primary" data-swap-accept="${escapeHtml(x.SwapID)}">Accept swap</button><button class="secondary" data-swap-decline="${escapeHtml(x.SwapID)}">Decline</button></div>
     </div>`).join('');
@@ -1053,14 +1408,14 @@ function swapIncomingHtml() {
 function swapPanelHtml() {
   let html = swapIncomingHtml();
   const out = myPendingSwaps().filter((x) => session && String(x.RequesterID) === myId());
-  if (out.length) html += `<div class="card"><b>Your swap requests waiting for an answer</b>${out.map((x) => `<div style="margin-top:6px;">${escapeHtml(dateShort(x.FromKey))} ⇄ ${escapeHtml(displayName(x.TargetName))}, ${escapeHtml(dateShort(x.ToKey))} <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel request</button></div>`).join('')}</div>`;
+  if (out.length) html += `<div class="card no-print"><b>Your swap requests waiting for an answer</b>${out.map((x) => `<div style="margin-top:6px;">${escapeHtml(dateShort(x.FromKey))} ⇄ ${escapeHtml(displayName(x.TargetName))}, ${escapeHtml(dateShort(x.ToKey))} <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel request</button></div>`).join('')}</div>`;
   if (amAdmin() && !session) {
     const all = myPendingSwaps();
-    if (all.length) html += `<div class="card"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
+    if (all.length) html += `<div class="card no-print"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
   }
   if (swapFrom && session) {
     const ch = swapChoices(swapFrom);
-    html += `<div class="card" id="swapForm"><h3 style="margin-top:0;">Swap your ${escapeHtml(dateShort(swapFrom))} duty (${escapeHtml(swapRoleOf(swapFrom, myId()))})</h3>
+    html += `<div class="card no-print" id="swapForm"><h3 style="margin-top:0;">Swap your ${escapeHtml(dateShort(swapFrom))} duty (${escapeHtml(swapRoleOf(swapFrom, myId()))})</h3>
       <p class="hint">Pick the date and person you'd like to trade with. They get an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>
       ${ch.length ? `<select id="swapTo"><option value="">Choose a date and person…</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})</option>`).join('')}</select>` : '<p class="hint">There are no other upcoming duty dates to swap with.</p>'}
       <div class="row" style="margin-top:8px;">${ch.length ? '<button class="primary" id="swapSend">Send swap request</button>' : ''}<button class="link" id="swapClose">Cancel</button></div></div>`;
@@ -1086,6 +1441,158 @@ function wireSwaps(el) {
   });
   el.querySelectorAll('[data-swap-decline]').forEach((b) => b.onclick = () => act('legendsSwapRespond', { swapId: b.dataset.swapDecline, accept: false, siteUrl: location.origin + location.pathname }, 'Declined.'));
   el.querySelectorAll('[data-swap-cancel]').forEach((b) => b.onclick = () => act('legendsSwapCancel', { swapId: b.dataset.swapCancel, asAdmin: amAdmin() && !session }, 'Request cancelled.'));
+}
+
+// ====================== RELATED FILES ======================
+// Members see the list grouped by category and open or download a file through
+// the app (it's fetched from the private Drive folder only for signed-in Legends).
+// Admins also get upload / replace / rename / reorder / hide / remove.
+let filesEdit = null; // admin's working copy of the list while editing
+const FILE_ICONS = [[/pdf/, '📕'], [/image/, '🖼️'], [/sheet|excel|csv/, '📊'], [/word|document|msword/, '📄'], [/presentation|powerpoint/, '📽️']];
+function fileIcon(f) { const m = String(f.MimeType || '') + ' ' + String(f.FileName || ''); const hit = FILE_ICONS.find(([re]) => re.test(m)) || FILE_ICONS.find(([re]) => re.test(m.replace(/.*\./, ''))); return hit ? hit[1] : '📎'; }
+function fileSize(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+function sortedFiles() { return (board.files || []).slice().sort((a, b) => (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0)); }
+function renderFiles() {
+  const el = document.getElementById('filesBody');
+  if (!el || !board) return;
+  const files = sortedFiles().filter((f) => amAdmin() || String(f.Hidden).toUpperCase() !== 'TRUE');
+  const cats = [];
+  files.forEach((f) => { const c = f.Category || 'Other files'; if (cats.indexOf(c) === -1) cats.push(c); });
+  const list = files.length ? cats.map((c) => `<h3 class="files-cat">${escapeHtml(c)}</h3>${files.filter((f) => (f.Category || 'Other files') === c).map((f) => `
+      <div class="file-row ${String(f.Hidden).toUpperCase() === 'TRUE' ? 'hidden-file' : ''}">
+        <span class="file-icon">${fileIcon(f)}</span>
+        <div class="file-mid"><div class="file-title">${escapeHtml(f.Title)}${String(f.Hidden).toUpperCase() === 'TRUE' ? ' <span class="hint">(hidden from members)</span>' : ''}</div>
+          ${f.Description ? `<div class="hint">${escapeHtml(f.Description)}</div>` : ''}
+          <div class="file-meta">${escapeHtml(f.FileName)} · ${fileSize(f.Size)}${f.UploadedAt ? ` · updated ${escapeHtml(dateShort(String(f.UploadedAt).slice(0, 10)))}` : ''}</div></div>
+        <div class="file-actions"><button class="secondary" data-file-open="${escapeHtml(f.FileID)}">Open</button><button class="link" data-file-dl="${escapeHtml(f.FileID)}">Download</button></div>
+      </div>`).join('')}`).join('')
+    : '<p class="hint">No files have been added yet.</p>';
+  el.innerHTML = `<div class="card"><h2>Related Files</h2>
+      <p class="hint">Legends documents, photos and schedules. Click <b>Open</b> to view a file or <b>Download</b> to save it. These are only available to signed-in Legends.</p>
+      ${list}<div id="filesStatus" class="status"></div></div>
+    ${amAdmin() ? filesAdminHtml() : ''}`;
+  el.querySelectorAll('[data-file-open]').forEach((b) => b.onclick = () => openFile(b.dataset.fileOpen, false));
+  el.querySelectorAll('[data-file-dl]').forEach((b) => b.onclick = () => openFile(b.dataset.fileDl, true));
+  if (amAdmin()) wireFilesAdmin(el);
+}
+async function openFile(id, download) {
+  const f = (board.files || []).find((x) => x.FileID === id);
+  if (!f) return;
+  // Open the new tab right away (while it still counts as a click), then fill it in.
+  const win = !download ? window.open('', '_blank') : null;
+  if (win) win.document.write(`<p style="font-family:sans-serif;padding:20px;">Opening ${escapeHtml(f.Title)}…</p>`);
+  showStatus('filesStatus', true, `Getting ${f.Title}…`);
+  try {
+    const res = await apiPost('legendsFileGet', { fileId: id }, false, 120000);
+    if (!res.success) { if (win) win.close(); if (!handleSignedOut(res.error)) showStatus('filesStatus', false, cleanError(res.error)); return; }
+    const bin = atob(res.data.data), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], { type: res.data.mimeType || 'application/octet-stream' }));
+    const viewable = /pdf|image|text\/plain/.test(res.data.mimeType || '');
+    if (win && viewable) { win.location.href = url; }
+    else {
+      if (win) win.close();
+      const a = document.createElement('a'); a.href = url; a.download = res.data.fileName || f.FileName; document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+    showStatus('filesStatus', true, viewable && !download ? `Opened ${f.Title} in a new tab.` : `Downloaded ${f.FileName}.`);
+  } catch (e) { if (win) win.close(); showStatus('filesStatus', false, 'Could not reach the server — try again.'); }
+}
+
+// ---- admin: add / replace / edit ----
+function filesAdminHtml() {
+  if (!filesEdit) filesEdit = sortedFiles().map((f) => Object.assign({}, f));
+  const cats = [...new Set(['Legends history & rules', 'Tee Time Duty', 'Roster', 'Photos'].concat((board.files || []).map((f) => f.Category).filter(Boolean)))];
+  return `<div class="card">
+      <h2>Admin: add a file</h2>
+      <div class="grid2">
+        <div><label>File (up to 20 MB)</label><input type="file" id="fuFile"></div>
+        <div><label>Title</label><input type="text" id="fuTitle" maxlength="120" placeholder="e.g. Legends History 2024"></div>
+        <div><label>Category</label><input type="text" id="fuCat" list="fuCats" maxlength="60" placeholder="e.g. Legends history &amp; rules"><datalist id="fuCats">${cats.map((c) => `<option value="${escapeHtml(c)}">`).join('')}</datalist></div>
+        <div><label>Description (optional)</label><input type="text" id="fuDesc" maxlength="300"></div>
+      </div>
+      <div class="row" style="margin-top:10px;"><button class="primary" id="fuGo">Upload</button></div>
+      <div id="fuStatus" class="status"></div>
+    </div>
+    <div class="card">
+      <h2>Admin: edit the list</h2>
+      <p class="hint">Change titles, categories and descriptions, move files up or down, tick <em>Hide</em> to keep a file from members, or <b>Replace</b> a file with a newer version (e.g. next quarter's tee time assignments) — members keep finding it in the same place. <b>Remove</b> moves it to the Drive trash. Click <b>Save list</b> when done.</p>
+      ${filesEdit.length ? `<div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th></th><th>Title</th><th>Category</th><th>Description</th><th>Hide</th><th></th></tr></thead><tbody>
+      ${filesEdit.map((f, i) => `<tr>
+        <td style="white-space:nowrap;"><button class="link" data-fmove="${i}|-1" ${i === 0 ? 'disabled' : ''}>▲</button> <button class="link" data-fmove="${i}|1" ${i === filesEdit.length - 1 ? 'disabled' : ''}>▼</button></td>
+        <td><input type="text" data-fe="${i}" data-f="Title" value="${escapeHtml(f.Title)}"><div class="hint">${escapeHtml(f.FileName)} · ${fileSize(f.Size)}</div></td>
+        <td><input type="text" data-fe="${i}" data-f="Category" list="fuCats" value="${escapeHtml(f.Category || '')}"></td>
+        <td><input type="text" data-fe="${i}" data-f="Description" value="${escapeHtml(f.Description || '')}"></td>
+        <td style="text-align:center;"><input type="checkbox" data-fe="${i}" data-f="Hidden" ${String(f.Hidden).toUpperCase() === 'TRUE' ? 'checked' : ''}></td>
+        <td style="white-space:nowrap;"><label class="secondary file-replace">Replace…<input type="file" data-freplace="${escapeHtml(f.FileID)}" hidden></label> <button class="link danger" data-fremove="${i}">Remove</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="row" style="margin-top:10px;"><button class="primary" id="feSave">Save list</button>${dirtyNote}</div>` : '<p class="hint">Nothing uploaded yet.</p>'}
+      <div id="feStatus" class="status"></div>
+    </div>`;
+}
+function readFileB64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ''));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
+async function uploadFile(file, extra, statusId) {
+  if (file.size > 20 * 1024 * 1024) { showStatus(statusId, false, 'That file is larger than 20 MB.'); return false; }
+  showStatus(statusId, true, `Uploading ${file.name}… (large files can take a minute)`);
+  try {
+    const data = await readFileB64(file);
+    const res = await apiPost('legendsFileUpload', Object.assign({ fileName: file.name, mimeType: file.type || '', data }, extra), false, 180000);
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus(statusId, false, cleanError(res.error)); return false; }
+    filesEdit = null;
+    adoptBoard(res.data);
+    showStatus(statusId, true, `Uploaded ${file.name}.`);
+    return true;
+  } catch (e) { showStatus(statusId, false, 'The upload did not finish — check your connection and try again.'); return false; }
+}
+function wireFilesAdmin(el) {
+  const go = document.getElementById('fuGo');
+  if (go) go.onclick = async () => {
+    const file = document.getElementById('fuFile').files[0];
+    if (!file) { showStatus('fuStatus', false, 'Choose a file first.'); return; }
+    go.disabled = true;
+    await uploadFile(file, { title: document.getElementById('fuTitle').value, category: document.getElementById('fuCat').value, description: document.getElementById('fuDesc').value }, 'fuStatus');
+    const b = document.getElementById('fuGo'); if (b) b.disabled = false;
+  };
+  el.querySelectorAll('[data-fe]').forEach((i) => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', () => {
+    filesEdit[Number(i.dataset.fe)][i.dataset.f] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value;
+    markDirty();
+  }));
+  el.querySelectorAll('[data-fmove]').forEach((b) => b.onclick = () => {
+    const [i, d] = b.dataset.fmove.split('|').map(Number), j = i + d;
+    if (j < 0 || j >= filesEdit.length) return;
+    [filesEdit[i], filesEdit[j]] = [filesEdit[j], filesEdit[i]];
+    markDirty(); renderFiles();
+  });
+  el.querySelectorAll('[data-fremove]').forEach((b) => b.onclick = () => {
+    const f = filesEdit[Number(b.dataset.fremove)];
+    if (!confirm(`Remove "${f.Title}"? It goes to the Drive trash when you click Save list.`)) return;
+    filesEdit.splice(Number(b.dataset.fremove), 1); markDirty(); renderFiles();
+  });
+  el.querySelectorAll('[data-freplace]').forEach((i) => i.onchange = async () => {
+    const file = i.files[0]; if (!file) return;
+    const f = (board.files || []).find((x) => x.FileID === i.dataset.freplace);
+    if (!confirm(`Replace "${f ? f.Title : 'this file'}" with ${file.name}?`)) { i.value = ''; return; }
+    await uploadFile(file, { replaceId: i.dataset.freplace }, 'feStatus');
+  });
+  const save = document.getElementById('feSave');
+  if (save) save.onclick = async () => {
+    showStatus('feStatus', true, 'Saving…');
+    try {
+      const res = await apiPost('legendsFilesSave', { rows: JSON.stringify(filesEdit.map((f) => ({ FileID: f.FileID, Title: f.Title, Category: f.Category, Description: f.Description, Hidden: f.Hidden }))) });
+      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('feStatus', false, cleanError(res.error)); return; }
+      adminDirty = false; filesEdit = null;
+      adoptBoard(res.data);
+      showStatus('feStatus', true, 'Saved.');
+    } catch (e) { showStatus('feStatus', false, 'Could not reach the server — try again.'); }
+  };
+  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
 
 // ====================== ADMIN ======================
