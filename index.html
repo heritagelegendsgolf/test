@@ -129,11 +129,24 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
-  .my-summary .sum-list { list-style:none; padding:0; margin:4px 0 10px; }
+  .my-summary .sum-list { list-style:none; padding:0 0 0 22px; margin:4px 0 10px; }
   .my-summary .sum-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; margin:0; }
   .my-summary .sum-row:last-child { border-bottom:none; } .my-summary .sum-text { flex:1; min-width:0; }
   .my-summary .ts-signup-select { padding:6px 10px; font-size:12.5px; }
   @media (max-width:640px) { .my-summary .sum-row { flex-wrap:wrap; } .my-summary .ts-toggle-wrap { width:100%; } .my-summary .ts-signup-select { width:100%; } }
+  .news-card { border-left:4px solid var(--gold); }
+  .news-item { display:flex; gap:14px; align-items:flex-start; padding:8px 0; border-top:1px dashed #e7dfc9; }
+  .news-item:first-of-type { border-top:none; }
+  .news-photo { width:180px; max-width:40%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; background:#eee; cursor:zoom-in; flex-shrink:0; }
+  .news-title { font-weight:700; font-size:1.05rem; color:var(--green-dark); } .news-body { white-space:pre-line; margin:3px 0; }
+  .news-empty { text-align:right; margin:-4px 0 8px; }
+  .photo-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px; margin:8px 0; }
+  .photo-tile { margin:0; background:#fff; border:1px solid #e7dfc9; border-radius:8px; overflow:hidden; }
+  .photo-tile img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:#eee; cursor:zoom-in; }
+  .photo-tile figcaption { font-size:.8rem; padding:5px 7px; }
+  .rem-row { padding:10px 0; border-bottom:1px dashed #e7dfc9; } .rem-on { font-size:.95rem; cursor:pointer; }
+  .preview-box { border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:12px; background:#fff; }
+  @media (max-width:640px) { .news-item { flex-direction:column; } .news-photo { width:100%; max-width:100%; } }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -255,8 +268,8 @@
         <div class="ts-section-title-row" style="margin-top:0;"><h2 style="margin:0;">Tee Time Duty</h2><button class="ts-print-btn no-print" id="dutyPrint" onclick="window.print()">🖨️ Print</button></div>
         <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day books the round two weeks later.</p>
         <div class="view-btns no-print">
-          <button class="subtab-btn" data-dview="calendar">Calendar view</button>
-          <button class="subtab-btn active" data-dview="date">List by date</button>
+          <button class="subtab-btn active" data-dview="calendar">Calendar view</button>
+          <button class="subtab-btn" data-dview="date">List by date</button>
           <button class="subtab-btn" data-dview="person">List by person</button>
           <select id="dutyFilter" style="margin-left:auto;"></select>
         </div>
@@ -303,7 +316,9 @@
           <button type="button" class="subtab-btn active" data-group="setup" data-asub="duty">Tee Time Duty</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="days">First Tee Time</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="proshop">Pro Shop</button>
+          <button type="button" class="subtab-btn" data-group="setup" data-asub="reminders">Reminder emails</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="members" hidden>Members</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="news" hidden>News</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="closures" hidden>Closures &amp; notices</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="events" hidden>Events</button>
@@ -330,7 +345,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-08c';
+const APP_VERSION = '2026-10-08d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -654,7 +669,7 @@ function renderCurrent() {
   if (currentTab === 'signups') renderSignups();
   else if (currentTab === 'duty') renderDuty();
   else if (currentTab === 'files') renderFiles();
-  else if (currentTab === 'admin' && adminSession && adminSub !== 'sugimport' && adminSub !== 'proshop') renderAdminSub(); // don't wipe an import preview being checked
+  else if (currentTab === 'admin' && adminSession && ['sugimport', 'proshop', 'news', 'reminders'].indexOf(adminSub) === -1) renderAdminSub(); // don't wipe an import preview being checked
 }
 
 // ====================== BOARD (shared data) ======================
@@ -751,7 +766,8 @@ function mySummaryHtml(items) {
   const dutyInfo = board.dutyDayInfo || {};
   const li = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => `<li class="sum-row"><div class="sum-text">${x.html}</div>${x.toggle || ''}</li>`).join('');
   return `<div class="card my-summary">
-      <h3 style="margin-top:0;">What I'm signed up for</h3>
+      <h2 style="margin:0 0 6px;">My Sign-up Summary</h2>
+      <h3>What I'm signed up for</h3>
       ${mine.length ? `<ul class="sum-list">${li(mine)}</ul>` : '<p class="hint">Nothing yet.</p>'}
       <h3>What I can sign up for</h3>
       ${canJoin.length ? `<ul class="sum-list">${li(canJoin)}</ul>` : '<p class="hint">Nothing open right now.</p>'}
@@ -831,7 +847,7 @@ function toggleHtml(d, state, compact) {
     if (state === 'notyet') return `<span class="ts-closed-toggle-label">Opens ${escapeHtml(DOW[new Date(d.opensAt - clockSkew).getDay()])}</span>`;
     if (state === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
     return `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-signup-select="${d.DateKey}">
-        <option value="out" selected>Not signed up</option>
+        <option value="out" selected>Click to sign up</option>
         ${['fun', 'nassau'].map((g) => `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
       </select></div>`;
   }
@@ -849,7 +865,7 @@ function toggleHtml(d, state, compact) {
   return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${pos.standby ? 'standby' : ''}" data-signup-select="${d.DateKey}" data-mine="${escapeHtml(mine.SignupID)}">
       <option value="${mine.Group}" selected>${inLabel}</option>
       ${state === 'open' && !full(other) ? `<option value="${other}">Switch to ${label(other)}</option>` : ''}
-      <option value="out">${state === 'closed' ? 'Remove me (late)' : 'Not signed up'}</option>
+      <option value="out">${state === 'closed' ? 'Remove me (late)' : 'Remove me'}</option>
     </select>${extra}</div>`;
 }
 function myNoteEditorHtml(key, s) {
@@ -896,10 +912,10 @@ function eventToggleHtml(e) {
   const full = cap && list.length >= cap + parseInt(board.settings.StandbySlots, 10);
   return mine
     ? `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${cap && mineIdx >= cap ? 'standby' : ''}" data-event-select="${escapeHtml(e.EventID)}" data-mine="${escapeHtml(mine.SignupID)}">
-        <option value="in" selected>${cap && mineIdx >= cap ? `Standby #${mineIdx - cap + 1}` : 'Signed up'} ✓</option><option value="out">Not signed up</option></select></div>`
+        <option value="in" selected>${cap && mineIdx >= cap ? `Standby #${mineIdx - cap + 1}` : 'Signed up'} ✓</option><option value="out">Remove me</option></select></div>`
     : full ? '<span class="ts-closed-toggle-label">Full</span>'
       : `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-event-select="${escapeHtml(e.EventID)}">
-        <option value="out" selected>Not signed up</option><option value="in">${cap && list.length >= cap ? 'Join standby' : 'Sign up'}</option></select></div>`;
+        <option value="out" selected>Click to sign up</option><option value="in">${cap && list.length >= cap ? 'Join standby' : 'Sign up'}</option></select></div>`;
 }
 function schedEventCardHtml(e) {
   const group = 'event:' + e.EventID, key = 'ev-' + e.EventID, open = !!schedExpanded[key];
@@ -979,8 +995,9 @@ function renderSignups() {
       return `<div class="ts-person-group"><div class="ts-person-name">${escapeHtml(displayName(p.Name))}</div>${rows.length ? `<table class="ts-person-table"><tbody>${rows.join('')}</tbody></table>` : '<p class="ts-empty">Not signed up for anything yet.</p>'}</div>`;
     }).join('') || '<p class="ts-empty">No one is signed up yet.</p>';
   }
-  el.innerHTML = swapIncomingHtml() + (session ? mySummaryHtml(items) : '') + controls + `<div id="schedBody">${body}</div>`;
+  el.innerHTML = swapIncomingHtml() + newsCardHtml() + (session ? mySummaryHtml(items) : '') + controls + `<div id="schedBody">${body}</div>`;
   wireSchedule(el);
+  wireNews(el);
   wireSignups(el);
   wireSwaps(el);
 }
@@ -1294,7 +1311,7 @@ async function adminAdd(key, group, playerId) {
 }
 
 // ====================== TEE TIME DUTY TAB ======================
-let dutyView = 'date';
+let dutyView = 'calendar'; // Tee Time Duty always opens on the calendar
 let dutyFilterVal = '';
 document.querySelectorAll('[data-dview]').forEach((b) => b.addEventListener('click', () => {
   dutyView = b.dataset.dview;
@@ -1457,7 +1474,9 @@ function renderFiles() {
   const files = sortedFiles().filter((f) => amAdmin() || String(f.Hidden).toUpperCase() !== 'TRUE');
   const cats = [];
   files.forEach((f) => { const c = f.Category || 'Other files'; if (cats.indexOf(c) === -1) cats.push(c); });
-  const list = files.length ? cats.map((c) => `<h3 class="files-cat">${escapeHtml(c)}</h3>${files.filter((f) => (f.Category || 'Other files') === c).map((f) => `
+  const isImg = (f) => /^image\//.test(String(f.MimeType || ''));
+  const gallery = (arr) => arr.length ? `<div class="photo-grid">${arr.map((f) => `<figure class="photo-tile ${String(f.Hidden).toUpperCase() === 'TRUE' ? 'hidden-file' : ''}"><img data-photo="${escapeHtml(f.FileID)}" data-open-photo="${escapeHtml(f.FileID)}" alt="${escapeHtml(f.Title)}"><figcaption>${escapeHtml(f.Title)}${f.UploadedAt ? `<span class="hint"> · ${escapeHtml(dateShort(String(f.UploadedAt).slice(0, 10)))}</span>` : ''}</figcaption></figure>`).join('')}</div>` : '';
+  const list = files.length ? cats.map((c) => `<h3 class="files-cat">${escapeHtml(c)}</h3>${gallery(files.filter((f) => (f.Category || 'Other files') === c && isImg(f)))}${files.filter((f) => (f.Category || 'Other files') === c && !isImg(f)).map((f) => `
       <div class="file-row ${String(f.Hidden).toUpperCase() === 'TRUE' ? 'hidden-file' : ''}">
         <span class="file-icon">${fileIcon(f)}</span>
         <div class="file-mid"><div class="file-title">${escapeHtml(f.Title)}${String(f.Hidden).toUpperCase() === 'TRUE' ? ' <span class="hint">(hidden from members)</span>' : ''}</div>
@@ -1472,6 +1491,8 @@ function renderFiles() {
     ${amAdmin() ? filesAdminHtml() : ''}`;
   el.querySelectorAll('[data-file-open]').forEach((b) => b.onclick = () => openFile(b.dataset.fileOpen, false));
   el.querySelectorAll('[data-file-dl]').forEach((b) => b.onclick = () => openFile(b.dataset.fileDl, true));
+  el.querySelectorAll('[data-open-photo]').forEach((img) => img.onclick = () => openFile(img.dataset.openPhoto, false));
+  fillPhotos(el);
   if (amAdmin()) wireFilesAdmin(el);
 }
 async function openFile(id, download) {
@@ -1594,6 +1615,185 @@ function wireFilesAdmin(el) {
   if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
 
+// ====================== NEWS & PHOTOS ======================
+// Photos are fetched through the app (same private Drive folder as Related Files)
+// and kept in memory for this visit, so each one downloads once.
+const photoCache = {};
+async function loadPhotoUrl(fileId) {
+  if (photoCache[fileId]) return photoCache[fileId];
+  photoCache[fileId] = (async () => {
+    const res = await apiPost('legendsFileGet', { fileId }, true, 120000);
+    if (!res.success) throw new Error(res.error);
+    const bin = atob(res.data.data), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: res.data.mimeType || 'image/jpeg' }));
+  })();
+  try { return await photoCache[fileId]; } catch (e) { delete photoCache[fileId]; throw e; }
+}
+function fillPhotos(root) {
+  (root || document).querySelectorAll('img[data-photo]').forEach((img) => {
+    if (img.dataset.loaded) return;
+    img.dataset.loaded = '1';
+    loadPhotoUrl(img.dataset.photo).then((u) => { img.src = u; img.classList.add('ready'); }).catch(() => { img.alt = 'Photo unavailable'; img.classList.add('ready'); });
+  });
+}
+function newsCardHtml() {
+  const items = (board.news || []).filter((n) => String(n.Hidden).toUpperCase() !== 'TRUE' && (!n.ShowUntil || n.ShowUntil >= board.today));
+  if (!items.length) return amAdmin() ? `<div class="news-empty no-print"><button class="link" id="newsGoAdmin">+ Post Legends news (e.g. a hole in one)</button></div>` : '';
+  return `<div class="card news-card">
+      <h2 style="margin:0 0 8px;">📣 Legends News</h2>
+      ${items.map((n) => `<div class="news-item">
+        ${n.PhotoID ? `<img class="news-photo" data-photo="${escapeHtml(n.PhotoID)}" alt="${escapeHtml(n.Title)}" data-open-photo="${escapeHtml(n.PhotoID)}">` : ''}
+        <div class="news-text"><div class="news-title">${escapeHtml(n.Title)}</div>
+          ${n.Body ? `<div class="news-body">${escapeHtml(n.Body)}</div>` : ''}
+          <div class="hint">${escapeHtml(dateShort(String(n.PostedAt).slice(0, 10)))}</div></div>
+      </div>`).join('')}
+      ${amAdmin() ? '<div class="no-print" style="margin-top:6px;"><button class="link" id="newsGoAdmin">Post or edit news</button></div>' : ''}
+    </div>`;
+}
+function wireNews(el) {
+  const go = el.querySelector('#newsGoAdmin');
+  if (go) go.onclick = () => { selectTab('admin'); if (adminSession) showAdminSub('news'); };
+  el.querySelectorAll('[data-open-photo]').forEach((img) => img.onclick = () => openFile(img.dataset.openPhoto, false));
+  fillPhotos(el);
+}
+// Shrinks a photo to at most 1600 px on its long side (phone photos are often 4–8 MB).
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.85).replace(/^data:[^,]*,/, ''));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file is not a photo this browser can read.')); };
+    img.src = url;
+  });
+}
+let newsEdit = null;
+function renderNewsAdmin(el) {
+  if (!newsEdit) newsEdit = (board.news || []).map((n) => Object.assign({}, n));
+  el.innerHTML = `
+    <div class="card">
+      <h2>Post Legends news</h2>
+      <p class="hint">A hole in one, a tournament winner, a birthday — it shows at the top of everyone's Sign-ups page for as long as you choose. A photo is optional; it's also kept in <b>Related Files → Photos</b> afterwards.</p>
+      <div class="grid2">
+        <div><label>Headline</label><input type="text" id="nwTitle" maxlength="120" placeholder="e.g. Hole in one! Ray Schipani, #7"></div>
+        <div><label>Show on Sign-ups for</label><select id="nwDays">${[3, 7, 14, 30].map((d) => `<option value="${d}" ${String(d) === String(board.settings.NewsDays || 7) ? 'selected' : ''}>${d} days</option>`).join('')}</select></div>
+      </div>
+      <label style="display:block;margin-top:8px;">Story (optional)</label><textarea id="nwBody" rows="3" maxlength="1500" placeholder="Wednesday, Oct 7 — 142 yards with a 7-iron. Drinks are on Ray!"></textarea>
+      <label style="display:block;margin-top:8px;">Photo (optional)</label><input type="file" id="nwPhoto" accept="image/*">
+      <div class="row" style="margin-top:10px;"><button class="primary" id="nwGo">Post</button></div>
+      <div id="nwStatus" class="status"></div>
+    </div>
+    <div class="card">
+      <h2>News posts</h2>
+      ${newsEdit.length ? `<div class="tbl-wrap"><table class="ad" style="min-width:720px;"><thead><tr><th>Headline</th><th>Story</th><th>Show until</th><th>Hide</th><th></th></tr></thead><tbody>
+        ${newsEdit.map((n, i) => `<tr>
+          <td><input type="text" data-ne="${i}" data-f="Title" value="${escapeHtml(n.Title)}"><div class="hint">${escapeHtml(dateShort(String(n.PostedAt).slice(0, 10)))} · ${escapeHtml(n.PostedBy || '')}${n.PhotoID ? ' · 📷' : ''}</div></td>
+          <td><textarea data-ne="${i}" data-f="Body" rows="2">${escapeHtml(n.Body || '')}</textarea></td>
+          <td><input type="date" data-ne="${i}" data-f="ShowUntil" value="${escapeHtml(n.ShowUntil || '')}"></td>
+          <td style="text-align:center;"><input type="checkbox" data-ne="${i}" data-f="Hidden" ${String(n.Hidden).toUpperCase() === 'TRUE' ? 'checked' : ''}></td>
+          <td><button class="link danger" data-nrm="${i}">Remove</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="hint">Removing a post keeps its photo in Related Files.</p>
+      <div class="row" style="margin-top:10px;"><button class="primary" id="neSave">Save</button>${dirtyNote}</div>` : '<p class="hint">No news posted yet.</p>'}
+      <div id="neStatus" class="status"></div>
+    </div>`;
+  document.getElementById('nwGo').onclick = async () => {
+    const title = document.getElementById('nwTitle').value.trim();
+    if (!title) { showStatus('nwStatus', false, 'Give the news a headline.'); return; }
+    const btn = document.getElementById('nwGo'); btn.disabled = true;
+    const body = { title, body: document.getElementById('nwBody').value, days: document.getElementById('nwDays').value };
+    const file = document.getElementById('nwPhoto').files[0];
+    try {
+      if (file) { showStatus('nwStatus', true, 'Preparing the photo…'); body.photoData = await shrinkImage(file); body.photoName = file.name.replace(/\.[^.]+$/, '') + '.jpg'; body.photoType = 'image/jpeg'; }
+      showStatus('nwStatus', true, 'Posting…');
+      const res = await apiPost('legendsNewsPost', body, false, 180000);
+      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('nwStatus', false, cleanError(res.error)); btn.disabled = false; return; }
+      newsEdit = null; filesEdit = null;
+      adoptBoard(res.data);
+      showStatus('nwStatus', true, 'Posted — it\'s at the top of the Sign-ups page.');
+    } catch (e) { showStatus('nwStatus', false, e.message || 'Could not reach the server — try again.'); btn.disabled = false; }
+  };
+  el.querySelectorAll('[data-ne]').forEach((i) => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', () => {
+    newsEdit[Number(i.dataset.ne)][i.dataset.f] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value; markDirty();
+  }));
+  el.querySelectorAll('[data-nrm]').forEach((b) => b.onclick = () => { newsEdit.splice(Number(b.dataset.nrm), 1); markDirty(); renderNewsAdmin(el); });
+  const save = document.getElementById('neSave');
+  if (save) save.onclick = async () => {
+    showStatus('neStatus', true, 'Saving…');
+    try {
+      const res = await apiPost('legendsNewsSave', { rows: JSON.stringify(newsEdit) });
+      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('neStatus', false, cleanError(res.error)); return; }
+      adminDirty = false; newsEdit = null; adoptBoard(res.data); showStatus('neStatus', true, 'Saved.');
+    } catch (e) { showStatus('neStatus', false, 'Could not reach the server — try again.'); }
+  };
+  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
+}
+
+// ====================== REMINDER EMAILS (admin) ======================
+const REMINDER_TYPES = [
+  ['duty', 'RemindDuty', 'Tee Time Duty reminder', 'The evening before a duty day, each person on duty gets their instructions (arrive-by or call-in time, which round they\'re booking, who else is on duty). If the club is closed two weeks out, it tells them there\'s nothing to do.'],
+  ['playing', 'RemindPlaying', 'Playing tomorrow', 'The evening before each round, everyone signed up gets a reminder with their group, tee times and details — or their standby number.'],
+  ['closing', 'RemindClosing', 'Last day to sign up', 'On the last sign-up day, one email (Bcc) goes to active Legends who haven\'t signed up yet for that round, with how many spots are left.'],
+];
+function renderRemindersAdmin(el) {
+  const st = board.settings;
+  const hourOpts = (sel) => Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${String(h) === String(sel) ? 'selected' : ''}>${fmtClock(h * 60)}</option>`).join('');
+  const log = (board.reminderLog || []).slice().sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1)).slice(0, 12);
+  const nextKey = (type) => {
+    let k = addDays(board.today, type === 'closing' ? Number(st.SignupCloseDaysBefore) || 2 : 1);
+    for (let i = 0; i < 10 && !isPlayDay(k); i++) k = addDays(k, 1);
+    if (type === 'duty') { const d = (board.duty || []).map((x) => x.DateKey).filter((x) => x > board.today).sort()[0]; if (d) k = d; }
+    return k;
+  };
+  el.innerHTML = `
+    <div class="card">
+      <h2>Reminder emails</h2>
+      <p class="hint">Sent automatically by the hourly job, once per date, from the Legends email. Evening reminders go out in the hour after the time below. Each email has a link to the app. (Gmail allows about 100 recipients a day in total — “Playing tomorrow” uses one per player.)</p>
+      ${REMINDER_TYPES.map(([type, key, title, desc]) => `
+        <div class="rem-row">
+          <label class="rem-on"><input type="checkbox" data-rem="${key}" ${String(st[key]).toUpperCase() === 'TRUE' ? 'checked' : ''}> <b>${title}</b></label>
+          <p class="hint" style="margin:2px 0 6px 24px;">${desc}</p>
+          <div style="margin-left:24px;" class="row"><span class="hint">Preview for</span><input type="date" data-rem-date="${type}" value="${nextKey(type)}" style="width:auto;"><button class="secondary" data-rem-preview="${type}">Preview</button></div>
+        </div>`).join('')}
+      <div class="grid2" style="margin-top:10px;">
+        <div><label>Evening reminders go out after</label><select data-remset="ReminderHour">${hourOpts(st.ReminderHour || 17)}</select></div>
+        <div><label>“Last day to sign up” goes out after</label><select data-remset="ClosingReminderHour">${hourOpts(st.ClosingReminderHour || 9)}</select></div>
+        <div><label>App link in emails</label><input type="text" data-remset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}"></div>
+      </div>
+      <div class="row" style="margin-top:10px;"><button class="primary" id="remSave">Save</button>${dirtyNote}</div>
+      <div id="remStatus" class="status"></div>
+      <div id="remPreview"></div>
+    </div>
+    <div class="card"><h2>Recently sent</h2>
+      ${log.length ? `<table class="ad"><thead><tr><th>Reminder</th><th>For</th><th>Sent</th><th>Recipients</th></tr></thead><tbody>${log.map((r) => `<tr><td>${escapeHtml((REMINDER_TYPES.find((t) => t[0] === r.Type) || [, , r.Type])[2])}</td><td>${escapeHtml(dateShort(r.DateKey))}</td><td>${escapeHtml(whenLabel(Date.parse(r.SentAt)))}</td><td>${escapeHtml(r.Recipients)}</td></tr>`).join('')}</tbody></table>` : '<p class="hint">Nothing sent yet. Reminders start once the hourly job is set up (run <b>installLegendsTriggers</b> once in Apps Script).</p>'}
+    </div>`;
+  el.querySelectorAll('[data-rem], [data-remset]').forEach((i) => i.addEventListener(i.tagName === 'INPUT' && i.type === 'text' ? 'input' : 'change', markDirty));
+  document.getElementById('remSave').onclick = () => {
+    const patch = {};
+    el.querySelectorAll('[data-rem]').forEach((i) => { patch[i.dataset.rem] = i.checked ? 'TRUE' : 'FALSE'; });
+    el.querySelectorAll('[data-remset]').forEach((i) => { patch[i.dataset.remset] = i.value; });
+    adminSave('legendsSaveAppSettings', { settings: JSON.stringify(patch) }, 'remStatus');
+  };
+  el.querySelectorAll('[data-rem-preview]').forEach((b) => b.onclick = async () => {
+    const type = b.dataset.remPreview, key = el.querySelector(`[data-rem-date="${type}"]`).value;
+    const box = document.getElementById('remPreview');
+    box.innerHTML = '<p class="hint">Loading preview…</p>';
+    try {
+      const res = await apiPost('legendsReminderPreview', { type, dateKey: key });
+      if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
+      const m = res.data;
+      box.innerHTML = m.sample ? `<div class="preview-box"><div class="hint"><b>${m.count} recipient${m.count === 1 ? '' : 's'}</b> for ${escapeHtml(dateShort(key))}. First one — <b>To:</b> ${escapeHtml(m.sample.to)}${m.sample.bccCount ? ` · <b>Bcc:</b> ${m.sample.bccCount} Legends` : ''} · <b>Subject:</b> ${escapeHtml(m.sample.subject)}</div><hr>${m.sample.html}</div>`
+        : `<p class="hint">Nobody would get this reminder for ${escapeHtml(dateShort(key))} (no one on duty / signed up, or the day is closed).</p>`;
+    } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
+  });
+  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
+}
+
 // ====================== ADMIN ======================
 // Admin has two groups: Setup (Tee Time Duty, First Tee Time) and Info (everything else).
 let adminSub = 'duty';
@@ -1681,6 +1881,8 @@ function renderAdminSub() {
   if (adminSub === 'sugimport') return renderSugImportAdmin(el);
   if (adminSub === 'admins') return renderAdminsAdmin(el);
   if (adminSub === 'proshop') return renderProShopAdmin(el);
+  if (adminSub === 'news') return renderNewsAdmin(el);
+  if (adminSub === 'reminders') return renderRemindersAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 
