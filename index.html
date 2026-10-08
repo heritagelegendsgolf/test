@@ -147,6 +147,11 @@
   .rem-row { padding:10px 0; border-bottom:1px dashed #e7dfc9; } .rem-on { font-size:.95rem; cursor:pointer; }
   .preview-box { border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:12px; background:#fff; }
   @media (max-width:640px) { .news-item { flex-direction:column; } .news-photo { width:100%; max-width:100%; } }
+  /* names one per line, Fun and Nassau side by side */
+  .ts-players .name-chip { display:flex; align-items:baseline; flex-wrap:wrap; width:fit-content; max-width:100%; margin:3px 0; }
+  .grp-cols { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; }
+  .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
+  @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -345,7 +350,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-08d';
+const APP_VERSION = '2026-10-08f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -546,10 +551,10 @@ async function submitGate() {
     if (gate.step === 'admin') {
       const pin = gateVal('gPin');
       if (!pin) { gate.err = 'Enter your admin PIN.'; return; }
-      const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app' });
+      const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app', withBoard: true });
       if (!res.success) { gate.err = res.error || 'Incorrect PIN.'; return; }
       saveAdminSession({ name: res.data.name, pin });
-      showApp('admin');
+      showApp('admin', res.data.board);
       return;
     }
   } catch (e) {
@@ -644,7 +649,7 @@ function cleanError(err) { return String(err || 'Something went wrong.').replace
 
 // ====================== APP SHELL ======================
 let currentTab = 'signups';
-function showApp(tab) {
+function showApp(tab, preloaded) {
   document.getElementById('gateWrap').hidden = true;
   document.getElementById('app').hidden = false;
   const who = session ? displayName(session.member.Name) + (adminSession ? ' · admin' : '') : (adminSession ? adminSession.name + ' (admin)' : '');
@@ -653,8 +658,9 @@ function showApp(tab) {
   document.getElementById('myInfoBtn').hidden = !session;
   document.getElementById('lnkLive').href = 'live.html' + location.search;
   document.getElementById('lnkTAdmin').href = 'tournament-admin.html' + location.search;
+  if (preloaded) adoptBoard(preloaded); // already fetched with the sign-in — no second wait
   selectTab(tab || currentTab || 'signups');
-  loadBoard();
+  if (!preloaded) loadBoard();
 }
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 function selectTab(tab) {
@@ -896,7 +902,7 @@ function schedDayCardHtml(d) {
         ${toggleHtml(d, state)}
       </div>
       <div class="ts-players ${open ? 'open' : ''}">
-        ${open ? `${d.closed ? '' : groupChipsHtml(d, 'fun') + groupChipsHtml(d, 'nassau')}
+        ${open ? `${d.closed ? '' : `<div class="grp-cols">${groupChipsHtml(d, 'fun')}${groupChipsHtml(d, 'nassau')}</div>`}
           ${mine && state !== 'closed' ? myNoteEditorHtml(key, mine) : ''}
           ${dutyBoxHtml(key)}` : ''}
       </div>
@@ -1738,6 +1744,7 @@ function renderNewsAdmin(el) {
 const REMINDER_TYPES = [
   ['duty', 'RemindDuty', 'Tee Time Duty reminder', 'The evening before a duty day, each person on duty gets their instructions (arrive-by or call-in time, which round they\'re booking, who else is on duty). If the club is closed two weeks out, it tells them there\'s nothing to do.'],
   ['playing', 'RemindPlaying', 'Playing tomorrow', 'The evening before each round, everyone signed up gets a reminder with their group, tee times and details — or their standby number.'],
+  ['daily', 'RemindDaily', '“Legends Signups” email (to everyone)', 'The morning before each round, the same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list. Everyone is listed openly (not Bcc), so replying to all still reaches the group.'],
   ['closing', 'RemindClosing', 'Last day to sign up', 'On the last sign-up day, one email (Bcc) goes to active Legends who haven\'t signed up yet for that round, with how many spots are left.'],
 ];
 function renderRemindersAdmin(el) {
@@ -1763,8 +1770,16 @@ function renderRemindersAdmin(el) {
       <div class="grid2" style="margin-top:10px;">
         <div><label>Evening reminders go out after</label><select data-remset="ReminderHour">${hourOpts(st.ReminderHour || 17)}</select></div>
         <div><label>“Last day to sign up” goes out after</label><select data-remset="ClosingReminderHour">${hourOpts(st.ClosingReminderHour || 9)}</select></div>
+        <div><label>“Legends Signups” email goes out after</label><select data-remset="DailyHour">${hourOpts(st.DailyHour || 8)}</select></div>
         <div><label>App link in emails</label><input type="text" data-remset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}"></div>
       </div>
+      <h3>“Legends Signups” email wording</h3>
+      <label class="hint">Fun group — who to text about a last-minute drop out</label><textarea data-remset="DailyFunText" rows="2">${escapeHtml(st.DailyFunText || '')}</textarea>
+      <label class="hint">Nassau group — how to grab an open slot</label><textarea data-remset="DailyNassauText" rows="2">${escapeHtml(st.DailyNassauText || '')}</textarea>
+      <label class="hint">Tee time cancellations</label><textarea data-remset="DailyCancelText" rows="2">${escapeHtml(st.DailyCancelText || '')}</textarea>
+      <label class="hint">Legends group address (optional — see note below)</label><input type="text" data-remset="DailyGroupEmail" value="${escapeHtml(st.DailyGroupEmail || '')}" placeholder="e.g. heritage-legends@googlegroups.com">
+      <label class="hint">Also send it to (besides the Legends and the Pro Shop page addresses) — commas between addresses</label><textarea data-remset="DailyExtraEmails" rows="2" placeholder="e.g. dsykes@theheritageclub.net">${escapeHtml(st.DailyExtraEmails || '')}</textarea>
+      <p class="hint"><b>Email limits:</b> an app email can carry at most 50 addresses, and Gmail allows about 100 recipients a day in total. Listed one by one, the Legends are about ${(board.roster || []).filter((r) => r.Active !== 'FALSE').length + 5} people — so the email has to go out in two parts (reply-all then only reaches your own part) and uses most of the day's allowance. <b>The fix is a Google Group</b> containing every Legend: put its address above and the email goes to that one address — reply-all reaches everyone, and it counts as a single recipient. Without a group, turn <b>Playing tomorrow</b> off when this is on.</p>
       <div class="row" style="margin-top:10px;"><button class="primary" id="remSave">Save</button>${dirtyNote}</div>
       <div id="remStatus" class="status"></div>
       <div id="remPreview"></div>
@@ -1772,7 +1787,7 @@ function renderRemindersAdmin(el) {
     <div class="card"><h2>Recently sent</h2>
       ${log.length ? `<table class="ad"><thead><tr><th>Reminder</th><th>For</th><th>Sent</th><th>Recipients</th></tr></thead><tbody>${log.map((r) => `<tr><td>${escapeHtml((REMINDER_TYPES.find((t) => t[0] === r.Type) || [, , r.Type])[2])}</td><td>${escapeHtml(dateShort(r.DateKey))}</td><td>${escapeHtml(whenLabel(Date.parse(r.SentAt)))}</td><td>${escapeHtml(r.Recipients)}</td></tr>`).join('')}</tbody></table>` : '<p class="hint">Nothing sent yet. Reminders start once the hourly job is set up (run <b>installLegendsTriggers</b> once in Apps Script).</p>'}
     </div>`;
-  el.querySelectorAll('[data-rem], [data-remset]').forEach((i) => i.addEventListener(i.tagName === 'INPUT' && i.type === 'text' ? 'input' : 'change', markDirty));
+  el.querySelectorAll('[data-rem], [data-remset]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'checkbox' ? 'change' : 'input', markDirty));
   document.getElementById('remSave').onclick = () => {
     const patch = {};
     el.querySelectorAll('[data-rem]').forEach((i) => { patch[i.dataset.rem] = i.checked ? 'TRUE' : 'FALSE'; });
@@ -1787,7 +1802,7 @@ function renderRemindersAdmin(el) {
       const res = await apiPost('legendsReminderPreview', { type, dateKey: key });
       if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
       const m = res.data;
-      box.innerHTML = m.sample ? `<div class="preview-box"><div class="hint"><b>${m.count} recipient${m.count === 1 ? '' : 's'}</b> for ${escapeHtml(dateShort(key))}. First one — <b>To:</b> ${escapeHtml(m.sample.to)}${m.sample.bccCount ? ` · <b>Bcc:</b> ${m.sample.bccCount} Legends` : ''} · <b>Subject:</b> ${escapeHtml(m.sample.subject)}</div><hr>${m.sample.html}</div>`
+      box.innerHTML = m.sample ? `<div class="preview-box"><div class="hint"><b>${m.count} recipient${m.count === 1 ? '' : 's'}</b> for ${escapeHtml(dateShort(key))}${m.sample.split ? ` — sent as ${m.sample.split} emails (at most 50 addresses each)` : ''}. First one — <b>To:</b> ${escapeHtml(m.sample.to)}${m.sample.bccCount ? ` · <b>Bcc:</b> ${m.sample.bccCount} Legends` : ''} · <b>Subject:</b> ${escapeHtml(m.sample.subject)}</div><hr>${m.sample.html}</div>`
         : `<p class="hint">Nobody would get this reminder for ${escapeHtml(dateShort(key))} (no one on duty / signed up, or the day is closed).</p>`;
     } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
   });
@@ -1838,12 +1853,12 @@ async function unlockAdmin() {
   if (!pin) { showStatus('adminLockStatus', false, 'Enter your admin PIN.'); return; }
   showStatus('adminLockStatus', true, 'Checking…');
   try {
-    const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app' });
+    const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app', withBoard: true });
     if (!res.success) { showStatus('adminLockStatus', false, res.error || 'Incorrect PIN.'); return; }
     saveAdminSession({ name: res.data.name, pin });
     document.getElementById('adminPinInput').value = '';
     showStatus('adminLockStatus', true, '');
-    showApp('admin');
+    showApp('admin', res.data.board);
   } catch (e) { showStatus('adminLockStatus', false, 'Could not reach the server — try again.'); }
 }
 function handleAdminRejected(err) {
