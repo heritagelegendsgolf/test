@@ -129,11 +129,20 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
-  .my-summary .sum-list { list-style:none; padding:0 0 0 22px; margin:4px 0 10px; }
-  .my-summary .sum-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; margin:0; }
-  .my-summary .sum-row:last-child { border-bottom:none; } .my-summary .sum-text { flex:1; min-width:0; }
-  .my-summary .ts-signup-select { padding:6px 10px; font-size:12.5px; }
-  @media (max-width:640px) { .my-summary .sum-row { flex-wrap:wrap; } .my-summary .ts-toggle-wrap { width:100%; } .my-summary .ts-signup-select { width:100%; } }
+  .snap-title { margin:0 0 4px; }
+  .snap-cols { display:grid; grid-template-columns:1fr 1fr; gap:4px 28px; }
+  .my-summary h3 { margin:12px 0 4px; font-size:.95rem; text-transform:uppercase; letter-spacing:.04em; color:#7c9a79; }
+  .snap-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; }
+  .snap-row:last-child { border-bottom:none; }
+  .snap-date { width:44px; flex-shrink:0; text-align:center; font-family:ui-monospace,Menlo,Consolas,monospace; line-height:1.05; border-right:1px dashed #e3dfcf; padding-right:8px; }
+  .snap-date span { display:block; font-size:9.5px; text-transform:uppercase; color:#7c9a79; letter-spacing:.06em; } .snap-date b { display:block; font-size:17px; font-weight:500; color:#26261f; }
+  .snap-text { flex:1; min-width:0; } .snap-l1 { font-weight:600; font-size:.92rem; } .snap-l2 { font-size:.82rem; color:#6b6a5e; }
+  .snap-row .ts-signup-select { padding:6px 10px; font-size:12px; }
+  .snap-soon { font-size:.82rem; color:#6b6a5e; margin:8px 0 0; }
+  .snap-duty { display:grid; grid-template-columns:1fr 1fr; gap:0 28px; }
+  .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
+  @media (max-width:760px) { .snap-cols, .snap-duty { grid-template-columns:1fr; } }
+  @media (max-width:480px) { .snap-row { flex-wrap:wrap; } .snap-row .ts-toggle-wrap { width:100%; } .snap-row .ts-signup-select { width:100%; } }
   .news-card { border-left:4px solid var(--gold); }
   .news-item { display:flex; gap:14px; align-items:flex-start; padding:8px 0; border-top:1px dashed #e7dfc9; }
   .news-item:first-of-type { border-top:none; }
@@ -152,6 +161,8 @@
   .grp-cols { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; }
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
+  .view-only-banner { background:#fff6dd; border:1px solid #e8cf86; color:#6b5200; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
+  .em-jump { font-size:.85rem; margin:0 0 8px; color:#6b6a5e; }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -320,18 +331,18 @@
         <div class="subtabs" id="adminSubtabs">
           <button type="button" class="subtab-btn active" data-group="setup" data-asub="duty">Tee Time Duty</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="days">First Tee Time</button>
-          <button type="button" class="subtab-btn" data-group="setup" data-asub="proshop">Pro Shop</button>
-          <button type="button" class="subtab-btn" data-group="setup" data-asub="reminders">Reminder emails</button>
+          <button type="button" class="subtab-btn" data-group="setup" data-asub="events">Events</button>
+          <button type="button" class="subtab-btn" data-group="setup" data-asub="emails">Emails</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="members" hidden>Members</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="news" hidden>News</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="closures" hidden>Closures &amp; notices</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
-          <button type="button" class="subtab-btn" data-group="info" data-asub="events" hidden>Events</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="rules" hidden>Sign-up rules</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="admins" hidden>Admins</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="sugimport" hidden>SignUp Genius import</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
         </div>
+        <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
         <div id="adminContent"></div>
       </div>
     </section>
@@ -350,7 +361,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-08g';
+const APP_VERSION = '2026-10-12a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -556,7 +567,7 @@ async function submitGate() {
       if (!pin) { gate.err = 'Enter your admin PIN.'; return; }
       const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app', withBoard: true });
       if (!res.success) { gate.err = res.error || 'Incorrect PIN.'; return; }
-      saveAdminSession({ name: res.data.name, pin });
+      saveAdminSession({ name: res.data.name, pin, role: res.data.role || 'Full' });
       showApp('admin', res.data.board);
       return;
     }
@@ -655,7 +666,7 @@ let currentTab = 'signups';
 function showApp(tab, preloaded) {
   document.getElementById('gateWrap').hidden = true;
   document.getElementById('app').hidden = false;
-  const who = session ? displayName(session.member.Name) + (adminSession ? ' · admin' : '') : (adminSession ? adminSession.name + ' (admin)' : '');
+  const who = session ? displayName(session.member.Name) + (adminSession ? (amViewOnly() ? ' · admin (view only)' : ' · admin') : '') : (adminSession ? adminSession.name + (amViewOnly() ? ' (view-only admin)' : ' (admin)') : '');
   document.getElementById('whoName').textContent = 'Signed in as ' + who;
   document.getElementById('changePinBtn').hidden = !session;
   document.getElementById('myInfoBtn').hidden = !session;
@@ -678,7 +689,7 @@ function renderCurrent() {
   if (currentTab === 'signups') renderSignups();
   else if (currentTab === 'duty') renderDuty();
   else if (currentTab === 'files') renderFiles();
-  else if (currentTab === 'admin' && adminSession && ['sugimport', 'proshop', 'news', 'reminders'].indexOf(adminSub) === -1) renderAdminSub(); // don't wipe an import preview being checked
+  else if (currentTab === 'admin' && adminSession && ['sugimport', 'proshop', 'news', 'reminders', 'emails'].indexOf(adminSub) === -1) renderAdminSub(); // don't wipe an import preview being checked
 }
 
 // ====================== BOARD (shared data) ======================
@@ -722,7 +733,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && bo
 
 function rosterById(id) { return (board.roster || []).find((r) => String(r.PlayerID) === String(id)); }
 function myId() { return session ? String(session.member.PlayerID) : null; }
-function amAdmin() { return !!adminSession; }
+// amAdmin(): can make admin changes. View-only admins can open the Admin tab but not change anything.
+function amAdmin() { return !!adminSession && adminSession.role !== 'View'; }
+function amViewOnly() { return !!adminSession && adminSession.role === 'View'; }
 
 // ====================== SIGN-UPS TAB ======================
 let openForm = null; // { key, group, mode: 'join'|'edit', signupId? } — the one inline form being shown
@@ -740,8 +753,12 @@ function dayState(d) {
 
 // One line per thing I'm on (round, event, duty) and per date I can still join.
 function mySummaryHtml(items) {
+  // "My Sign-up Snapshot": my sign-ups and available sign-ups side by side (stacked on a
+  // phone), each row a small date badge, two short lines and the same toggle as the cards.
   const me = myId();
-  const mine = [], canJoin = [];
+  const mine = [], canJoin = [], soon = [];
+  const badge = (key) => { const d = keyDate(key); return `<div class="snap-date"><span>${DOW[d.getUTCDay()]}</span><b>${d.getUTCDate()}</b><span>${MON[d.getUTCMonth()]}</span></div>`; };
+  const row = (key, l1, l2, toggle, cls) => ({ key, html: `<div class="snap-row ${cls || ''}">${badge(key)}<div class="snap-text"><div class="snap-l1">${l1}</div>${l2 ? `<div class="snap-l2">${l2}</div>` : ''}</div>${toggle || ''}</div>` });
   items.forEach((it) => {
     if (it.type === 'day') {
       const d = it.d;
@@ -753,36 +770,46 @@ function mySummaryHtml(items) {
         if (idx === -1) return;
         const slots = g === 'fun' ? d.funSlots : d.nassauSlots, times = g === 'fun' ? d.funTimes : d.nassauTimes;
         const det = detailText(list[idx]);
-        found = `${g === 'fun' ? 'Fun' : 'Nassau'} group ${escapeHtml(times)} — ${idx < slots ? `<b>in</b> (#${idx + 1})` : `<b class="standby-txt">standby #${idx - slots + 1}</b>`}${det ? ` · ${escapeHtml(det)}` : ''}`;
+        found = { l1: `${g === 'fun' ? 'Fun' : 'Nassau'} group · ${escapeHtml(times)}`,
+          l2: `${idx < slots ? `<b>#${idx + 1} on the list</b>` : `<b class="standby-txt">#${idx - slots + 1} on standby</b>`}${det ? ` · ${escapeHtml(det)}` : ''}` };
       });
-      if (found) mine.push({ key: d.DateKey, html: `<b>${escapeHtml(dateShort(d.DateKey))}</b> · ${found}`, toggle: toggleHtml(d, state, true) });
+      if (found) mine.push(row(d.DateKey, found.l1, found.l2, toggleHtml(d, state, true)));
       else if (state === 'open') {
         const f = groupList(d.DateKey, 'fun').length, n = groupList(d.DateKey, 'nassau').length;
         const room = (c, slots) => (c < slots ? `${slots - c} open` : c < slots + d.standbySlots ? 'standby only' : 'full');
-        canJoin.push({ key: d.DateKey, html: `<b>${escapeHtml(dateShort(d.DateKey))}</b> · Fun: ${room(f, d.funSlots)} · Nassau: ${room(n, d.nassauSlots)} <span class="hint">· closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`, toggle: toggleHtml(d, state, true) });
+        canJoin.push(row(d.DateKey, `Fun: ${room(f, d.funSlots)} · Nassau: ${room(n, d.nassauSlots)}`, `closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}`, toggleHtml(d, state, true)));
       } else if (state === 'notyet') {
-        canJoin.push({ key: d.DateKey, html: `<b>${escapeHtml(dateShort(d.DateKey))}</b> <span class="hint">· sign-ups open ${escapeHtml(whenLabel(d.opensAt - clockSkew))}</span>`, toggle: '' });
+        soon.push(`${escapeHtml(dateShort(d.DateKey))} <span class="hint">(opens ${escapeHtml(whenLabel(d.opensAt - clockSkew).replace(/^[A-Za-z]+, /, ''))})</span>`);
       }
     } else {
       const e = it.e, group = 'event:' + e.EventID;
       const list = (board.signups || []).filter((x) => x.Group === group);
       const cap = parseInt(e.Capacity, 10) || 0, idx = list.findIndex((x) => String(x.PlayerID) === me);
-      if (idx !== -1) mine.push({ key: e.DateKey, toggle: eventToggleHtml(e), html: `<b>${escapeHtml(dateShort(e.DateKey))}</b> · ${escapeHtml(e.Title)} — ${cap && idx >= cap ? `<b class="standby-txt">standby #${idx - cap + 1}</b>` : '<b>signed up</b>'}${list[idx].Note ? ` · ${escapeHtml(list[idx].Note)}` : ''}` });
-      else if (!cap || list.length < cap + parseInt(board.settings.StandbySlots, 10)) canJoin.push({ key: e.DateKey, toggle: eventToggleHtml(e), html: `<b>${escapeHtml(dateShort(e.DateKey))}</b> · ${escapeHtml(e.Title)}${cap ? ` <span class="hint">· ${Math.max(cap - list.length, 0)} of ${cap} places left</span>` : ''}` });
+      const ev = eventState(e);
+      if (idx !== -1) mine.push(row(e.DateKey, `🏆 ${escapeHtml(e.Title)}`, `${cap && idx >= cap ? `<b class="standby-txt">#${idx - cap + 1} on standby</b>` : '<b>Signed up</b>'}${list[idx].Note ? ` · ${escapeHtml(list[idx].Note)}` : ''}`, eventToggleHtml(e)));
+      else if (ev === 'notyet') soon.push(`🏆 ${escapeHtml(e.Title)} <span class="hint">(opens ${escapeHtml(dateShort(eventOpensKey(e)))})</span>`);
+      else if (!cap || list.length < cap + parseInt(board.settings.StandbySlots, 10)) canJoin.push(row(e.DateKey, `🏆 ${escapeHtml(e.Title)}`, cap ? `${Math.max(cap - list.length, 0)} of ${cap} places left` : '', eventToggleHtml(e)));
     }
   });
   const duty = (board.duty || []).filter((x) => String(x.PlayerID) === me && x.DateKey >= board.today).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
   const dutyInfo = board.dutyDayInfo || {};
-  const li = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => `<li class="sum-row"><div class="sum-text">${x.html}</div>${x.toggle || ''}</li>`).join('');
+  const list = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => x.html).join('');
+  const dutyRows = duty.map((x) => {
+    const inf = dutyInfo[x.DateKey] || {};
+    return row(x.DateKey, x.Role === 'phone' ? `Phone in at ${escapeHtml(inf.call || '')}` : `In person — arrive by ${escapeHtml(inf.arrive || '')}`,
+      inf.targetClosed ? 'No need to get tee times — ' + escapeHtml(inf.targetClosed) + ' in two weeks' : (inf.target ? `Request tee times for ${escapeHtml(dateLongPlain(inf.target))}` : ''), '', 'duty').html;
+  }).join('');
   return `<div class="card my-summary">
-      <h2 style="margin:0 0 6px;">My Sign-up Summary</h2>
-      <h3>What I'm signed up for</h3>
-      ${mine.length ? `<ul class="sum-list">${li(mine)}</ul>` : '<p class="hint">Nothing yet.</p>'}
-      <h3>What I can sign up for</h3>
-      ${canJoin.length ? `<ul class="sum-list">${li(canJoin)}</ul>` : '<p class="hint">Nothing open right now.</p>'}
-      ${duty.length ? `<h3>My Tee Time Duty</h3><ul>${duty.map((x) => { const inf = dutyInfo[x.DateKey] || {}; return `<li>${escapeHtml(dateShort(x.DateKey))} · ${x.Role === 'phone' ? `phone in at ${escapeHtml(inf.call || '')}` : `in person, arrive ${escapeHtml(inf.arrive || '')}`}${inf.target ? ` <span class="hint">· books round for ${escapeHtml(dateShort(inf.target))}</span>` : ''}${inf.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</li>`; }).join('')}</ul>` : ''}
+      <h2 class="snap-title">My Sign-up Snapshot</h2>
+      <div class="snap-cols">
+        <div><h3>My sign-ups</h3>${mine.length ? list(mine) : '<p class="hint">Nothing yet.</p>'}</div>
+        <div><h3>Available sign-ups</h3>${canJoin.length ? list(canJoin) : '<p class="hint">Nothing open right now.</p>'}
+          ${soon.length ? `<p class="snap-soon"><b>Opening soon:</b> ${soon.join(' · ')}</p>` : ''}</div>
+      </div>
+      ${dutyRows ? `<h3>My Tee Time Duty</h3><div class="snap-duty">${dutyRows}</div>` : ''}
     </div>`;
 }
+function dateLongPlain(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]}, ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()]} ${d.getUTCDate()}`; }
 // ====================== SIGN-UPS: "Upcoming Dates" (same layout as the Gibson Group app) ======================
 // Each date is a card that expands to show who's signed up. The big toggle on the
 // right signs you up ("Signed up · Fun" / "Signed up · Nassau") or takes you off
@@ -831,14 +858,20 @@ function groupChipsHtml(d, g) {
       ${amAdmin() && !d.closed ? adminAddHtml(d.DateKey, g) : ''}
     </div>`;
 }
-function dutyLineHtml(key) {
+function dutyLineHtml(key, expanded) {
   const rows = dutyForDay(key);
   if (!rows.length) return '';
   const info = (board.dutyDayInfo || {})[key] || {};
-  if (info.targetClosed) return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty: no tee times needed — ${escapeHtml(info.targetClosed)} in two weeks</span></div>`;
+  if (info.targetClosed) return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty: no need to get tee times — ${escapeHtml(info.targetClosed)} in two weeks</span></div>`;
+  if (expanded) {
+    const ipN = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name)), phN = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
+    return `<div class="ts-duty duty-full"><span class="golf-flag">⛳</span><div><b>Tee Time Duty today</b> — requesting tee times for ${escapeHtml(dateShort(info.target || ''))}
+      ${ipN.length ? `<div><b>In person:</b> ${escapeHtml(ipN.join(', '))} <span class="hint">— ${escapeHtml(dutyText(board.settings.DutyInPersonText, info))}</span></div>` : ''}
+      ${phN.length ? `<div><b>Phone in:</b> ${escapeHtml(phN.join(', '))} <span class="hint">— ${escapeHtml(dutyText(board.settings.DutyPhoneText, info))}</span></div>` : ''}</div></div>`;
+  }
   const ip = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name)), ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
   const who = [ip.length ? `in person: ${ip.join(', ')}` : '', ph.length ? `phone in: ${ph.join(', ')}` : ''].filter(Boolean).join(' · ');
-  return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty (booking for ${escapeHtml(dateShort(info.target || ''))}) — ${escapeHtml(who)}</span></div>`;
+  return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty (requesting tee times for ${escapeHtml(dateShort(info.target || ''))}) — ${escapeHtml(who)}</span></div>`;
 }
 function stateChipHtml(d, state) {
   if (state === 'open') return `<span class="ts-win win-open">Open · closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`;
@@ -901,18 +934,22 @@ function schedDayCardHtml(d) {
   return `<div class="ts-card ${d.closed ? 'closed' : ''}" id="day-${key}">
       <div class="ts-card-row" data-expand="${key}">
         ${dateBlockHtml(key)}
-        <div class="ts-card-mid">${mid}${dutyLineHtml(key)}</div>
+        <div class="ts-card-mid">${mid}${dutyLineHtml(key, open)}</div>
         ${toggleHtml(d, state)}
       </div>
       <div class="ts-players ${open ? 'open' : ''}">
         ${open ? `${d.closed ? '' : `<div class="grp-cols">${groupChipsHtml(d, 'fun')}${groupChipsHtml(d, 'nassau')}</div>`}
           ${mine && state !== 'closed' ? myNoteEditorHtml(key, mine) : ''}
-          ${dutyBoxHtml(key)}` : ''}
+          ` : ''}
       </div>
     </div>`;
 }
 function eventToggleHtml(e) {
   if (!session) return '';
+  if (eventState(e) === 'notyet' && !(board.signups || []).some((s) => s.Group === 'event:' + e.EventID && String(s.PlayerID) === myId())) {
+    const o = keyDate(eventOpensKey(e));
+    return `<span class="ts-closed-toggle-label">Opens ${MON[o.getUTCMonth()]} ${o.getUTCDate()}</span>`;
+  }
   const group = 'event:' + e.EventID;
   const list = (board.signups || []).filter((s) => s.Group === group);
   const cap = parseInt(e.Capacity, 10) || 0;
@@ -937,7 +974,7 @@ function schedEventCardHtml(e) {
   return `<div class="ts-card event" id="event-${escapeHtml(e.EventID)}">
       <div class="ts-card-row" data-expand="${key}">
         ${dateBlockHtml(e.DateKey)}
-        <div class="ts-card-mid"><div class="ts-card-mid-top"><span class="ts-count">🏆 ${escapeHtml(e.Title)}</span><span class="ts-win win-later">${cap ? `${Math.min(list.length, cap)} of ${cap}` : `${list.length}`} signed up</span></div>
+        <div class="ts-card-mid"><div class="ts-card-mid-top"><span class="ts-count">🏆 ${escapeHtml(e.Title)}</span><span class="ts-win win-later">${cap ? `${Math.min(list.length, cap)} of ${cap}` : `${list.length}`} signed up</span>${eventState(e) === 'notyet' ? `<span class="ts-win win-later">sign-ups open ${escapeHtml(dateShort(eventOpensKey(e)))}</span>` : ''}</div>
           ${e.Description ? `<div class="ts-duty">${escapeHtml(e.Description.split('\n')[0])}</div>` : ''}</div>
         ${toggle}
       </div>
@@ -1156,9 +1193,9 @@ function dutyBoxHtml(key) {
   const ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
   const target = info ? info.target : '';
   if (info && info.targetClosed) {
-    return `<div class="duty-box"><b>Tee Time Duty today:</b> no need to make tee times — no Legends tee times on ${escapeHtml(dateShort(target))} (${escapeHtml(info.targetClosed)}). <span class="hint">(${escapeHtml(inp.concat(ph).join(', '))})</span></div>`;
+    return `<div class="duty-box"><b>Tee Time Duty today:</b> no need to get tee times — no Legends tee times on ${escapeHtml(dateShort(target))} (${escapeHtml(info.targetClosed)}). <span class="hint">(${escapeHtml(inp.concat(ph).join(', '))})</span></div>`;
   }
-  return `<div class="duty-box"><b>Tee Time Duty today</b> (booking for ${escapeHtml(dateShort(target))}):
+  return `<div class="duty-box"><b>Tee Time Duty today</b> (requesting tee times for ${escapeHtml(dateShort(target))}):
     ${inp.length ? `<div style="margin-top:4px;"><b>In person:</b> ${escapeHtml(inp.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyInPersonText, info))}</span></div>` : ''}
     ${ph.length ? `<div style="margin-top:4px;"><b>Phone in:</b> ${escapeHtml(ph.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyPhoneText, info))}</span></div>` : ''}
   </div>`;
@@ -1350,9 +1387,9 @@ function renderDuty() {
   const names = (rows, role) => rows.filter((r) => r.Role === role).map((r) => `<span${String(r.PlayerID) === myId() ? ' style="font-weight:700;color:var(--green-dark)"' : ''}>${escapeHtml(displayName(r.Name))}</span>`).join(', ');
 
   if (dutyView === 'date') {
-    el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Books round for</th></tr></thead><tbody>
+    el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Requesting tee times for</th></tr></thead><tbody>
       ${days.map((d) => `<tr class="${d.rows.some((r) => String(r.PlayerID) === myId()) ? 'mine' : ''}">
-        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">No tee times needed — ${escapeHtml(d.info.targetClosed)} in two weeks</div>` : d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
+        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">No need to get tee times — ${escapeHtml(d.info.targetClosed)} in two weeks</div>` : d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
         <td>${names(d.rows, 'inperson') || '<span class="hint">—</span>'}</td>
         <td>${names(d.rows, 'phone') || '<span class="hint">—</span>'}</td>
         <td>${d.info.target ? escapeHtml(dateShort(d.info.target)) : ''}</td>
@@ -1362,7 +1399,7 @@ function renderDuty() {
     days.forEach((d) => d.rows.forEach((r) => { if (want && String(r.PlayerID) !== String(want)) return; (byPerson[r.PlayerID] = byPerson[r.PlayerID] || { name: r.Name, items: [] }).items.push({ key: d.key, role: r.Role, info: d.info }); }));
     const ids = Object.keys(byPerson).sort((a, b) => byPerson[a].name.localeCompare(byPerson[b].name));
     el.innerHTML = ids.map((id) => `<h3>${escapeHtml(displayName(byPerson[id].name))}</h3><table class="dt"><tbody>
-      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b>${String(id) === myId() ? swapBtnHtml({ key: it.key, rows: dutyForDay(it.key) }) : ''}</td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ' <span class="hint">(no tee times needed)</span>' : ''}</td></tr>`).join('')}
+      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b>${String(id) === myId() ? swapBtnHtml({ key: it.key, rows: dutyForDay(it.key) }) : ''}</td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ' <span class="hint">(no need to get tee times)</span>' : ''}</td></tr>`).join('')}
       </tbody></table>`).join('') || '<p class="hint">Nothing matches.</p>';
   } else {
     const all = dutyDays();
@@ -1390,7 +1427,7 @@ function renderDuty() {
     const cellHtml = (k) => {
       const d = all.find((x) => x.key === k);
       if (!d) return `<div><span class="d">${escapeHtml(dateShort(k))}</span><div class="hint">—</div></div>`;
-      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(none needed)</span>' : d.info.arrive ? ` <span class="arr">arrive by ${escapeHtml(d.info.arrive)}</span>` : ''}
+      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(no need to get tee times)</span>' : d.info.arrive ? ` <span class="arr">arrive by ${escapeHtml(d.info.arrive)}</span>` : ''}
         <div>${d.rows.filter((r) => r.Role === 'inperson').map((r) => escapeHtml(displayName(r.Name))).join('<br>')}</div>
         ${d.rows.some((r) => r.Role === 'phone') ? `<div><span class="role-p">PHONE:</span> ${d.rows.filter((r) => r.Role === 'phone').map((r) => escapeHtml(displayName(r.Name))).join(', ')}</div>` : ''}</div>`;
     };
@@ -1745,7 +1782,7 @@ function renderNewsAdmin(el) {
 
 // ====================== REMINDER EMAILS (admin) ======================
 const REMINDER_TYPES = [
-  ['duty', 'RemindDuty', 'Tee Time Duty reminder', 'The evening before a duty day, each person on duty gets their instructions (arrive-by or call-in time, which round they\'re booking, who else is on duty). If the club is closed two weeks out, it tells them there\'s nothing to do.'],
+  ['duty', 'RemindDuty', 'Tee Time Duty reminder', 'The evening before a duty day, each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.'],
   ['playing', 'RemindPlaying', 'Playing tomorrow', 'The evening before each round, everyone signed up gets a reminder with their group, tee times and details — or their standby number.'],
   ['daily', 'RemindDaily', '“Legends Signups” email (to everyone)', 'The morning before each round, the same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list. Everyone is listed openly (not Bcc), so replying to all still reaches the group.'],
   ['closing', 'RemindClosing', 'Last day to sign up', 'On the last sign-up day, one email (Bcc) goes to active Legends who haven\'t signed up yet for that round, with how many spots are left.'],
@@ -1844,8 +1881,24 @@ let adminDirty = false;
 function markDirty() { adminDirty = true; const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefault(); e.returnValue = ''; } });
 
+// For view-only admins: after any admin page draws, hide the buttons that change
+// things and lock the fields (previews, date ranges and filters still work).
+const VIEW_OK = '[data-ps-preview],[data-rem-preview],#dLoad,[data-memtab],[data-asub],[data-agroup]';
+const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly';
+function lockForViewOnly() {
+  if (!amViewOnly()) return;
+  const root = document.getElementById('adminContent');
+  if (!root) return;
+  root.querySelectorAll('button').forEach((b) => { if (!b.matches(VIEW_OK)) b.hidden = true; });
+  root.querySelectorAll('label.file-replace, input[type=file]').forEach((x) => { x.hidden = true; });
+  root.querySelectorAll('input, select, textarea').forEach((x) => { if (!x.matches(VIEW_OK_FIELDS)) x.disabled = true; });
+}
+if (typeof MutationObserver !== 'undefined' && document.getElementById('adminContent')) {
+  new MutationObserver(() => lockForViewOnly()).observe(document.getElementById('adminContent'), { childList: true, subtree: true });
+}
 function renderAdminGate() {
   const unlocked = !!adminSession;
+  const vb = document.getElementById('viewOnlyBanner'); if (vb) vb.hidden = !amViewOnly();
   document.getElementById('adminLocked').hidden = unlocked;
   document.getElementById('adminBody').hidden = !unlocked;
   if (unlocked) renderAdminSub();
@@ -1858,7 +1911,7 @@ async function unlockAdmin() {
   try {
     const res = await apiPost('verifyAdminPin', { pin, where: 'Legends app', withBoard: true });
     if (!res.success) { showStatus('adminLockStatus', false, res.error || 'Incorrect PIN.'); return; }
-    saveAdminSession({ name: res.data.name, pin });
+    saveAdminSession({ name: res.data.name, pin, role: res.data.role || 'Full' });
     document.getElementById('adminPinInput').value = '';
     showStatus('adminLockStatus', true, '');
     showApp('admin', res.data.board);
@@ -1898,6 +1951,8 @@ function renderAdminSub() {
   if (adminSub === 'activity') return renderActivityAdmin(el);
   if (adminSub === 'sugimport') return renderSugImportAdmin(el);
   if (adminSub === 'admins') return renderAdminsAdmin(el);
+  if (adminSub === 'proshop' || adminSub === 'reminders') adminSub = 'emails';
+  if (adminSub === 'emails') return renderEmailsAdmin(el);
   if (adminSub === 'proshop') return renderProShopAdmin(el);
   if (adminSub === 'news') return renderNewsAdmin(el);
   if (adminSub === 'reminders') return renderRemindersAdmin(el);
@@ -2366,12 +2421,12 @@ function renderDaysAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>First Tee Time <span class="hint" style="font-weight:400;">— the Legends tee times for each day</span></h2>
-      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — ${escapeHtml(board.settings.TeeIntervalMin)} minutes apart, restarting on the hour the way the club books (…8:40, 8:48, 9:00, 9:08…). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. Each row saves on its own.</p>
+      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. Until a first time is entered, members see “times TBD” for that day. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — following the club's pattern: six ${escapeHtml(board.settings.TeeIntervalMin)}-minute steps, then a 12-minute step to the top of the hour (10:00, 10:08, 10:16, 10:24, 10:32, 10:40, 10:48, 11:00). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. Each row saves on its own.</p>
       <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th></th></tr></thead><tbody>
       ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); if (closed) return `<tr class="closed-day">
         <td><b>${escapeHtml(dateShort(k))}</b></td><td colspan="6" class="hint" style="color:var(--error)">No Legends tee times — ${escapeHtml(closed.Reason || 'closed')}</td></tr>`; return `<tr>
         <td><b>${escapeHtml(dateShort(k))}</b></td>
-        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(defaultLegendsFirst(k))}" style="width:95px;"></td>
+        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="e.g. 9:00" style="width:95px;"></td>
         <td><input type="number" min="0" max="14" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
         <td><input type="number" min="0" max="14" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
         <td data-show="fun" data-k="${k}" style="white-space:nowrap;"></td>
@@ -2381,13 +2436,13 @@ function renderDaysAdmin(el) {
       <div id="daysStatus" class="status"></div>
     </div>`;
   const inp = (k, f) => el.querySelector(`[data-k="${k}"][data-c="${f}"]`);
-  const val = (k, f) => { const i = inp(k, f); return i ? (i.value.trim() || i.placeholder) : ''; };
+  const val = (k, f) => { const i = inp(k, f); return i ? (i.value.trim() || (f === 'LegendsFirst' ? '' : i.placeholder)) : ''; };
   const touched = {}; // rows changed on screen; untouched rows keep any times imported from SignUp Genius
   const refresh = (k) => {
     const first = parseClock(val(k, 'LegendsFirst'));
     const nf = Math.max(0, parseInt(val(k, 'FunTeeTimes'), 10) || 0), nn = Math.max(0, parseInt(val(k, 'NassauTeeTimes'), 10) || 0);
     const funCell = el.querySelector(`[data-show="fun"][data-k="${k}"]`), nasCell = el.querySelector(`[data-show="nassau"][data-k="${k}"]`);
-    if (first === null) { funCell.innerHTML = nasCell.innerHTML = '<span class="hint" style="color:var(--error)">enter a time like 8:40</span>'; return; }
+    if (first === null) { funCell.innerHTML = nasCell.innerHTML = val(k, 'LegendsFirst') ? '<span class="hint" style="color:var(--error)">enter a time like 8:40</span>' : '<span class="hint">times TBD</span>'; return; }
     const seq = teeSequence(first, nf + nn);
     const range = (a) => (a.length ? `${fmtClock(a[0])} – ${fmtClock(a[a.length - 1])}` : '—');
     funCell.textContent = range(seq.slice(0, nf));
@@ -2456,7 +2511,7 @@ function renderClosuresAdmin(el, cRows, nRows) {
   const nCols = [{ f: 'DateKey', label: 'Date', type: 'date', w: '160px' }, { f: 'Text', label: 'Notice shown on that date', ph: 'e.g. Cart path only' }];
   const oldC = (board.closures || []).filter((r) => r.DateKey < addDays(board.today, -30));
   const oldN = (board.notices || []).filter((r) => r.DateKey < addDays(board.today, -30));
-  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to make tee times.', cCols, cRows) +
+  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to get tee times.', cCols, cRows) +
     listEditorHtml('nt', 'Notices', 'A short note shown on a date in Sign-ups — anything worth flagging that isn\'t a closure.', nCols, nRows);
   // Older rows (more than 30 days back) are kept as they are when saving.
   wireListEditor(el, 'cl', cRows, 'legendsSaveClosures', cCols, (r) => renderClosuresAdmin(el, r, nRows));
@@ -2467,22 +2522,35 @@ function renderClosuresAdmin(el, cRows, nRows) {
 function renderTeeTimesAdmin(el, rows) {
   rows = rows || copyRows(board.clubTeeTimes).sort((a, b) => (a.EffectiveDate < b.EffectiveDate ? -1 : 1));
   const cols = [{ f: 'EffectiveDate', label: 'Effective from', type: 'date', w: '160px' }, { f: 'FirstTeeTime', label: "Club's first tee time", ph: '8:00 AM', w: '120px' }];
-  el.innerHTML = listEditorHtml('tt', "Club first tee times", `Enter a change whenever the <b>club's</b> first tee time shifts; it stays in effect until the next change. It sets the in-person arrival time (2 hours before), the phone-in time (30 minutes before) and the default first Legends time (${escapeHtml(board.settings.LegendsFirstOffsetMin)} minutes after). With nothing entered, ${escapeHtml(board.settings.DefaultClubFirstTee)} is used.`, cols, rows);
+  el.innerHTML = listEditorHtml('tt', "Club first tee times", `Enter a change whenever the <b>club's</b> first tee time shifts; it stays in effect until the next change. It sets the in-person arrival time (2 hours before), and the phone-in time (30 minutes before). With nothing entered, ${escapeHtml(board.settings.DefaultClubFirstTee)} is used.`, cols, rows);
   wireListEditor(el, 'tt', rows, 'legendsSaveClubTeeTimes', cols, (r) => renderTeeTimesAdmin(el, r));
 }
 function renderEventsAdmin(el, rows) {
   rows = rows || copyRows(board.events).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
+  rows.forEach((r) => { if (r.DateKey && !r.SignupOpens) r.SignupOpens = addDays(r.DateKey, -14); });
   const cols = [
     { f: 'Title', label: 'Event', ph: 'Legends Banquet', w: '170px' },
-    { f: 'DateKey', label: 'Date', type: 'date', w: '150px' },
+    { f: 'DateKey', label: 'Event date', type: 'date', w: '150px' },
+    { f: 'SignupOpens', label: 'Sign-ups open', type: 'date', w: '150px' },
     { f: 'Description', label: 'Details', ph: 'Time, place, cost…' },
     { f: 'Capacity', label: 'Limit', type: 'number', ph: 'none', w: '70px' },
     { f: 'GuestPrompt', label: 'Ask for', ph: 'e.g. Spouse/guest name', w: '170px' },
     { f: 'Active', label: 'Show', type: 'check' },
   ];
-  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, $5 / $10 tournaments, divot filling day and anything else people sign up for. Events show on the Sign-ups tab in date order, open for sign-ups right away (any distance ahead). Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
+  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, $5 / $10 tournaments, divot filling day and anything else people sign up for. Events show on the Sign-ups tab in date order. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
   wireListEditor(el, 'ev', rows, 'legendsSaveEvents', cols, (r) => renderEventsAdmin(el, r));
+  // Picking an event date fills in "Sign-ups open" two weeks earlier (unless it was already set).
+  el.querySelectorAll('[data-le="ev"][data-f="DateKey"]').forEach((inp) => inp.addEventListener('change', () => {
+    const r = rows[Number(inp.dataset.i)];
+    if (inp.value && (!r.SignupOpens || r._autoOpens)) {
+      r.SignupOpens = addDays(inp.value, -14); r._autoOpens = true;
+      const o = el.querySelector(`[data-le="ev"][data-f="SignupOpens"][data-i="${inp.dataset.i}"]`); if (o) o.value = r.SignupOpens;
+    }
+  }));
+  el.querySelectorAll('[data-le="ev"][data-f="SignupOpens"]').forEach((inp) => inp.addEventListener('input', () => { rows[Number(inp.dataset.i)]._autoOpens = false; }));
 }
+function eventOpensKey(e) { return e.SignupOpens || addDays(e.DateKey, -14); }
+function eventState(e) { return board.today < eventOpensKey(e) ? 'notyet' : 'open'; }
 
 // ---------------- Sign-up rules ----------------
 function renderRulesAdmin(el) {
@@ -2495,10 +2563,11 @@ function renderRulesAdmin(el) {
         ${f('FunTeeTimes', 'Fun group tee times (usual)', 'number')}${f('NassauTeeTimes', 'Nassau group tee times (usual)', 'number')}${f('PlayersPerTeeTime', 'Players per tee time', 'number')}
         ${f('StandbySlots', 'Standby slots (each group)', 'number')}
         ${f('SignupOpenDaysBefore', 'Sign-ups open this many days ahead', 'number')}${f('SignupOpenTime', 'Sign-ups open at')}${f('SignupCloseDaysBefore', 'Last sign-up day: days before play', 'number')}
-        ${f('DefaultClubFirstTee', 'Club first tee time (if none entered)')}${f('LegendsFirstOffsetMin', 'First Legends time: minutes after club first', 'number')}${f('TeeIntervalMin', 'Minutes between tee times', 'number')}
+        ${f('DefaultClubFirstTee', 'Club first tee time (if none entered)')}${f('TeeIntervalMin', 'Minutes between tee times', 'number')}
         ${f('BoardDaysAhead', 'Days shown on Sign-ups', 'number')}
         ${f('AdminEmail', 'Admin email (late drop-out alerts)', 'email')}${f('TeeOptions', 'Tee choices (comma separated)')}
       </div>
+      <p class="hint" style="margin-top:8px;"><b>Tee time pattern:</b> the club books six ${escapeHtml(board.settings.TeeIntervalMin)}-minute steps and then a 12-minute step, so every hour starts fresh: 10:00, 10:08, 10:16, 10:24, 10:32, 10:40, 10:48, then 11:00. The app always follows this. The club's first tee time sets the duty arrival (2 hours before) and call-in (30 minutes before) times; the Legends' own first tee time is entered day by day on <b>First Tee Time</b>.</p>
       <h3>Tee Time Duty instructions</h3>
       <p class="hint"><code>{arrive}</code> becomes 2 hours before the club's first tee time; <code>{call}</code> becomes 30 minutes before.</p>
       <label class="hint">In person</label><textarea data-st="DutyInPersonText" rows="3">${escapeHtml(s.DutyInPersonText)}</textarea>
@@ -2757,6 +2826,13 @@ async function doSugImport() {
 
 // ---------------- Pro shop players list ----------------
 function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.DateKey === key).sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1))[0] || null; }
+// Admin > Setup > Emails: the pro shop list and the reminder emails on one page.
+function renderEmailsAdmin(el) {
+  el.innerHTML = `<div class="em-jump no-print">Jump to: <a href="#emProShop">Pro shop players list</a> · <a href="#emRem">Reminder emails</a></div>
+    <div id="emProShop"></div><div id="emRem"></div>`;
+  renderProShopAdmin(document.getElementById('emProShop'));
+  renderRemindersAdmin(document.getElementById('emRem'));
+}
 function renderProShopAdmin(el) {
   const st = board.settings;
   const auto = String(st.ProShopAutoSend).toUpperCase() !== 'FALSE';
@@ -2831,23 +2907,24 @@ async function renderAdminsAdmin(el) {
   }
   el.innerHTML = `<div class="card">
       <h2>Admins</h2>
-      <p class="hint">Everyone listed here has <b>full admin rights</b> — in this app and on the Annual Tournament admin page (it's the same list). Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, type their name and a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
-      <div class="tbl-wrap"><table class="ad"><thead><tr><th>Name</th><th style="width:130px;">Admin PIN</th><th style="width:70px;">Active</th><th style="width:80px;"></th></tr></thead><tbody>
+      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, type their name and a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
+      <div class="tbl-wrap"><table class="ad"><thead><tr><th>Name</th><th style="width:130px;">Admin PIN</th><th style="width:150px;">Rights</th><th style="width:70px;">Active</th><th style="width:80px;"></th></tr></thead><tbody>
       ${adminUsers.map((a, i) => `<tr>
         <td><input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani"></td>
         <td><input type="text" inputmode="numeric" maxlength="8" data-ai="${i}" data-f="PIN" value="${escapeHtml(a.PIN || '')}" style="width:110px;"></td>
+        <td><select data-ai="${i}" data-f="Role"><option value="Full" ${a.Role !== 'View' ? 'selected' : ''}>Full</option><option value="View" ${a.Role === 'View' ? 'selected' : ''}>View only</option></select></td>
         <td style="text-align:center;"><input type="checkbox" data-ai="${i}" data-f="Active" ${a.Active !== 'FALSE' ? 'checked' : ''}></td>
         <td><button class="link danger" data-arm="${i}">Remove</button></td></tr>`).join('')}
       </tbody></table></div>
       <div class="row" style="margin-top:12px;"><button class="secondary" id="admAdd">+ Add admin</button><button class="primary" id="admSave">Save admins</button>${dirtyNote}</div>
       <div id="admStatus" class="status"></div>
     </div>`;
-  el.querySelectorAll('[data-ai]').forEach((i) => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', () => {
+  el.querySelectorAll('[data-ai]').forEach((i) => i.addEventListener(i.type === 'checkbox' || i.tagName === 'SELECT' ? 'change' : 'input', () => {
     adminUsers[Number(i.dataset.ai)][i.dataset.f] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : 'FALSE') : i.value.trim();
     markDirty();
   }));
   el.querySelectorAll('[data-arm]').forEach((b) => b.onclick = () => { adminUsers.splice(Number(b.dataset.arm), 1); markDirty(); renderAdminsAdmin(el); });
-  document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE' }); markDirty(); renderAdminsAdmin(el); };
+  document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE', Role: 'Full' }); markDirty(); renderAdminsAdmin(el); };
   document.getElementById('admSave').onclick = async () => {
     const bad = adminUsers.find((a) => (a.Name || a.PIN) && !/^\d{4,8}$/.test(String(a.PIN || '')));
     if (bad) { showStatus('admStatus', false, `${bad.Name || 'An admin'}: the PIN must be 4 to 8 digits.`); return; }
@@ -2859,7 +2936,7 @@ async function renderAdminsAdmin(el) {
       adminDirty = false;
       // If you changed your own PIN, keep you signed in with the new one.
       const meAdmin = adminUsers.find((a) => adminSession && a.Name === adminSession.name && a.Active !== 'FALSE');
-      if (meAdmin && meAdmin.PIN !== adminSession.pin) saveAdminSession({ name: adminSession.name, pin: meAdmin.PIN });
+      if (meAdmin && (meAdmin.PIN !== adminSession.pin || meAdmin.Role !== adminSession.role)) saveAdminSession({ name: adminSession.name, pin: meAdmin.PIN, role: meAdmin.Role || 'Full' });
       renderAdminsAdmin(el);
       showStatus('admStatus', true, 'Saved.');
     } catch (e) { showStatus('admStatus', false, 'Could not reach the server — try again.'); }
