@@ -363,7 +363,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-12b';
+const APP_VERSION = '2026-10-12c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -819,7 +819,9 @@ function dateLongPlain(key) { const d = keyDate(key); return `${DOW_LONG[d.getUT
 let schedView = 'date';
 try { schedView = localStorage.getItem('legends_sched_view') || 'date'; } catch (e) {}
 let schedFilter = '';
-const schedExpanded = {};
+const schedExpanded = {};      // per-card overrides of the default below
+let schedAllOpen = true;         // dates start expanded; Expand All / Collapse All reset this
+function schedIsOpen(k) { return k in schedExpanded ? !!schedExpanded[k] : schedAllOpen; }
 const TEE_LIST = () => String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
 const HOLES_PILLS = [['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']];
 
@@ -915,7 +917,7 @@ function dateBlockHtml(key) {
   return `<div class="ts-date-block"><div class="ts-date-dow">${DOW[d.getUTCDay()]}</div><div class="ts-date-num">${d.getUTCDate()}</div><div class="ts-date-mon">${MON[d.getUTCMonth()]}</div></div>`;
 }
 function schedDayCardHtml(d) {
-  const key = d.DateKey, state = dayState(d), open = !!schedExpanded[key];
+  const key = d.DateKey, state = dayState(d), open = schedIsOpen(key);
   const f = groupList(key, 'fun'), n = groupList(key, 'nassau');
   const sbF = Math.max(0, f.length - d.funSlots), sbN = Math.max(0, n.length - d.nassauSlots);
   const mine = session ? mySignupOn(key) : null;
@@ -960,7 +962,7 @@ function eventToggleHtml(e) {
         <option value="out" selected>Click to sign up</option><option value="in">${cap && list.length >= cap ? 'Join standby' : 'Sign up'}</option></select></div>`;
 }
 function schedEventCardHtml(e) {
-  const group = 'event:' + e.EventID, key = 'ev-' + e.EventID, open = !!schedExpanded[key];
+  const group = 'event:' + e.EventID, key = 'ev-' + e.EventID, open = schedIsOpen(key);
   const list = (board.signups || []).filter((s) => s.Group === group);
   const cap = parseInt(e.Capacity, 10) || 0;
   const mineIdx = session ? list.findIndex((s) => String(s.PlayerID) === myId()) : -1;
@@ -1047,11 +1049,11 @@ function wireSchedule(el) {
   el.querySelectorAll('[data-sched-view]').forEach((b) => b.onclick = () => { schedView = b.dataset.schedView; try { localStorage.setItem('legends_sched_view', schedView); } catch (e) {} renderSignups(); });
   const f = document.getElementById('schedFilter'); if (f) f.onchange = () => { schedFilter = f.value; renderSignups(); };
   const pr = document.getElementById('schedPrint'); if (pr) pr.onclick = () => window.print();
-  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { schedItems().forEach((it) => { schedExpanded[it.type === 'day' ? it.key : 'ev-' + it.e.EventID] = true; }); renderSignups(); };
-  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); renderSignups(); };
+  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = true; renderSignups(); };
+  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = false; renderSignups(); };
   el.querySelectorAll('[data-expand]').forEach((row) => row.addEventListener('click', (e) => {
     if (e.target.closest && e.target.closest('.ts-toggle-wrap, select, button, input, a')) return;
-    const k = row.dataset.expand; schedExpanded[k] = !schedExpanded[k]; renderSignups();
+    const k = row.dataset.expand; schedExpanded[k] = !schedIsOpen(k); renderSignups();
   }));
   el.querySelectorAll('[data-signup-select]').forEach((s) => s.onchange = () => onSignupSelect(s));
   el.querySelectorAll('[data-event-select]').forEach((s) => s.onchange = () => onEventSelect(s));
