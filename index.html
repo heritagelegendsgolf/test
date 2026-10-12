@@ -2887,7 +2887,7 @@ function adminPickHtml(i) {
   const have = new Set(adminUsers.map((a) => String(a.Name || '').trim().toLowerCase()));
   const opts = (board.roster || []).filter((r) => r.Active !== 'FALSE' && !have.has(String(displayName(r.Name)).trim().toLowerCase()) && !have.has(String(r.Name).trim().toLowerCase()))
     .sort((a, b) => a.Name.localeCompare(b.Name)).map((r) => `<option value="${escapeHtml(displayName(r.Name))}">${escapeHtml(displayName(r.Name))}</option>`).join('');
-  return `<select data-apick="${i}"><option value="">Choose a Legend…</option>${opts}<option value="__other__">Someone else — type a name</option></select>`;
+  return `<select data-apick="${i}"><option value="">Choose a Legend…</option><option value="__other__">✏️ Type a name (e.g. Guests)</option>${opts}</select>`;
 }
 async function renderAdminsAdmin(el) {
   if (!adminUsers) {
@@ -2900,7 +2900,7 @@ async function renderAdminsAdmin(el) {
   }
   el.innerHTML = `<div class="card">
       <h2>Admins</h2>
-      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, pick their name from the list (or choose “Someone else” to type it), enter a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
+      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, pick their name from the list (or choose <b>Type a name</b> — e.g. one shared “Guests” admin with View only rights), enter a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
       <div class="tbl-wrap"><table class="ad"><thead><tr><th>Name</th><th style="width:130px;">Admin PIN</th><th style="width:150px;">Rights</th><th style="width:70px;">Active</th><th style="width:80px;"></th></tr></thead><tbody>
       ${adminUsers.map((a, i) => `<tr>
         <td>${a._pick ? adminPickHtml(i) : `<input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani">`}</td>
