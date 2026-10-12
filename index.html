@@ -206,6 +206,7 @@
   .seg button.on { background: var(--green); color: #fff; font-weight: 600; }
   .admin-add { margin-top: 6px; }
   .admin-add select { max-width: 220px; font-size: 0.85rem; padding: 5px 6px; }
+  .duty-instr { background: #f4f1e6; border-radius: 8px; padding: 10px 12px; margin: 4px 0 12px; font-size: 0.92rem; line-height: 1.45; } .duty-instr div + div { margin-top: 6px; } .duty-instr b { color: var(--green-dark); }
   .duty-box { background: #f4f1e6; border-radius: 8px; padding: 9px 11px; margin-top: 10px; font-size: 0.88rem; }
   .duty-box b { color: var(--green-dark); }
   .rm { color: var(--error); background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 0 4px; }
@@ -282,7 +283,8 @@
     <section id="tab-duty" class="tab-panel" hidden>
       <div class="card">
         <div class="ts-section-title-row" style="margin-top:0;"><h2 style="margin:0;">Tee Time Duty</h2><button class="ts-print-btn no-print" id="dutyPrint" onclick="window.print()">🖨️ Print</button></div>
-        <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day books the round two weeks later.</p>
+        <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day requests tee times for two weeks later.</p>
+        <div id="dutyInstr"></div>
         <div class="view-btns no-print">
           <button class="subtab-btn active" data-dview="calendar">Calendar view</button>
           <button class="subtab-btn" data-dview="date">List by date</button>
@@ -361,7 +363,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-12a';
+const APP_VERSION = '2026-10-12b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -858,20 +860,14 @@ function groupChipsHtml(d, g) {
       ${amAdmin() && !d.closed ? adminAddHtml(d.DateKey, g) : ''}
     </div>`;
 }
-function dutyLineHtml(key, expanded) {
+function dutyLineHtml(key) {
   const rows = dutyForDay(key);
   if (!rows.length) return '';
   const info = (board.dutyDayInfo || {})[key] || {};
   if (info.targetClosed) return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty: no need to get tee times — ${escapeHtml(info.targetClosed)} in two weeks</span></div>`;
-  if (expanded) {
-    const ipN = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name)), phN = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
-    return `<div class="ts-duty duty-full"><span class="golf-flag">⛳</span><div><b>Tee Time Duty today</b> — requesting tee times for ${escapeHtml(dateShort(info.target || ''))}
-      ${ipN.length ? `<div><b>In person:</b> ${escapeHtml(ipN.join(', '))} <span class="hint">— ${escapeHtml(dutyText(board.settings.DutyInPersonText, info))}</span></div>` : ''}
-      ${phN.length ? `<div><b>Phone in:</b> ${escapeHtml(phN.join(', '))} <span class="hint">— ${escapeHtml(dutyText(board.settings.DutyPhoneText, info))}</span></div>` : ''}</div></div>`;
-  }
   const ip = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name)), ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
   const who = [ip.length ? `in person: ${ip.join(', ')}` : '', ph.length ? `phone in: ${ph.join(', ')}` : ''].filter(Boolean).join(' · ');
-  return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty (requesting tee times for ${escapeHtml(dateShort(info.target || ''))}) — ${escapeHtml(who)}</span></div>`;
+  return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty — requesting tee times for ${escapeHtml(dateShort(info.target || ''))} · ${escapeHtml(who)}</span></div>`;
 }
 function stateChipHtml(d, state) {
   if (state === 'open') return `<span class="ts-win win-open">Open · closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`;
@@ -934,7 +930,7 @@ function schedDayCardHtml(d) {
   return `<div class="ts-card ${d.closed ? 'closed' : ''}" id="day-${key}">
       <div class="ts-card-row" data-expand="${key}">
         ${dateBlockHtml(key)}
-        <div class="ts-card-mid">${mid}${dutyLineHtml(key, open)}</div>
+        <div class="ts-card-mid">${mid}${dutyLineHtml(key)}</div>
         ${toggleHtml(d, state)}
       </div>
       <div class="ts-players ${open ? 'open' : ''}">
@@ -1185,22 +1181,6 @@ function adminAddHtml(key, group) {
 
 function dutyForDay(key) { return (board.duty || []).filter((x) => x.DateKey === key); }
 function dutyText(tpl, info) { return String(tpl || '').replace(/\{arrive\}/g, info ? info.arrive : '').replace(/\{call\}/g, info ? info.call : ''); }
-function dutyBoxHtml(key) {
-  const rows = dutyForDay(key);
-  if (!rows.length) return '';
-  const info = (board.dutyDayInfo || {})[key];
-  const inp = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name));
-  const ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
-  const target = info ? info.target : '';
-  if (info && info.targetClosed) {
-    return `<div class="duty-box"><b>Tee Time Duty today:</b> no need to get tee times — no Legends tee times on ${escapeHtml(dateShort(target))} (${escapeHtml(info.targetClosed)}). <span class="hint">(${escapeHtml(inp.concat(ph).join(', '))})</span></div>`;
-  }
-  return `<div class="duty-box"><b>Tee Time Duty today</b> (requesting tee times for ${escapeHtml(dateShort(target))}):
-    ${inp.length ? `<div style="margin-top:4px;"><b>In person:</b> ${escapeHtml(inp.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyInPersonText, info))}</span></div>` : ''}
-    ${ph.length ? `<div style="margin-top:4px;"><b>Phone in:</b> ${escapeHtml(ph.join(', '))}<br><span class="hint">${escapeHtml(dutyText(board.settings.DutyPhoneText, info))}</span></div>` : ''}
-  </div>`;
-}
-
 function dayCardHtml(d) {
   const state = dayState(d);
   let stateHtml;
@@ -1218,7 +1198,6 @@ function dayCardHtml(d) {
       <div class="day-head"><span class="day-title">${escapeHtml(dateLong(d.DateKey))}</span>${stateHtml}</div>
       ${d.notice ? `<div class="day-notice">⚠️ ${escapeHtml(d.notice)}</div>` : ''}
       ${body}
-      ${dutyBoxHtml(d.DateKey)}
     </div>`;
 }
 
@@ -1371,7 +1350,15 @@ function dutyDays() {
   (board.duty || []).filter((x) => x.DateKey >= board.today).forEach((x) => { (byKey[x.DateKey] = byKey[x.DateKey] || []).push(x); });
   return Object.keys(byKey).sort().map((k) => ({ key: k, rows: byKey[k], info: (board.dutyDayInfo || {})[k] || {} }));
 }
+function dutyInstrHtml() {
+  const st = board.settings || {};
+  const fill = (t) => String(t || '').replace(/\{arrive\}/g, 'the time shown for your day below').replace(/\{call\}/g, 'the time shown for your day below');
+  const ip = fill(st.DutyInPersonText), ph = fill(st.DutyPhoneText);
+  if (!ip && !ph) return '';
+  return `<div class="duty-instr">${ip ? `<div><b>In person:</b> ${escapeHtml(ip)}</div>` : ''}${ph ? `<div><b>Phone in:</b> ${escapeHtml(ph)}</div>` : ''}</div>`;
+}
 function renderDuty() {
+  const di = document.getElementById('dutyInstr'); if (di) di.innerHTML = dutyInstrHtml();
   const sel = document.getElementById('dutyFilter');
   const people = {};
   (board.duty || []).forEach((x) => { people[x.PlayerID] = x.Name; });
@@ -2896,6 +2883,12 @@ function renderProShopAdmin(el) {
 
 // ---------------- Admins (same list as the tournament admin page) ----------------
 let adminUsers = null;
+function adminPickHtml(i) {
+  const have = new Set(adminUsers.map((a) => String(a.Name || '').trim().toLowerCase()));
+  const opts = (board.roster || []).filter((r) => r.Active !== 'FALSE' && !have.has(String(displayName(r.Name)).trim().toLowerCase()) && !have.has(String(r.Name).trim().toLowerCase()))
+    .sort((a, b) => a.Name.localeCompare(b.Name)).map((r) => `<option value="${escapeHtml(displayName(r.Name))}">${escapeHtml(displayName(r.Name))}</option>`).join('');
+  return `<select data-apick="${i}"><option value="">Choose a Legend…</option>${opts}<option value="__other__">Someone else — type a name</option></select>`;
+}
 async function renderAdminsAdmin(el) {
   if (!adminUsers) {
     el.innerHTML = '<div class="card hint">Loading admins…</div>';
@@ -2907,10 +2900,10 @@ async function renderAdminsAdmin(el) {
   }
   el.innerHTML = `<div class="card">
       <h2>Admins</h2>
-      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, type their name and a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
+      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, pick their name from the list (or choose “Someone else” to type it), enter a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
       <div class="tbl-wrap"><table class="ad"><thead><tr><th>Name</th><th style="width:130px;">Admin PIN</th><th style="width:150px;">Rights</th><th style="width:70px;">Active</th><th style="width:80px;"></th></tr></thead><tbody>
       ${adminUsers.map((a, i) => `<tr>
-        <td><input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani"></td>
+        <td>${a._pick ? adminPickHtml(i) : `<input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani">`}</td>
         <td><input type="text" inputmode="numeric" maxlength="8" data-ai="${i}" data-f="PIN" value="${escapeHtml(a.PIN || '')}" style="width:110px;"></td>
         <td><select data-ai="${i}" data-f="Role"><option value="Full" ${a.Role !== 'View' ? 'selected' : ''}>Full</option><option value="View" ${a.Role === 'View' ? 'selected' : ''}>View only</option></select></td>
         <td style="text-align:center;"><input type="checkbox" data-ai="${i}" data-f="Active" ${a.Active !== 'FALSE' ? 'checked' : ''}></td>
@@ -2924,13 +2917,21 @@ async function renderAdminsAdmin(el) {
     markDirty();
   }));
   el.querySelectorAll('[data-arm]').forEach((b) => b.onclick = () => { adminUsers.splice(Number(b.dataset.arm), 1); markDirty(); renderAdminsAdmin(el); });
-  document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE', Role: 'Full' }); markDirty(); renderAdminsAdmin(el); };
+  document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE', Role: 'Full', _pick: true }); markDirty(); renderAdminsAdmin(el); };
+  el.querySelectorAll('[data-apick]').forEach((sel) => sel.onchange = () => {
+    const a = adminUsers[Number(sel.dataset.apick)];
+    delete a._pick;
+    if (sel.value !== '__other__') a.Name = sel.value;
+    renderAdminsAdmin(el);
+    if (sel.value === '__other__') { const inp = el.querySelector(`[data-ai="${sel.dataset.apick}"][data-f="Name"]`); if (inp) inp.focus(); }
+    else { const pin = el.querySelector(`[data-ai="${sel.dataset.apick}"][data-f="PIN"]`); if (pin) pin.focus(); }
+  });
   document.getElementById('admSave').onclick = async () => {
     const bad = adminUsers.find((a) => (a.Name || a.PIN) && !/^\d{4,8}$/.test(String(a.PIN || '')));
     if (bad) { showStatus('admStatus', false, `${bad.Name || 'An admin'}: the PIN must be 4 to 8 digits.`); return; }
     showStatus('admStatus', true, 'Saving…');
     try {
-      const res = await apiPost('saveAdmins', { admins: JSON.stringify(adminUsers) });
+      const res = await apiPost('saveAdmins', { admins: JSON.stringify(adminUsers.filter((a) => !a._pick || a.Name || a.PIN).map(({ _pick, ...a }) => a)) });
       if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('admStatus', false, cleanError(res.error)); return; }
       adminUsers = res.data;
       adminDirty = false;
