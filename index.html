@@ -178,6 +178,10 @@
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
+  #savingPill { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); background: var(--green-dark); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; z-index: 51; box-shadow: 0 6px 20px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 8px; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ts-saving { flex-shrink:0; display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; padding:9px 14px; border-radius:20px; border:1.5px solid var(--green-dark); background:var(--green-dark); color:#fff; opacity:0.8; }
 
   /* sign-in */
   .gate { max-width: 380px; margin: 40px auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 26px 22px; }
@@ -363,6 +367,7 @@
   </main>
 </div>
 <div id="toast" hidden></div>
+<div id="savingPill" hidden><span class="spin"></span><span>Saving…</span></div>
 
 <script>
 // ====================== CONFIG ======================
@@ -375,7 +380,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-12c';
+const APP_VERSION = '2026-10-13a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -717,7 +722,7 @@ function adoptBoard(b) {
   renderCurrent();
 }
 async function loadBoard(quiet) {
-  if (boardLoading) return;
+  if (boardLoading || (quiet && busy)) return;
   boardLoading = true;
   try {
     const res = await apiPost('legendsGetBoard', {}, true);
@@ -726,6 +731,8 @@ async function loadBoard(quiet) {
       if (!quiet) document.getElementById('signupsBody').innerHTML = `<div class="card status error">${escapeHtml(cleanError(res.error))}</div>`;
       return;
     }
+    // A change saved while this was loading brings its own fresh board.
+    if (quiet && busy) return;
     // Don't redraw underneath someone who is mid-way through typing in a form.
     const ae = document.activeElement;
     if (quiet && ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) { board = res.data; clockSkew = res.data.now - Date.now(); return; }
@@ -903,6 +910,7 @@ function toggleHtml(d, state, compact) {
         ${['fun', 'nassau'].map((g) => `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
       </select></div>`;
   }
+  if (mine.pending) return `<div class="ts-toggle-wrap"><span class="ts-saving"><span class="spin"></span>Signing up…</span></div>`;
   const pos = groupPos(d.DateKey, mine), other = mine.Group === 'fun' ? 'nassau' : 'fun';
   const inLabel = `${pos.standby ? `Standby #${pos.n}` : 'Signed up'} · ${label(mine.Group)} ✓`;
   let extra = '';
@@ -1083,10 +1091,16 @@ async function onSignupSelect(sel) {
   const restore = () => renderSignups();
   if (!mineId) {
     if (v === 'out') return;
+    if (busy) { restore(); return; }
     const body = { signupId: newId('s'), dateKey: key, group: v, note: '' };
     if (v === 'fun') { const df = myFunDefaults(); body.tee = df.tee; body.holes = df.holes; body.riding = df.riding; }
+    // Show it on the list right away (marked pending) while the server saves it.
+    const pending = { SignupID: body.signupId, DateKey: key, Group: v, PlayerID: myId(), Name: session.member.Name,
+      Tee: body.tee || '', Holes: body.holes || '', Riding: body.riding ? 'TRUE' : '', Note: '', SignedUpAt: Date.now(), pending: true };
+    board.signups = (board.signups || []).concat([pending]);
+    restore();
     const ok = await act('legendsJoin', body, v === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group.');
-    if (!ok) restore();
+    if (!ok) { board.signups = (board.signups || []).filter((s) => s.SignupID !== body.signupId); restore(); }
     return;
   }
   if (v === 'out') {
@@ -1288,6 +1302,8 @@ let busy = false;
 async function act(action, body, okMsg) {
   if (busy) return false;
   busy = true;
+  const pill = document.getElementById('savingPill');
+  if (pill) pill.hidden = false;
   try {
     const res = await apiPost(action, body, true);
     if (!res.success) { if (!handleSignedOut(res.error)) toast(cleanError(res.error), true); return false; }
@@ -1298,7 +1314,7 @@ async function act(action, body, okMsg) {
   } catch (e) {
     toast('Could not reach the server — check your connection and try again.', true);
     return false;
-  } finally { busy = false; }
+  } finally { busy = false; if (pill) pill.hidden = true; }
 }
 async function submitForm() {
   const btn = document.getElementById('jfGo');
