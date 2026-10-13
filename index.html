@@ -381,7 +381,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13h';
+const APP_VERSION = '2026-10-13i';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2808,7 +2808,7 @@ const EMAIL_TYPES = [
     wording: [['DutyMessage', 'Message added after “Hi …,” (optional)', 2], ['DutyInPersonText', 'Instructions for whoever goes in person — {arrive} becomes the arrive-by time', 3], ['DutyPhoneText', 'Instructions for whoever phones in — {call} becomes the call-in time', 3], ['DutyFooterText', 'Closing line', 2]] },
   { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Playing tomorrow',
     desc: 'One email to everyone signed up for the day, listing all their names by group (Fun, then Nassau, with each group\'s tee times and anyone on standby).',
-    wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Closing line', 2]] },
+    wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Line right under “Golf tomorrow, …” (the “Can\'t make it?” reminder)', 2]] },
   { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: '“Legends Signups” summary',
     desc: 'The same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list.',
     wording: [['DailyMessage', 'Message added under the heading (optional)', 2], ['DailyFunText', 'Fun group — who to text about a last-minute drop out', 2], ['DailyNassauText', 'Nassau group — how to grab an open slot', 2], ['DailyCancelText', 'Tee time cancellations', 2]] },
