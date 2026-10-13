@@ -381,7 +381,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13f';
+const APP_VERSION = '2026-10-13g';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2610,21 +2610,22 @@ function matchSugName(roster, full) {
   return hits.length === 1 ? hits[0] : null;
 }
 // Fun-group comment -> { tee, holes, riding, note }. "Red 18 Ride", "18RR", "R18R",
-// "Gold 9 Riding", "Red/Gold 18 walk"... Anything not fully understood (or a
+// "Gold 9 Riding", "Gold/Red 18 walk"... Anything not fully understood (or a
 // 9-hole round, since SignUp Genius never said which nine) keeps the comment as a note.
 function parseSugFunComment(comment, teeOptions) {
   const raw = String(comment || '').trim();
   const out = { tee: '', holes: '18', riding: false, note: '' };
   if (!raw) return out;
   const toks = raw.toLowerCase().match(/[a-z]+|\d+/g) || [];
-  let red = false, gold = false, white = false, unsure = false, unknown = false, holes = null, back = false;
+  let red = false, gold = false, white = false, hybrid = false, unsure = false, unknown = false, holes = null, back = false;
   const odd = []; // tokens that weren't understood
   toks.forEach((t, i) => {
     const prevNum = i > 0 && /^\d+$/.test(toks[i - 1]), nextNum = i < toks.length - 1 && /^\d+$/.test(toks[i + 1]);
     if (t === 'gold') gold = true;
     else if (t === 'god' || t === 'golf') { gold = true; unsure = true; }
     else if (t === 'red') red = true;
-    else if (t === 'white' || t === 'hybrid' || t === 'hybird') white = true;
+    else if (t === 'white') white = true;
+    else if (t === 'hybrid' || t === 'hybird') hybrid = true;
     else if (t === 'gw' || t === 'wg') { white = true; gold = true; }
     else if (t === 'rg' || t === 'gr') { red = true; gold = true; }
     else if (t === 'rr') { red = true; out.riding = true; }
@@ -2640,7 +2641,10 @@ function parseSugFunComment(comment, teeOptions) {
     else if (/^(holes?|tees?|box|front|and|please|pls)$/.test(t)) { /* filler */ }
     else { unknown = true; odd[i] = true; }
   });
-  const tee = white && gold ? 'White/Gold' : red && gold ? 'Red/Gold' : gold ? 'Gold' : red ? 'Red' : white ? 'White/Gold' : '';
+  // A hybrid with no colours named is White/Gold; "white" alone is the White tees.
+  // "Red hybrid" is Gold/Red; "gold hybrid" could be either hybrid, so its comment is kept as a note.
+  if (hybrid && gold && !red && !white) unsure = true;
+  const tee = (white && gold) || (hybrid && !red && !gold) || (hybrid && white) ? 'White/Gold' : (red && gold) || (hybrid && red) ? 'Gold/Red' : gold ? 'Gold' : red ? 'Red' : white ? 'White' : '';
   out.tee = (teeOptions || []).indexOf(tee) !== -1 ? tee : '';
   if (tee && !out.tee) unknown = true;
   // A 9-hole round starts as Front 9 unless the comment says back/second; the player can change it.
