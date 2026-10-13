@@ -381,7 +381,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13e';
+const APP_VERSION = '2026-10-13f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2618,6 +2618,7 @@ function parseSugFunComment(comment, teeOptions) {
   if (!raw) return out;
   const toks = raw.toLowerCase().match(/[a-z]+|\d+/g) || [];
   let red = false, gold = false, white = false, unsure = false, unknown = false, holes = null, back = false;
+  const odd = []; // tokens that weren't understood
   toks.forEach((t, i) => {
     const prevNum = i > 0 && /^\d+$/.test(toks[i - 1]), nextNum = i < toks.length - 1 && /^\d+$/.test(toks[i + 1]);
     if (t === 'gold') gold = true;
@@ -2636,15 +2637,25 @@ function parseSugFunComment(comment, teeOptions) {
     else if (t === '18') holes = '18';
     else if (t === '9' || t === 'nine') holes = '9';
     else if (t === 'second' || t === 'back') back = true;
-    else if (/^(holes?|tees?|box)$/.test(t)) { /* filler */ }
-    else unknown = true;
+    else if (/^(holes?|tees?|box|front|and|please|pls)$/.test(t)) { /* filler */ }
+    else { unknown = true; odd[i] = true; }
   });
   const tee = white && gold ? 'White/Gold' : red && gold ? 'Red/Gold' : gold ? 'Gold' : red ? 'Red' : white ? 'White/Gold' : '';
   out.tee = (teeOptions || []).indexOf(tee) !== -1 ? tee : '';
   if (tee && !out.tee) unknown = true;
-  if (holes === '9') { out.holes = back ? 'B9' : 'F9'; unsure = true; }
-  else out.holes = '18';
-  if (unknown || unsure) out.note = raw.slice(0, 120);
+  // A 9-hole round starts as Front 9 unless the comment says back/second; the player can change it.
+  out.holes = holes === '9' ? (back ? 'B9' : 'F9') : '18';
+  if (unsure || (tee && !out.tee)) out.note = raw.slice(0, 120);
+  else if (unknown) {
+    // Keep only the words that weren't understood ("Gold 18 last group please" -> "last group").
+    let k = 0;
+    out.note = raw.split(/[\s,;]+/).filter((w) => {
+      const n = (w.toLowerCase().match(/[a-z]+|\d+/g) || []).length;
+      const keep = odd.slice(k, k + n).some(Boolean);
+      k += n;
+      return keep;
+    }).join(' ').slice(0, 120);
+  }
   return out;
 }
 
