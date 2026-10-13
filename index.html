@@ -138,6 +138,7 @@
   .snap-date span { display:block; font-size:9.5px; text-transform:uppercase; color:#7c9a79; letter-spacing:.06em; } .snap-date b { display:block; font-size:17px; font-weight:500; color:#26261f; }
   .snap-text { flex:1; min-width:0; } .snap-l1 { font-weight:600; font-size:.92rem; } .snap-l2 { font-size:.82rem; color:#6b6a5e; }
   .snap-row .ts-signup-select { padding:6px 10px; font-size:12px; }
+  .snap-row .ts-holes-group { flex-wrap:wrap; justify-content:flex-end; }
   .snap-soon { font-size:.82rem; color:#6b6a5e; margin:8px 0 0; }
   .snap-duty { display:grid; grid-template-columns:1fr 1fr; gap:0 28px; }
   .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
@@ -380,7 +381,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13a';
+const APP_VERSION = '2026-10-13c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -763,6 +764,7 @@ let openForm = null; // { key, group, mode: 'join'|'edit', signupId? } — the o
 
 function groupList(key, group) { return (board.signups || []).filter((s) => s.DateKey === key && s.Group === group); }
 function detailText(s) {
+  if (s.Group === 'nassau') return s.Tee || '';
   if (s.Group !== 'fun') return '';
   const holes = s.Holes === 'F9' ? 'Front 9' : s.Holes === 'B9' ? 'Back 9' : '18';
   return [s.Tee, holes, s.Riding === 'TRUE' ? 'Riding' : ''].filter(Boolean).join(' ');
@@ -854,10 +856,10 @@ function groupPos(key, s) {
   const slots = s.Group === 'fun' ? d.funSlots : d.nassauSlots;
   return { idx, standby: idx >= slots, n: idx >= slots ? idx - slots + 1 : idx + 1 };
 }
-// The tees / holes / riding a member used last time, so a new Fun sign-up starts there.
-function myFunDefaults() {
-  const me = myId();
-  const last = (board.signups || []).filter((s) => s.Group === 'fun' && String(s.PlayerID) === me).sort((a, b) => Number(b.SignedUpAt || 0) - Number(a.SignedUpAt || 0))[0];
+// The tees / holes / riding a member used last time in that group, so a new sign-up starts there.
+function myFunDefaults(group) {
+  const me = myId(), g = group || 'fun';
+  const last = (board.signups || []).filter((s) => s.Group === g && String(s.PlayerID) === me && s.Tee).sort((a, b) => Number(b.SignedUpAt || 0) - Number(a.SignedUpAt || 0))[0];
   const r = rosterById(me), tees = TEE_LIST();
   return {
     tee: last && tees.indexOf(last.Tee) !== -1 ? last.Tee : (r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0]),
@@ -866,7 +868,7 @@ function myFunDefaults() {
   };
 }
 function chipHtml(s, n, key) {
-  const det = s.Group === 'fun' ? detailText(s) : '';
+  const det = detailText(s);
   const rm = amAdmin() ? `<button class="chip-remove" title="Remove ${escapeHtml(displayName(s.Name))}" data-admin-rm="${escapeHtml(s.SignupID)}">×</button>` : '';
   return `<span class="name-chip ${String(s.PlayerID) === myId() ? 'me' : ''}"><span class="chip-n">${n}</span>${escapeHtml(displayName(s.Name))}${det ? `<span class="chip-det">${escapeHtml(det)}</span>` : ''}${s.Note ? `<span class="chip-note">${escapeHtml(s.Note)}</span>` : ''}${rm}</span>`;
 }
@@ -914,12 +916,14 @@ function toggleHtml(d, state, compact) {
   const pos = groupPos(d.DateKey, mine), other = mine.Group === 'fun' ? 'nassau' : 'fun';
   const inLabel = `${pos.standby ? `Standby #${pos.n}` : 'Signed up'} · ${label(mine.Group)} ✓`;
   let extra = '';
-  if (compact) extra = '';
-  else if (mine.Group === 'fun' && state === 'open') {
+  const teeSelect = `<select class="ts-tee-select" data-tee-set="${escapeHtml(mine.SignupID)}">${mine.Tee ? '' : '<option value="" selected>Tees…</option>'}${TEE_LIST().map((t) => `<option ${t === mine.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>`;
+  if (mine.Group === 'nassau' && state === 'open') {
+    extra = `<div class="ts-holes-group">${teeSelect}</div>`;
+  } else if (mine.Group === 'fun' && state === 'open') {
     extra = `<div class="ts-holes-group">${HOLES_PILLS.map(([v, l]) => `<button type="button" class="ts-holes-pill ${(mine.Holes || '18') === v ? 'active' : ''}" data-holes-set="${escapeHtml(mine.SignupID)}|${v}">${l}</button>`).join('')}</div>
-      <div class="ts-holes-group"><select class="ts-tee-select" data-tee-set="${escapeHtml(mine.SignupID)}">${TEE_LIST().map((t) => `<option ${t === mine.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
+      <div class="ts-holes-group">${teeSelect}
       <button type="button" class="ts-holes-pill ${mine.Riding === 'TRUE' ? 'active' : ''}" data-ride-set="${escapeHtml(mine.SignupID)}">${mine.Riding === 'TRUE' ? 'Riding' : 'Walking'}</button></div>`;
-  } else if (mine.Group === 'fun') {
+  } else if (!compact && detailText(mine)) {
     extra = `<span class="ts-mini">${escapeHtml(detailText(mine))}</span>`;
   }
   return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${pos.standby ? 'standby' : ''}" data-signup-select="${d.DateKey}" data-mine="${escapeHtml(mine.SignupID)}">
@@ -1049,7 +1053,7 @@ function renderSignups() {
           const s = ['fun', 'nassau'].map((g) => groupList(it.key, g).find((x) => String(x.PlayerID) === String(p.PlayerID))).find(Boolean);
           if (!s) return;
           const pos = groupPos(it.key, s);
-          rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${s.Group === 'fun' ? 'Fun' : 'Nassau'}${pos.standby ? ` <span class="ts-standby-count">standby #${pos.n}</span>` : ''}</td><td class="hint">${escapeHtml([s.Group === 'fun' ? detailText(s) : '', s.Note].filter(Boolean).join(' · '))}</td></tr>`);
+          rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${s.Group === 'fun' ? 'Fun' : 'Nassau'}${pos.standby ? ` <span class="ts-standby-count">standby #${pos.n}</span>` : ''}</td><td class="hint">${escapeHtml([detailText(s), s.Note].filter(Boolean).join(' · '))}</td></tr>`);
         } else if (personOn(it, p.PlayerID)) {
           const s = (board.signups || []).find((x) => x.Group === 'event:' + it.e.EventID && String(x.PlayerID) === String(p.PlayerID));
           rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${escapeHtml(it.e.Title)}</td><td class="hint">${escapeHtml(s.Note || '')}</td></tr>`);
@@ -1093,13 +1097,15 @@ async function onSignupSelect(sel) {
     if (v === 'out') return;
     if (busy) { restore(); return; }
     const body = { signupId: newId('s'), dateKey: key, group: v, note: '' };
-    if (v === 'fun') { const df = myFunDefaults(); body.tee = df.tee; body.holes = df.holes; body.riding = df.riding; }
+    const df = myFunDefaults(v);
+    body.tee = df.tee;
+    if (v === 'fun') { body.holes = df.holes; body.riding = df.riding; }
     // Show it on the list right away (marked pending) while the server saves it.
     const pending = { SignupID: body.signupId, DateKey: key, Group: v, PlayerID: myId(), Name: session.member.Name,
       Tee: body.tee || '', Holes: body.holes || '', Riding: body.riding ? 'TRUE' : '', Note: '', SignedUpAt: Date.now(), pending: true };
     board.signups = (board.signups || []).concat([pending]);
     restore();
-    const ok = await act('legendsJoin', body, v === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group.');
+    const ok = await act('legendsJoin', body, v === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group — check your tees.');
     if (!ok) { board.signups = (board.signups || []).filter((s) => s.SignupID !== body.signupId); restore(); }
     return;
   }
@@ -1190,7 +1196,8 @@ function joinFormHtml(d, group) {
       <div class="row"><label>Tees</label><select id="jfTee">${tees.map((t) => `<option ${t === tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
         <label style="margin-left:8px;">Holes</label>
         <span class="seg" id="jfHoles">${[['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']].map(([v, l]) => `<button type="button" data-h="${v}" class="${v === holes ? 'on' : ''}">${l}</button>`).join('')}</span></div>
-      <div class="row"><label><input type="checkbox" id="jfRiding" ${riding ? 'checked' : ''}> Riding (cart)</label><span class="hint">Leave unticked if walking.</span></div>` : '';
+      <div class="row"><label><input type="checkbox" id="jfRiding" ${riding ? 'checked' : ''}> Riding (cart)</label><span class="hint">Leave unticked if walking.</span></div>` :
+    `<div class="row"><label>Tees</label><select id="jfTee">${tees.map((t) => `<option ${t === tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select></div>`;
   return `
     <div class="join-form" id="joinForm">
       ${funFields}
@@ -1290,6 +1297,7 @@ function wireSignups(el) {
 }
 function formValues() {
   const v = { note: (document.getElementById('jfNote') || {}).value || '' };
+  if (openForm.group === 'nassau' && document.getElementById('jfTee')) v.tee = document.getElementById('jfTee').value;
   if (openForm.group === 'fun') {
     v.tee = document.getElementById('jfTee').value;
     const on = document.querySelector('#jfHoles button.on');
@@ -1343,24 +1351,18 @@ async function switchGroup(signupId, key, toGroup) {
   const ok = await act('legendsLeave', { signupId });
   if (!ok) return;
   const body = { signupId: newId('s'), dateKey: key, group: toGroup, note: s ? s.Note : '' };
-  if (toGroup === 'fun') {
-    const me = rosterById(myId());
-    const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
-    body.tee = me && tees.indexOf(me.Tee) !== -1 ? me.Tee : tees[0];
-    body.holes = '18';
-  }
-  if (await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group.`) && toGroup === 'fun') {
-    const mine = groupList(key, 'fun').find((x) => String(x.PlayerID) === myId());
-    if (mine) { openForm = { key, group: 'fun', mode: 'edit', signupId: mine.SignupID }; renderSignups(); toast('Switched — check your tees and holes.'); }
-  }
+  const df = myFunDefaults(toGroup);
+  body.tee = s && s.Tee && TEE_LIST().indexOf(s.Tee) !== -1 ? s.Tee : df.tee;
+  if (toGroup === 'fun') { body.holes = df.holes; body.riding = df.riding; }
+  await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group — check your ${toGroup === 'fun' ? 'tees, holes and riding' : 'tees'}.`);
 }
 async function adminAdd(key, group, playerId) {
   const r = rosterById(playerId);
   const body = { signupId: newId('a'), dateKey: key, group, playerId, asAdmin: true };
-  if (group === 'fun') {
+  if (group === 'fun' || group === 'nassau') {
     const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
     body.tee = r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0];
-    body.holes = '18';
+    if (group === 'fun') body.holes = '18';
   }
   await act('legendsJoin', body, `${displayName(r ? r.Name : '')} added.`);
 }
@@ -2646,13 +2648,19 @@ function parseSugFunComment(comment, teeOptions) {
 
 // ---------------- SignUp Genius import ----------------
 let sugPlan = null; // parsed days with each person matched to the roster
+// Nassau comment -> { tee, note }: just the tee (everyone plays 18); anything else stays as the note.
+function sugNassauComment(comment, tees) {
+  const f = parseSugFunComment(comment, tees);
+  return { tee: f.tee, note: f.note || (f.riding ? String(comment || '').trim().slice(0, 120) : '') };
+}
 function sugFunDetail(x) { return [x.tee, x.holes === 'F9' ? 'Front 9' : x.holes === 'B9' ? 'Back 9' : '18', x.riding ? 'Riding' : ''].filter(Boolean).join(' '); }
 function renderSugImportAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Import sign-ups from SignUp Genius</h2>
-      <p class="hint">Use this once, when switching over. Open the Legends sign-up page on SignUp Genius in a browser, press <b>Ctrl+A</b> (on a Mac <b>⌘+A</b>) to select the whole page, then <b>Ctrl+C</b> (<b>⌘+C</b>) to copy, and paste it below. Copying all the text from a PDF of the page works too. Click <b>Read</b> to see what was found — nothing changes until you click <b>Import</b>.</p>
-      <p class="hint">What comes across: each day's Fun and Nassau lists in sign-up order (standby after the main list), each Fun player's tees / holes / riding read from their SignUp Genius comment, the first tee time and number of tee times for each day, and “No tee times” days as closures. Comments that can't be fully understood — and 9-hole rounds, since SignUp Genius never said which nine — are kept as the person's note so nothing is lost. Tee Time Duty is not imported (it comes from the quarterly sheet).</p>
+      <p class="hint">Use this while the app runs alongside SignUp Genius, as often as you like (say once a day), and once more when switching over. Open the Legends sign-up page on SignUp Genius in a browser, press <b>Ctrl+A</b> (on a Mac <b>⌘+A</b>) to select the whole page, then <b>Ctrl+C</b> (<b>⌘+C</b>) to copy, and paste it below. Copying all the text from a PDF of the page works too. Click <b>Read</b> to see what was found — nothing changes until you click <b>Import</b>.</p>
+      <p class="hint">What comes across: each day's Fun and Nassau lists in sign-up order (standby after the main list), each Fun player's tees / holes / riding and each Nassau player's tees read from their SignUp Genius comment, the first tee time and number of tee times for each day, and “No tee times” days as closures. Comments that can't be fully understood — and 9-hole rounds, since SignUp Genius never said which nine — are kept as the person's note so nothing is lost. Tee Time Duty is not imported (it comes from the quarterly sheet).</p>
+      <p class="hint"><b>Running both side by side:</b> tick <b>Replace…</b> below each time, so every date's lists in the app match SignUp Genius exactly: new names added, dropped names removed, same order. Anyone who signed up only in the app on those dates is removed too, so while both are running, ask players to keep signing up on SignUp Genius. It's safe to import the same page again.</p>
       <textarea id="sugText" rows="6" placeholder="Paste the SignUp Genius page here"></textarea>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="sugRead">Read</button></div>
       <div id="sugPreview" style="margin-top:10px;"></div>
@@ -2669,7 +2677,7 @@ function renderSugImportAdmin(el) {
         p.member = matchSugName(roster, p.name);
         p.pick = p.member ? String(p.member.PlayerID) : '';
         p.standby = i >= mainN;
-        p.parsed = g === 'fun' ? parseSugFunComment(p.comment, tees) : { note: String(p.comment || '').slice(0, 120) };
+        p.parsed = g === 'fun' ? parseSugFunComment(p.comment, tees) : sugNassauComment(p.comment, tees);
       });
     }));
     sugPlan = days;
@@ -2703,7 +2711,7 @@ function drawSugPreview() {
     if (d.key >= board.today) { total++; if (!p.pick) unmatched++; }
     const who = p.member ? `<span class="imp-ok">${escapeHtml(p.member.Name)}</span>`
       : `<span class="imp-bad">“${escapeHtml(p.name)}” not found —</span> <select data-sugpick="${d.key}|${g}|${i}" style="max-width:170px;"><option value="">skip</option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === p.pick ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>`;
-    const det = g === 'fun' ? sugFunDetail(p.parsed) : '';
+    const det = g === 'fun' ? sugFunDetail(p.parsed) : (p.parsed.tee || '');
     return `<li>${who}${p.standby ? ' <span class="hint">(standby)</span>' : ''}${det ? ` <span class="det">${escapeHtml(det)}</span>` : ''}${p.parsed.note ? ` <span class="note">${escapeHtml(p.parsed.note)}</span>` : ''}</li>`;
   };
   const groupHtml = (d, g) => {
@@ -2740,7 +2748,7 @@ function sugImportDays() {
     ['fun', 'nassau'].forEach((g) => d[g] && d[g].people.forEach((p) => {
       if (!p.pick) return;
       const x = p.parsed;
-      signups.push(g === 'fun' ? { Group: 'fun', PlayerID: p.pick, Tee: x.tee, Holes: x.holes, Riding: x.riding ? 'TRUE' : '', Note: x.note } : { Group: 'nassau', PlayerID: p.pick, Note: x.note });
+      signups.push(g === 'fun' ? { Group: 'fun', PlayerID: p.pick, Tee: x.tee, Holes: x.holes, Riding: x.riding ? 'TRUE' : '', Note: x.note } : { Group: 'nassau', PlayerID: p.pick, Tee: x.tee || '', Note: x.note });
     }));
     return { DateKey: d.key, signups, dayConfig: setDays && !d.closed ? sugDayConfig(d) : null, closure: d.closed || '' };
   });
