@@ -162,7 +162,19 @@
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
   .view-only-banner { background:#fff6dd; border:1px solid #e8cf86; color:#6b5200; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
-  .em-jump { font-size:.85rem; margin:0 0 8px; color:#6b6a5e; }
+  /* Admin > Emails: one button per email that opens to its settings */
+  .em-item { background:#fff; border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
+  .em-btn { width:100%; display:flex; align-items:center; gap:10px; padding:13px 15px; background:#fff; border:none; font:inherit; font-size:1rem; font-weight:600; color:var(--green-dark); cursor:pointer; text-align:left; }
+  .em-btn:hover { background:#fbfaf5; }
+  .em-chev { display:inline-block; transition:transform .15s; color:var(--muted); } .em-btn[aria-expanded="true"] .em-chev { transform:rotate(90deg); }
+  .em-title { flex:1; }
+  .em-state { font-size:.75rem; font-weight:600; padding:2px 9px; border-radius:10px; } .em-state.on { background:#e4efe1; color:#2e5a2a; } .em-state.off { background:#f0eee3; color:#8b8a7c; }
+  .em-panel { padding:4px 15px 15px; border-top:1px dashed #e7dfc9; }
+  .em-panel h3 { margin:16px 0 6px; font-size:.95rem; color:var(--green-dark); }
+  .em-panel p { margin:4px 0; }
+  .em-aud { display:block; margin:5px 0; font-size:.92rem; cursor:pointer; }
+  .em-sub { margin-left:24px; width:calc(100% - 24px); }
+  .em-field { display:block; margin:8px 0 3px; }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -1769,75 +1781,6 @@ function renderNewsAdmin(el) {
   if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
 
-// ====================== REMINDER EMAILS (admin) ======================
-const REMINDER_TYPES = [
-  ['duty', 'RemindDuty', 'Tee Time Duty reminder', 'The evening before a duty day, each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.'],
-  ['playing', 'RemindPlaying', 'Playing tomorrow', 'The evening before each round, everyone signed up gets a reminder with their group, tee times and details — or their standby number.'],
-  ['daily', 'RemindDaily', '“Legends Signups” email (to everyone)', 'The morning before each round, the same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list. Everyone is listed openly (not Bcc), so replying to all still reaches the group.'],
-  ['closing', 'RemindClosing', 'Last day to sign up', 'On the last sign-up day, one email (Bcc) goes to active Legends who haven\'t signed up yet for that round, with how many spots are left.'],
-];
-function renderRemindersAdmin(el) {
-  const st = board.settings;
-  const hourOpts = (sel) => Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${String(h) === String(sel) ? 'selected' : ''}>${fmtClock(h * 60)}</option>`).join('');
-  const log = (board.reminderLog || []).slice().sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1)).slice(0, 12);
-  const nextKey = (type) => {
-    let k = addDays(board.today, type === 'closing' ? Number(st.SignupCloseDaysBefore) || 2 : 1);
-    for (let i = 0; i < 10 && !isPlayDay(k); i++) k = addDays(k, 1);
-    if (type === 'duty') { const d = (board.duty || []).map((x) => x.DateKey).filter((x) => x > board.today).sort()[0]; if (d) k = d; }
-    return k;
-  };
-  el.innerHTML = `
-    <div class="card">
-      <h2>Reminder emails</h2>
-      <p class="hint">Sent automatically by the hourly job, once per date, from the Legends email. Evening reminders go out in the hour after the time below. Each email has a link to the app. (Gmail allows about 100 recipients a day in total — “Playing tomorrow” uses one per player.)</p>
-      ${REMINDER_TYPES.map(([type, key, title, desc]) => `
-        <div class="rem-row">
-          <label class="rem-on"><input type="checkbox" data-rem="${key}" ${String(st[key]).toUpperCase() === 'TRUE' ? 'checked' : ''}> <b>${title}</b></label>
-          <p class="hint" style="margin:2px 0 6px 24px;">${desc}</p>
-          <div style="margin-left:24px;" class="row"><span class="hint">Preview for</span><input type="date" data-rem-date="${type}" value="${nextKey(type)}" style="width:auto;"><button class="secondary" data-rem-preview="${type}">Preview</button></div>
-        </div>`).join('')}
-      <div class="grid2" style="margin-top:10px;">
-        <div><label>Evening reminders go out after</label><select data-remset="ReminderHour">${hourOpts(st.ReminderHour || 17)}</select></div>
-        <div><label>“Last day to sign up” goes out after</label><select data-remset="ClosingReminderHour">${hourOpts(st.ClosingReminderHour || 9)}</select></div>
-        <div><label>“Legends Signups” email goes out after</label><select data-remset="DailyHour">${hourOpts(st.DailyHour || 8)}</select></div>
-        <div><label>App link in emails</label><input type="text" data-remset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}"></div>
-      </div>
-      <h3>“Legends Signups” email wording</h3>
-      <label class="hint">Fun group — who to text about a last-minute drop out</label><textarea data-remset="DailyFunText" rows="2">${escapeHtml(st.DailyFunText || '')}</textarea>
-      <label class="hint">Nassau group — how to grab an open slot</label><textarea data-remset="DailyNassauText" rows="2">${escapeHtml(st.DailyNassauText || '')}</textarea>
-      <label class="hint">Tee time cancellations</label><textarea data-remset="DailyCancelText" rows="2">${escapeHtml(st.DailyCancelText || '')}</textarea>
-      <label class="hint">Legends group address (optional — see note below)</label><input type="text" data-remset="DailyGroupEmail" value="${escapeHtml(st.DailyGroupEmail || '')}" placeholder="e.g. heritage-legends@googlegroups.com">
-      <label class="hint">Also send it to (besides the Legends and the Pro Shop page addresses) — commas between addresses</label><textarea data-remset="DailyExtraEmails" rows="2" placeholder="e.g. dsykes@theheritageclub.net">${escapeHtml(st.DailyExtraEmails || '')}</textarea>
-      <p class="hint"><b>Email limits:</b> an app email can carry at most 50 addresses, and Gmail allows about 100 recipients a day in total. Listed one by one, the Legends are about ${(board.roster || []).filter((r) => r.Active !== 'FALSE').length + 5} people — so the email has to go out in two parts (reply-all then only reaches your own part) and uses most of the day's allowance. <b>The fix is a Google Group</b> containing every Legend: put its address above and the email goes to that one address — reply-all reaches everyone, and it counts as a single recipient. Without a group, turn <b>Playing tomorrow</b> off when this is on.</p>
-      <div class="row" style="margin-top:10px;"><button class="primary" id="remSave">Save</button>${dirtyNote}</div>
-      <div id="remStatus" class="status"></div>
-      <div id="remPreview"></div>
-    </div>
-    <div class="card"><h2>Recently sent</h2>
-      ${log.length ? `<table class="ad"><thead><tr><th>Reminder</th><th>For</th><th>Sent</th><th>Recipients</th></tr></thead><tbody>${log.map((r) => `<tr><td>${escapeHtml((REMINDER_TYPES.find((t) => t[0] === r.Type) || [, , r.Type])[2])}</td><td>${escapeHtml(dateShort(r.DateKey))}</td><td>${escapeHtml(whenLabel(Date.parse(r.SentAt)))}</td><td>${escapeHtml(r.Recipients)}</td></tr>`).join('')}</tbody></table>` : '<p class="hint">Nothing sent yet. Reminders start once the hourly job is set up (run <b>installLegendsTriggers</b> once in Apps Script).</p>'}
-    </div>`;
-  el.querySelectorAll('[data-rem], [data-remset]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'checkbox' ? 'change' : 'input', markDirty));
-  document.getElementById('remSave').onclick = () => {
-    const patch = {};
-    el.querySelectorAll('[data-rem]').forEach((i) => { patch[i.dataset.rem] = i.checked ? 'TRUE' : 'FALSE'; });
-    el.querySelectorAll('[data-remset]').forEach((i) => { patch[i.dataset.remset] = i.value; });
-    adminSave('legendsSaveAppSettings', { settings: JSON.stringify(patch) }, 'remStatus');
-  };
-  el.querySelectorAll('[data-rem-preview]').forEach((b) => b.onclick = async () => {
-    const type = b.dataset.remPreview, key = el.querySelector(`[data-rem-date="${type}"]`).value;
-    const box = document.getElementById('remPreview');
-    box.innerHTML = '<p class="hint">Loading preview…</p>';
-    try {
-      const res = await apiPost('legendsReminderPreview', { type, dateKey: key });
-      if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
-      const m = res.data;
-      box.innerHTML = m.sample ? `<div class="preview-box"><div class="hint"><b>${m.count} recipient${m.count === 1 ? '' : 's'}</b> for ${escapeHtml(dateShort(key))}${m.sample.split ? ` — sent as ${m.sample.split} emails (at most 50 addresses each)` : ''}. First one — <b>To:</b> ${escapeHtml(m.sample.to)}${m.sample.bccCount ? ` · <b>Bcc:</b> ${m.sample.bccCount} Legends` : ''} · <b>Subject:</b> ${escapeHtml(m.sample.subject)}</div><hr>${m.sample.html}</div>`
-        : `<p class="hint">Nobody would get this reminder for ${escapeHtml(dateShort(key))} (no one on duty / signed up, or the day is closed).</p>`;
-    } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
-  });
-  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
-}
-
 // ====================== ADMIN ======================
 // Admin has two groups: Setup (Tee Time Duty, First Tee Time) and Info (everything else).
 let adminSub = 'duty';
@@ -1872,7 +1815,7 @@ window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefa
 
 // For view-only admins: after any admin page draws, hide the buttons that change
 // things and lock the fields (previews, date ranges and filters still work).
-const VIEW_OK = '[data-ps-preview],[data-rem-preview],#dLoad,[data-memtab],[data-asub],[data-agroup]';
+const VIEW_OK = '[data-ps-preview],[data-rem-preview],[data-em-toggle],#dLoad,[data-memtab],[data-asub],[data-agroup]';
 const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly';
 function lockForViewOnly() {
   if (!amViewOnly()) return;
@@ -1942,9 +1885,7 @@ function renderAdminSub() {
   if (adminSub === 'admins') return renderAdminsAdmin(el);
   if (adminSub === 'proshop' || adminSub === 'reminders') adminSub = 'emails';
   if (adminSub === 'emails') return renderEmailsAdmin(el);
-  if (adminSub === 'proshop') return renderProShopAdmin(el);
   if (adminSub === 'news') return renderNewsAdmin(el);
-  if (adminSub === 'reminders') return renderRemindersAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 
@@ -2813,18 +2754,105 @@ async function doSugImport() {
   showStatus('sugStatus', true, `Imported ${s.added} sign-ups${s.skipped ? ` (${s.skipped} were already signed up and left alone)` : ''}${s.daysSet ? `, set ${s.daysSet} first tee times` : ''}${s.closuresAdded ? `, added ${s.closuresAdded} closures` : ''}. Check the Sign-ups tab.`);
 }
 
-// ---------------- Pro shop players list ----------------
+// ====================== EMAILS (admin) ======================
+// Admin > Setup > Emails: one button per email. Each opens to show what it's for,
+// when it goes, who gets it, its wording and app link, and a preview that uses
+// the changes on the page even before they're saved.
+const EMAIL_TYPES = [
+  { type: 'proshop', prefix: 'ProShop', on: 'ProShopAutoSend', title: 'List of players for pro shop',
+    desc: 'The list of who is playing — in sign-up order, Fun group then Nassau group, with each Fun player\'s tees, holes and riding, and the standby lists marked as not playing. Changes after it goes are still phoned in to the pro shop. You can preview any day, or send it yourself at any time.',
+    wording: [['ProShopMessage', 'Message added after “Hello — here are the Heritage Legends players…” (optional)', 2], ['ProShopFooterText', 'Closing line', 2]] },
+  { type: 'duty', prefix: 'Duty', on: 'RemindDuty', title: 'Tee Time Duty reminder', personal: true,
+    desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
+    wording: [['DutyMessage', 'Message added after “Hi …,” (optional)', 2], ['DutyInPersonText', 'Instructions for whoever goes in person — {arrive} becomes the arrive-by time', 3], ['DutyPhoneText', 'Instructions for whoever phones in — {call} becomes the call-in time', 3], ['DutyFooterText', 'Closing line', 2]] },
+  { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Playing tomorrow', personal: true,
+    desc: 'Everyone signed up gets a reminder with their group, tee times and details — or their standby number.',
+    wording: [['PlayingMessage', 'Message added after “Hi …,” (optional)', 2], ['PlayingFooterText', 'Closing line', 2]] },
+  { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: '“Legends Signups” summary',
+    desc: 'The same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list.',
+    wording: [['DailyMessage', 'Message added under the heading (optional)', 2], ['DailyFunText', 'Fun group — who to text about a last-minute drop out', 2], ['DailyNassauText', 'Nassau group — how to grab an open slot', 2], ['DailyCancelText', 'Tee time cancellations', 2]] },
+  { type: 'closing', prefix: 'Closing', on: 'RemindClosing', title: 'Last day to sign up',
+    desc: 'On the last sign-up day, a reminder of how many spots are left, for Legends who haven\'t signed up yet for that round.',
+    wording: [['ClosingMessage', 'Message added at the top (optional)', 2], ['ClosingFooterText', 'Closing line', 2]] },
+];
+// The recipient choices each email offers (the server has the same list).
+const EMAIL_AUDIENCES = {
+  proshop: ['proshop', 'extra', 'admin', 'players', 'legends'],
+  duty: ['duty', 'admin', 'proshop', 'extra'],
+  playing: ['players', 'admin', 'extra'],
+  daily: ['legends', 'players', 'proshop', 'extra', 'admin'],
+  closing: ['notsigned', 'legends', 'admin', 'extra'],
+};
+const emOpen = {}; // which email buttons are open (kept when the page redraws after a save)
+
 function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.DateKey === key).sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1))[0] || null; }
-// Admin > Setup > Emails: the pro shop list and the reminder emails on one page.
-function renderEmailsAdmin(el) {
-  el.innerHTML = `<div class="em-jump no-print">Jump to: <a href="#emProShop">Pro shop players list</a> · <a href="#emRem">Reminder emails</a></div>
-    <div id="emProShop"></div><div id="emRem"></div>`;
-  renderProShopAdmin(document.getElementById('emProShop'));
-  renderRemindersAdmin(document.getElementById('emRem'));
+function emIsOn(t) {
+  const v = String(board.settings[t.on]).toUpperCase();
+  return t.type === 'proshop' ? v !== 'FALSE' : v === 'TRUE';
 }
-function renderProShopAdmin(el) {
+// The date each email would next be about (the round, or the duty day).
+function emNextKey(type) {
   const st = board.settings;
-  const auto = String(st.ProShopAutoSend).toUpperCase() !== 'FALSE';
+  if (type === 'proshop') {
+    const days = (board.dates || []).filter((d) => d.DateKey >= board.today && !d.closed);
+    const d = days.find((x) => !proShopSentFor(x.DateKey)) || days[0];
+    if (d) return d.DateKey;
+  }
+  if (type === 'duty') { const d = (board.duty || []).map((x) => x.DateKey).filter((x) => x > board.today).sort()[0]; if (d) return d; }
+  let k = addDays(board.today, type === 'closing' ? Number(st.SignupCloseDaysBefore) || 2 : 1);
+  for (let i = 0; i < 10 && !isPlayDay(k); i++) k = addDays(k, 1);
+  return k;
+}
+function emAudienceLabel(id, type, key, short) {
+  const st = board.settings, d = dateShort(key);
+  return {
+    legends: type === 'daily' && st.DailyGroupEmail && !short ? `All Legends (sent to the group address ${st.DailyGroupEmail})` : 'All Legends',
+    players: `Players for ${d}`,
+    notsigned: `Legends not signed up for ${d}`,
+    duty: `Legends on Tee Time Duty ${d}`,
+    proshop: 'Pro Shop',
+    admin: short ? 'Legends admin' : `Legends admin (${st.AdminEmail})`,
+    extra: short ? 'Additional recipients' : 'Additional recipients (place commas between addresses)',
+  }[id];
+}
+function emHourOpts(sel) { return Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${String(h) === String(sel) ? 'selected' : ''}>${fmtClock(h * 60)}</option>`).join(''); }
+function emWhenHtml(t, key) {
+  const st = board.settings, n = Number(st.SignupCloseDaysBefore) || 2;
+  const hourSel = (k, def) => `<select data-emset="${k}" style="width:auto;">${emHourOpts(st[k] || def)}</select>`;
+  const next = (daysBefore, hourKey, def) => emIsOn(t)
+    ? `<p class="hint">Next: for <b>${escapeHtml(dateShort(key))}</b> — goes out ${escapeHtml(dateShort(addDays(key, -daysBefore)))} after ${fmtClock((Number(st[hourKey]) || def) * 60)}.</p>`
+    : '<p class="hint">Off — nothing goes out until <b>Send automatically</b> is ticked and saved.</p>';
+  if (t.type === 'proshop') {
+    const d = (board.dates || []).find((x) => x.DateKey === key);
+    return `<p>When a round's sign-ups close — 11:59 PM, ${n} day${n === 1 ? '' : 's'} before play.</p>` +
+      (!emIsOn(t) ? '<p class="hint">Off — it only goes when you click <b>Send now</b> below.</p>'
+        : d ? `<p class="hint">Next: the list for <b>${escapeHtml(dateShort(key))}</b> — ${escapeHtml(whenLabel(d.closesAt - clockSkew))}.</p>` : '');
+  }
+  if (t.type === 'duty' || t.type === 'playing') return `<div class="row"><span>The evening before, after</span>${hourSel('ReminderHour', 17)}<span class="hint">(one time for both Tee Time Duty and Playing tomorrow)</span></div>` + next(1, 'ReminderHour', 17);
+  if (t.type === 'daily') return `<div class="row"><span>The day before each round, after</span>${hourSel('DailyHour', 8)}</div>` + next(1, 'DailyHour', 8);
+  return `<div class="row"><span>On the last sign-up day (${n} day${n === 1 ? '' : 's'} before play), after</span>${hourSel('ClosingReminderHour', 9)}</div>` + next(n, 'ClosingReminderHour', 9);
+}
+function emWhoHtml(t, key) {
+  const st = board.settings;
+  const on = String(st[t.prefix + 'SendTo'] || '').split(/[,\s]+/);
+  const boxes = EMAIL_AUDIENCES[t.type].map((id) =>
+    `<label class="em-aud"><input type="checkbox" data-emto="${t.type}" value="${id}" ${on.includes(id) ? 'checked' : ''}> ${escapeHtml(emAudienceLabel(id, t.type, key))}` +
+      (id === 'proshop' && t.type !== 'proshop' ? ` <span class="hint">— ${escapeHtml(st.ProShopEmails || 'no address yet')}</span>` : '') + '</label>' +
+    (id === 'proshop' && t.type === 'proshop' ? `<textarea data-emset="ProShopEmails" rows="2" class="em-sub">${escapeHtml(st.ProShopEmails || '')}</textarea><p class="hint em-sub">The Pro Shop's addresses — every email with <b>Pro Shop</b> ticked uses these.</p>` : '') +
+    (id === 'extra' ? `<textarea data-emset="${t.prefix}ExtraEmails" rows="2" class="em-sub" placeholder="e.g. dsykes@theheritageclub.net">${escapeHtml(st[t.prefix + 'ExtraEmails'] || '')}</textarea>` : '')).join('');
+  const how = t.personal ? 'Each person on the first line gets their own email. Anyone else ticked gets one copy of all of them, for their records.'
+    : t.type === 'daily' ? 'Everyone is listed openly (not Bcc), so reply-all reaches the group.'
+    : t.type === 'proshop' ? 'The Pro Shop is in To, the admin and additional addresses are copied (Cc), and any Legends are Bcc\'d.'
+    : 'The Legends are Bcc\'d, so they don\'t see each other\'s addresses.';
+  let more = '';
+  if (t.type === 'daily') {
+    more = `<label class="hint em-field">Legends group address (optional — see note below)</label><input type="text" data-emset="DailyGroupEmail" value="${escapeHtml(st.DailyGroupEmail || '')}" placeholder="e.g. heritage-legends@googlegroups.com">
+      <p class="hint"><b>Email limits:</b> an app email can carry at most 50 addresses, and Gmail allows about 100 recipients a day in total. Listed one by one, the Legends are about ${(board.roster || []).filter((r) => r.Active !== 'FALSE').length + 5} people — so the email has to go out in two parts (reply-all then only reaches your own part) and uses most of the day's allowance. <b>The fix is a Google Group</b> containing every Legend: put its address above and <b>All Legends</b> becomes that one address — reply-all reaches everyone, and it counts as a single recipient. Without a group, turn <b>Playing tomorrow</b> off when this is on.</p>`;
+  }
+  return boxes + `<p class="hint">${how}</p>` + more;
+}
+function emProShopTable() {
+  const auto = emIsOn(EMAIL_TYPES[0]);
   const rows = (board.dates || []).filter((d) => d.DateKey >= board.today).map((d) => {
     const sent = proShopSentFor(d.DateKey);
     const nIn = Math.min(groupList(d.DateKey, 'fun').length, d.funSlots) + Math.min(groupList(d.DateKey, 'nassau').length, d.nassauSlots);
@@ -2836,49 +2864,124 @@ function renderProShopAdmin(el) {
     return `<tr><td><b>${escapeHtml(dateShort(d.DateKey))}</b></td><td>${d.closed ? '' : nIn}</td><td>${status}</td>
       <td style="white-space:nowrap;">${d.closed ? '' : `<button class="secondary" data-ps-preview="${d.DateKey}">Preview</button> <button class="${sent ? 'secondary' : 'primary'}" data-ps-send="${d.DateKey}">${sent ? 'Send again' : 'Send now'}</button>`}</td></tr>`;
   }).join('');
-  el.innerHTML = `
-    <div class="card">
-      <h2>Pro shop players list</h2>
-      <p class="hint">When a round's sign-ups close (11:59 PM ${escapeHtml(st.SignupCloseDaysBefore)} days before play), the app emails the list of players to the pro shop — in sign-up order, Fun group then Nassau group, with each Fun player's tees, holes and riding, and the standby lists marked as not playing. It goes from the Legends email, copied to the extra addresses below and to ${escapeHtml(st.AdminEmail)}. Changes after that are still phoned in to the pro shop. You can preview any day, or send it yourself at any time.</p>
-      <div class="tbl-wrap"><table class="ad"><thead><tr><th>Round</th><th>Playing</th><th>Pro shop list</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="hint">No upcoming rounds.</td></tr>'}</tbody></table></div>
-      <div id="psStatus" class="status"></div>
-      <div id="psPreview"></div>
+  return `<div class="tbl-wrap"><table class="ad"><thead><tr><th>Round</th><th>Playing</th><th>Pro shop list</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="hint">No upcoming rounds.</td></tr>'}</tbody></table></div>
+    <div id="psStatus" class="status"></div>`;
+}
+// The last time a reminder went out for a date (automatically or by Send now).
+function emSentFor(type, key) { return (board.reminderLog || []).filter((r) => r.Type === type && r.DateKey === key).sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1))[0] || null; }
+function emSentHtml(type, key) {
+  const r = key && emSentFor(type, key);
+  return r ? `<span class="imp-ok">✓ Sent for ${escapeHtml(dateShort(key))}</span> — ${escapeHtml(whenLabel(Date.parse(r.SentAt)))} · ${escapeHtml(r.Recipients)} recipients` : '';
+}
+function emPanelHtml(t) {
+  const st = board.settings, key = emNextKey(t.type), isOn = emIsOn(t);
+  return `<div class="em-item">
+    <button type="button" class="em-btn" data-em-toggle="${t.type}" aria-expanded="${emOpen[t.type] ? 'true' : 'false'}"><span class="em-chev">▸</span><span class="em-title">${escapeHtml(t.title)}</span><span class="em-state ${isOn ? 'on' : 'off'}">${isOn ? 'On' : 'Off'}</span></button>
+    <div class="em-panel" data-em-panel="${t.type}" ${emOpen[t.type] ? '' : 'hidden'}>
+      <p class="hint">${escapeHtml(t.desc)}</p>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="${t.on}" ${isOn ? 'checked' : ''}> <b>Send automatically</b></label>
+      <h3>When</h3>${emWhenHtml(t, key)}
+      <h3>Who gets it</h3>${emWhoHtml(t, key)}
+      <h3>Wording</h3>${t.wording.map(([k, label, rows]) => `<label class="hint em-field">${escapeHtml(label)}</label><textarea data-emset="${k}" rows="${rows}">${escapeHtml(st[k] || '')}</textarea>`).join('')}
+      <h3>App link</h3>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="${t.prefix}AppLink" ${String(st[t.prefix + 'AppLink']).toUpperCase() === 'TRUE' ? 'checked' : ''}> Include an “Open the Legends app” link</label>
+      <p class="hint em-sub">${st.SiteUrl ? `It goes to <a href="${escapeHtml(st.SiteUrl)}" target="_blank" rel="noopener">${escapeHtml(st.SiteUrl)}</a>` : 'No app link is set'} — change it under <b>All emails</b> below.</p>
+      <h3>Preview</h3>
+      ${t.type === 'proshop' ? emProShopTable() : ''}
+      <div class="row" style="margin-top:6px;"><span class="hint">Preview for</span><input type="date" data-rem-date="${t.type}" value="${key}" style="width:auto;"><button class="secondary" data-rem-preview="${t.type}">Preview</button>${t.type === 'proshop' ? '' : `<button class="primary" data-em-send="${t.type}">Send now</button>`}</div>
+      ${t.type === 'proshop' ? '' : `<p class="hint" data-em-sent="${t.type}">${emSentHtml(t.type, key)}</p>`}
+      <p class="hint">The preview uses the wording and recipients above, even before you save.${t.type === 'proshop' ? '' : ' <b>Send now</b> sends it for the date shown, with the saved wording and recipients.'}</p>
+      <div data-em-preview="${t.type}"></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="${t.type}">Save</button></div>
+      <div id="emStatus-${t.type}" class="status"></div>
     </div>
-    <div class="card">
-      <h2>Who gets it</h2>
-      <label>Pro shop (To)</label><textarea data-ps="ProShopEmails" rows="2">${escapeHtml(st.ProShopEmails || '')}</textarea>
-      <label style="display:block;margin-top:8px;">Also copied to (Cc)</label><textarea data-ps="ProShopExtraEmails" rows="2">${escapeHtml(st.ProShopExtraEmails || '')}</textarea>
-      <p class="hint">Separate addresses with commas. ${escapeHtml(st.AdminEmail)} is always copied too.</p>
-      <label class="hint"><input type="checkbox" id="psAuto" ${auto ? 'checked' : ''}> Send automatically when sign-ups close</label>
-      <div class="row" style="margin-top:10px;"><button class="primary" id="psSave">Save</button>${dirtyNote}</div>
-      <div id="psSaveStatus" class="status"></div>
+  </div>`;
+}
+// Every setting on the page, ready for legendsSaveAppSettings (or a preview).
+function emCollect(el) {
+  const patch = {};
+  el.querySelectorAll('[data-emset]').forEach((i) => { patch[i.dataset.emset] = i.value; });
+  el.querySelectorAll('[data-emset-bool]').forEach((i) => { patch[i.dataset.emsetBool] = i.checked ? 'TRUE' : 'FALSE'; });
+  EMAIL_TYPES.forEach((t) => { patch[t.prefix + 'SendTo'] = [...el.querySelectorAll(`[data-emto="${t.type}"]:checked`)].map((i) => i.value).join(','); });
+  return patch;
+}
+async function emPreview(el, type, key) {
+  const box = el.querySelector(`[data-em-preview="${type}"]`);
+  if (!key) { box.innerHTML = '<p class="status error">Choose a date.</p>'; return; }
+  box.innerHTML = '<p class="hint">Loading preview…</p>';
+  try {
+    const res = await apiPost('legendsReminderPreview', { type, dateKey: key, settings: JSON.stringify(emCollect(el)) });
+    if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
+    const m = res.data, d = escapeHtml(dateShort(key)), plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    if (m.closed) { box.innerHTML = `<p class="hint">No Legends tee times on ${d} (${escapeHtml(m.closed)}) — this email doesn't go out for that day.</p>`; return; }
+    const who = m.groups.length ? m.groups.map((g) => `${escapeHtml(emAudienceLabel(g.id, type, key, true))} (${g.count})`).join(' · ') : 'nobody';
+    if (!m.sample) { box.innerHTML = `<p class="hint">Nobody would get this email for ${d}. Ticked: ${who}.</p>`; return; }
+    const s = m.sample;
+    const parts = m.personal ? `<br>${plural(m.personal, 'personal email')}, one per person${m.emails > m.personal ? ', plus a copy for the others ticked' : ''} — showing the first one.`
+      : m.emails > 1 ? '<br>Sent in parts (at most 50 addresses on each email) — showing the first one.' : '';
+    box.innerHTML = `<div class="preview-box"><div class="hint"><b>${plural(m.total, 'recipient')}</b> in ${plural(m.emails, 'email')} for ${d}. Ticked: ${who}.${parts}
+      <br><b>To:</b> ${escapeHtml(s.to)}${s.cc ? `<br><b>Cc:</b> ${escapeHtml(s.cc)}` : ''}${s.bccCount ? `<br><b>Bcc:</b> ${s.bccCount} address${s.bccCount === 1 ? '' : 'es'}` : ''}<br><b>Subject:</b> ${escapeHtml(s.subject)}</div><hr>${s.html}</div>`;
+    if (box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
+}
+function renderEmailsAdmin(el) {
+  const st = board.settings;
+  const log = (board.reminderLog || []).slice().sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1)).slice(0, 12);
+  const typeTitle = (type) => (EMAIL_TYPES.find((t) => t.type === type) || { title: type }).title;
+  el.innerHTML = `
+    <div class="card"><h2>Emails</h2>
+      <p class="hint">The app sends these from the Legends email (${escapeHtml(st.AdminEmail)}). Click one to see what it says, when it goes and who gets it. Try changes with <b>Preview</b>, then <b>Save</b>. ${dirtyNote}</p>
+    </div>
+    ${EMAIL_TYPES.map(emPanelHtml).join('')}
+    <div class="card"><h2>All emails</h2>
+      <label>App link in emails</label><input type="text" data-emset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}">
+      <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Playing tomorrow” uses one per player.</p>
+      <div class="row" style="margin-top:10px;"><button class="primary" data-em-save="all">Save</button></div>
+      <div id="emStatus-all" class="status"></div>
+    </div>
+    <div class="card"><h2>Recently sent</h2>
+      ${log.length ? `<table class="ad"><thead><tr><th>Email</th><th>For</th><th>Sent</th><th>Recipients</th></tr></thead><tbody>${log.map((r) => `<tr><td>${escapeHtml(typeTitle(r.Type))}</td><td>${escapeHtml(dateShort(r.DateKey))}</td><td>${escapeHtml(whenLabel(Date.parse(r.SentAt)))}</td><td>${escapeHtml(r.Recipients)}</td></tr>`).join('')}</tbody></table>` : '<p class="hint">Nothing sent yet. Reminders start once the hourly job is set up (run <b>installLegendsTriggers</b> once in Apps Script).</p>'}
+      <p class="hint">Pro shop lists are shown under <b>List of players for pro shop</b>.</p>
     </div>`;
-  el.querySelectorAll('[data-ps]').forEach((i) => i.addEventListener('input', markDirty));
-  document.getElementById('psAuto').onchange = markDirty;
-  document.getElementById('psSave').onclick = () => {
-    const patch = { ProShopAutoSend: document.getElementById('psAuto').checked ? 'TRUE' : 'FALSE' };
-    el.querySelectorAll('[data-ps]').forEach((i) => { patch[i.dataset.ps] = i.value; });
-    adminSave('legendsSaveAppSettings', { settings: JSON.stringify(patch) }, 'psSaveStatus');
-  };
-  el.querySelectorAll('[data-ps-preview]').forEach((b) => b.onclick = async () => {
-    const box = document.getElementById('psPreview');
-    box.innerHTML = '<p class="hint">Loading preview…</p>';
-    try {
-      const res = await apiPost('legendsProShopPreview', { dateKey: b.dataset.psPreview });
-      if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
-      const m = res.data;
-      box.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;background:#fff;">
-        <div class="hint"><b>To:</b> ${escapeHtml(m.to.join(', '))}<br><b>Cc:</b> ${escapeHtml(m.cc.join(', '))}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div>
-        <hr style="border:none;border-top:1px solid var(--border);">${m.html}</div>`;
-      if (box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
+  el.querySelectorAll('[data-em-toggle]').forEach((b) => b.onclick = () => {
+    const type = b.dataset.emToggle, open = !emOpen[type];
+    emOpen[type] = open;
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    el.querySelector(`[data-em-panel="${type}"]`).hidden = !open;
+  });
+  el.querySelectorAll('[data-emset], [data-emset-bool], [data-emto]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'checkbox' ? 'change' : 'input', () => {
+    // The evening reminder time shows under both Tee Time Duty and Playing tomorrow — keep them the same.
+    if (i.dataset.emset) el.querySelectorAll(`[data-emset="${i.dataset.emset}"]`).forEach((x) => { if (x !== i) x.value = i.value; });
+    markDirty();
+  }));
+  el.querySelectorAll('[data-em-save]').forEach((b) => b.onclick = () => adminSave('legendsSaveAppSettings', { settings: JSON.stringify(emCollect(el)) }, 'emStatus-' + b.dataset.emSave));
+  el.querySelectorAll('[data-rem-preview]').forEach((b) => b.onclick = () => emPreview(el, b.dataset.remPreview, el.querySelector(`[data-rem-date="${b.dataset.remPreview}"]`).value));
+  el.querySelectorAll('[data-rem-date]').forEach((i) => i.addEventListener('change', () => {
+    const s = el.querySelector(`[data-em-sent="${i.dataset.remDate}"]`);
+    if (s) s.innerHTML = emSentHtml(i.dataset.remDate, i.value);
+  }));
+  el.querySelectorAll('[data-em-send]').forEach((b) => b.onclick = async () => {
+    const type = b.dataset.emSend, k = el.querySelector(`[data-rem-date="${type}"]`).value;
+    if (!k) { showStatus('emStatus-' + type, false, 'Choose a date first.'); return; }
+    const title = EMAIL_TYPES.find((t) => t.type === type).title;
+    if (adminDirty && !confirm('You have unsaved changes on this page. The email goes out with the SAVED wording and recipients. Send anyway?')) return;
+    if (!confirm(`${emSentFor(type, k) ? 'This was already sent for that date. Send it again' : 'Send it now'}: “${title}” for ${dateShort(k)}?\n\nUse Preview first to check who gets it. The automatic one for ${dateShort(k)} won't go out after this.`)) return;
+    b.disabled = true;
+    const ok = await adminSave('legendsEmailSendNow', { type, dateKey: k }, 'emStatus-' + type, `Sent “${title}” for ${dateShort(k)}.`);
+    if (!ok) b.disabled = false;
+  });
+  el.querySelectorAll('[data-ps-preview]').forEach((b) => b.onclick = () => {
+    const i = el.querySelector('[data-rem-date="proshop"]');
+    i.value = b.dataset.psPreview;
+    emPreview(el, 'proshop', i.value);
   });
   el.querySelectorAll('[data-ps-send]').forEach((b) => b.onclick = async () => {
     const k = b.dataset.psSend;
     const again = !!proShopSentFor(k);
-    if (!confirm(`${again ? 'Send the list again' : 'Send the players list now'} for ${dateShort(k)} to the pro shop?${!again && serverNow() < ((board.dates.find((d) => d.DateKey === k) || {}).closesAt || 0) ? '\n\nSign-ups are still open for this day, so the list may still change.' : ''}`)) return;
+    if (adminDirty && !confirm('You have unsaved changes on this page. The list goes out with the SAVED wording and recipients. Send anyway?')) return;
+    if (!confirm(`${again ? 'Send the list again' : 'Send the players list now'} for ${dateShort(k)}?${!again && serverNow() < ((board.dates.find((d) => d.DateKey === k) || {}).closesAt || 0) ? '\n\nSign-ups are still open for this day, so the list may still change.' : ''}`)) return;
     b.disabled = true;
-    await adminSave('legendsProShopSend', { dateKey: k }, 'psStatus', `Sent the ${dateShort(k)} list to the pro shop.`);
+    await adminSave('legendsProShopSend', { dateKey: k }, 'psStatus', `Sent the ${dateShort(k)} list.`);
   });
   if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
