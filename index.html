@@ -381,7 +381,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13c';
+const APP_VERSION = '2026-10-13e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2623,7 +2623,9 @@ function parseSugFunComment(comment, teeOptions) {
     if (t === 'gold') gold = true;
     else if (t === 'god' || t === 'golf') { gold = true; unsure = true; }
     else if (t === 'red') red = true;
-    else if (t === 'white' || t === 'hybrid') white = true;
+    else if (t === 'white' || t === 'hybrid' || t === 'hybird') white = true;
+    else if (t === 'gw' || t === 'wg') { white = true; gold = true; }
+    else if (t === 'rg' || t === 'gr') { red = true; gold = true; }
     else if (t === 'rr') { red = true; out.riding = true; }
     else if (t === 'g') gold = true;
     else if (t === 'r' && (toks[i + 1] === 'g' || toks[i - 1] === 'g')) red = true;
@@ -2634,7 +2636,7 @@ function parseSugFunComment(comment, teeOptions) {
     else if (t === '18') holes = '18';
     else if (t === '9' || t === 'nine') holes = '9';
     else if (t === 'second' || t === 'back') back = true;
-    else if (t === 'holes' || t === 'hole') { /* filler */ }
+    else if (/^(holes?|tees?|box)$/.test(t)) { /* filler */ }
     else unknown = true;
   });
   const tee = white && gold ? 'White/Gold' : red && gold ? 'Red/Gold' : gold ? 'Gold' : red ? 'Red' : white ? 'White/Gold' : '';
@@ -2660,7 +2662,7 @@ function renderSugImportAdmin(el) {
       <h2>Import sign-ups from SignUp Genius</h2>
       <p class="hint">Use this while the app runs alongside SignUp Genius, as often as you like (say once a day), and once more when switching over. Open the Legends sign-up page on SignUp Genius in a browser, press <b>Ctrl+A</b> (on a Mac <b>⌘+A</b>) to select the whole page, then <b>Ctrl+C</b> (<b>⌘+C</b>) to copy, and paste it below. Copying all the text from a PDF of the page works too. Click <b>Read</b> to see what was found — nothing changes until you click <b>Import</b>.</p>
       <p class="hint">What comes across: each day's Fun and Nassau lists in sign-up order (standby after the main list), each Fun player's tees / holes / riding and each Nassau player's tees read from their SignUp Genius comment, the first tee time and number of tee times for each day, and “No tee times” days as closures. Comments that can't be fully understood — and 9-hole rounds, since SignUp Genius never said which nine — are kept as the person's note so nothing is lost. Tee Time Duty is not imported (it comes from the quarterly sheet).</p>
-      <p class="hint"><b>Running both side by side:</b> tick <b>Replace…</b> below each time, so every date's lists in the app match SignUp Genius exactly: new names added, dropped names removed, same order. Anyone who signed up only in the app on those dates is removed too, so while both are running, ask players to keep signing up on SignUp Genius. It's safe to import the same page again.</p>
+      <p class="hint"><b>Running both side by side:</b> tick <b>Make the app match SignUp Genius</b> below each time, so every date's lists in the app match SignUp Genius exactly: new names added, dropped names removed, same order. Anyone who signed up only in the app on those dates is removed too, so while both are running, ask players to keep signing up on SignUp Genius. It's safe to import the same page again.</p>
       <textarea id="sugText" rows="6" placeholder="Paste the SignUp Genius page here"></textarea>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="sugRead">Read</button></div>
       <div id="sugPreview" style="margin-top:10px;"></div>
@@ -2732,7 +2734,7 @@ function drawSugPreview() {
   }).join('');
   box.innerHTML = `<p class="hint"><b>${futureDays.length}</b> dates · <b>${total}</b> sign-ups${unmatched ? ` · <span class="imp-bad">${unmatched} not matched to the roster</span> (pick the person, or leave “skip”)` : ' · everyone matched to the roster'}.</p>
     ${html}
-    <label class="hint" style="display:block;margin-top:8px;"><input type="checkbox" id="sugReplace"> Replace any Fun / Nassau sign-ups already in the app for these dates (otherwise anyone already signed up that day is left as they are)</label>
+    <label class="hint" style="display:block;margin-top:8px;"><input type="checkbox" id="sugReplace"> <b>Make the app match SignUp Genius.</b> For each date above, clear the app's Fun and Nassau lists and fill them from SignUp Genius. Leave this unticked to only add people who aren't in the app yet; no one is removed and existing entries aren't changed.</label>
     <label class="hint" style="display:block;"><input type="checkbox" id="sugSetDays" checked> Set each day's First Tee Time and number of tee times from SignUp Genius</label>
     <div class="row" style="margin-top:10px;"><button class="primary" id="sugGo" ${futureDays.length ? '' : 'disabled'}>Import</button></div>`;
   box.querySelectorAll('[data-sugpick]').forEach((s) => s.onchange = () => {
@@ -2767,8 +2769,8 @@ async function doSugImport() {
     // The server usually finishes even when the connection gives up; see what's there now.
     await loadBoard(true);
     const got = (board.signups || []).filter((x) => days.some((d) => d.DateKey === x.DateKey) && (x.Group === 'fun' || x.Group === 'nassau')).length;
-    showStatus('sugStatus', !!got, got ? `The connection timed out, but ${got} sign-ups for these dates are now in the app — check the Sign-ups tab. If anything is missing, tick “Replace…” and import again (it's safe to repeat).`
-      : 'The connection timed out before the import finished. Wait a minute, then tick “Replace…” and click Import again (it is safe to repeat).');
+    showStatus('sugStatus', !!got, got ? `The connection timed out, but ${got} sign-ups for these dates are now in the app — check the Sign-ups tab. If anything is missing, tick “Make the app match SignUp Genius” and import again (it's safe to repeat).`
+      : 'The connection timed out before the import finished. Wait a minute, then tick “Make the app match SignUp Genius” and click Import again (it is safe to repeat).');
     btn.disabled = false;
     return;
   }
