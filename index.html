@@ -173,6 +173,7 @@
   .em-panel { padding:4px 15px 15px; border-top:1px dashed #e7dfc9; }
   .em-panel h3 { margin:16px 0 6px; font-size:.95rem; color:var(--green-dark); }
   .em-panel p { margin:4px 0; }
+  .em-panel .preview-box p { margin:1em 0; } /* show emails with their real paragraph spacing */
   .em-aud { display:block; margin:5px 0; font-size:.92rem; cursor:pointer; }
   .em-sub { margin-left:24px; width:calc(100% - 24px); }
   .em-field { display:block; margin:8px 0 3px; }
@@ -381,7 +382,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13i';
+const APP_VERSION = '2026-10-13j';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
