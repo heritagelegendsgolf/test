@@ -183,6 +183,9 @@
   #savingPill { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); background: var(--green-dark); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; z-index: 51; box-shadow: 0 6px 20px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 8px; }
   .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  button.is-saving { opacity: 0.75; cursor: progress; }
+  button.is-saving::before { content: ''; display: inline-block; width: 0.8em; height: 0.8em; margin-right: 6px; vertical-align: -0.1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .status .spin { margin-right: 6px; vertical-align: -1px; }
   .ts-saving { flex-shrink:0; display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; padding:9px 14px; border-radius:20px; border:1.5px solid var(--green-dark); background:var(--green-dark); color:#fff; opacity:0.8; }
 
   /* sign-in */
@@ -369,7 +372,7 @@
   </main>
 </div>
 <div id="toast" hidden></div>
-<div id="savingPill" hidden><span class="spin"></span><span>Saving…</span></div>
+<div id="savingPill" hidden><span class="spin"></span><span id="savingPillText">Saving…</span></div>
 
 <script>
 // ====================== CONFIG ======================
@@ -382,7 +385,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-13j';
+const APP_VERSION = '2026-10-15a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -403,11 +406,52 @@ async function apiGet(action, extra) {
   }
   throw lastErr;
 }
+// Anything sent to the server that isn't just reading shows the "Saving…" pill
+// at the top of the screen, and the button that started it is disabled with a
+// spinner until the server answers, so it's always clear something is happening.
+const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'legendsGetBoard', 'legendsFileGet',
+  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog'];
+function savingLabel(action) {
+  if (/Upload/.test(action)) return 'Uploading…';
+  if (/Import/.test(action)) return 'Importing…';
+  if (/Send|Swap(Request|Respond)/.test(action)) return 'Sending…';
+  if (/NewsPost/.test(action)) return 'Posting…';
+  if (/Leave/.test(action)) return 'Removing…';
+  return 'Saving…';
+}
+let savingCount = 0;
+function savingStart(label) {
+  savingCount++;
+  const pill = document.getElementById('savingPill'), txt = document.getElementById('savingPillText');
+  if (txt) txt.textContent = label || 'Saving…';
+  if (pill) pill.hidden = false;
+}
+function savingEnd() {
+  savingCount = Math.max(0, savingCount - 1);
+  const pill = document.getElementById('savingPill');
+  if (pill && !savingCount) pill.hidden = true;
+}
+// The button the person just clicked, while that click is being handled (cleared right after).
+let clickedButton = null;
+document.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest ? e.target.closest('button') : null;
+  if (!b) return;
+  clickedButton = b;
+  setTimeout(() => { if (clickedButton === b) clickedButton = null; }, 0);
+}, true);
 // POST keeps PINs out of the address bar. Carries the admin PIN (if this tab
 // has unlocked Admin) and the member token automatically. `retry` is only
 // for actions the server treats as safe to repeat (sign-up requests carry
 // their own id, so a retry after a dropped connection can't double-book).
 async function apiPost(action, body, retry, timeoutMs) {
+  if (READ_ACTIONS.indexOf(action) !== -1) return apiPostRaw(action, body, retry, timeoutMs);
+  const btn = clickedButton, ownDisable = btn && !btn.disabled; // a button the caller disabled itself stays the caller's to re-enable
+  if (btn) { btn.classList.add('is-saving'); if (ownDisable) btn.disabled = true; }
+  savingStart(savingLabel(action));
+  try { return await apiPostRaw(action, body, retry, timeoutMs); }
+  finally { savingEnd(); if (btn) { btn.classList.remove('is-saving'); if (ownDisable) btn.disabled = false; } }
+}
+async function apiPostRaw(action, body, retry, timeoutMs) {
   const extra = {};
   if (adminSession) extra.adminPin = adminSession.pin;
   if (session) extra.token = session.token;
@@ -430,6 +474,8 @@ function showStatus(id, ok, msg) {
   if (!el) return;
   el.textContent = msg;
   el.className = 'status ' + (ok ? 'ok' : 'error');
+  // "Saving…", "Uploading…" and the like get a spinner while they're in progress.
+  if (ok && /…/.test(String(msg))) { const sp = document.createElement('span'); sp.className = 'spin'; el.prepend(sp); }
 }
 let toastTimer = null;
 function toast(msg, isError) {
@@ -1311,8 +1357,6 @@ let busy = false;
 async function act(action, body, okMsg) {
   if (busy) return false;
   busy = true;
-  const pill = document.getElementById('savingPill');
-  if (pill) pill.hidden = false;
   try {
     const res = await apiPost(action, body, true);
     if (!res.success) { if (!handleSignedOut(res.error)) toast(cleanError(res.error), true); return false; }
@@ -1323,7 +1367,7 @@ async function act(action, body, okMsg) {
   } catch (e) {
     toast('Could not reach the server — check your connection and try again.', true);
     return false;
-  } finally { busy = false; if (pill) pill.hidden = true; }
+  } finally { busy = false; }
 }
 async function submitForm() {
   const btn = document.getElementById('jfGo');
