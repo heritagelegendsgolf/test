@@ -387,7 +387,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-15a';
+const APP_VERSION = '2026-10-17a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2017,8 +2017,8 @@ function renderMembersAdmin(el) {
         <label class="hint"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
         <span class="hint" id="memCounts"></span>
       </div>
-      <div class="tbl-wrap"><table class="ad" style="min-width:820px;">
-        <thead><tr><th style="width:21%">Name (Last, First)</th><th style="width:26%">Email</th><th style="width:14%">Home phone</th><th style="width:14%">Mobile phone</th><th>Active</th><th>PIN</th></tr></thead>
+      <div class="tbl-wrap"><table class="ad" style="min-width:920px;">
+        <thead><tr><th style="width:20%">Name (Last, First)</th><th style="width:23%">Email</th><th style="width:13%">Home phone</th><th style="width:13%">Mobile phone</th><th style="width:11%">GHIN #</th><th>Active</th><th>PIN</th></tr></thead>
         <tbody id="memBody"></tbody>
       </table></div>
       <div class="row" style="margin-top:12px;">
@@ -2041,7 +2041,7 @@ function renderMembersAdmin(el) {
   document.getElementById('memMissingOnly').onchange = drawMemberRows;
   el.querySelectorAll('[data-memtab]').forEach((b) => b.onclick = () => { memTab = b.dataset.memtab; el.querySelectorAll('[data-memtab]').forEach((x) => x.classList.toggle('on', x === b)); drawMemberRows(); });
   document.getElementById('memAdd').onclick = () => {
-    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', Active: memTab === 'inactive' ? 'FALSE' : 'TRUE', hasPin: false });
+    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', GHIN: '', Active: memTab === 'inactive' ? 'FALSE' : 'TRUE', hasPin: false });
     document.getElementById('memFilter').value = '';
     document.getElementById('memMissingOnly').checked = false;
     drawMemberRows(); markDirty();
@@ -2066,11 +2066,12 @@ function drawMemberRows() {
       <td><input type="email" data-idx="${idx}" data-f="Email" value="${escapeHtml(m.Email)}" placeholder="email" autocapitalize="off"></td>
       <td><input type="tel" data-idx="${idx}" data-f="HomePhone" value="${escapeHtml(m.HomePhone || '')}" placeholder="home"></td>
       <td><input type="tel" data-idx="${idx}" data-f="MobilePhone" value="${escapeHtml(m.MobilePhone || '')}" placeholder="mobile"></td>
+      <td><input type="text" inputmode="numeric" data-idx="${idx}" data-f="GHIN" value="${escapeHtml(m.GHIN || '')}" placeholder="GHIN #"></td>
       <td style="text-align:center;"><input type="checkbox" data-idx="${idx}" data-f="Active" ${m.Active !== 'FALSE' ? 'checked' : ''}></td>
       <td>${m.PlayerID === undefined ? '<span class="pin-no">new</span>'
         : m.hasPin ? `<span class="pin-yes">✓ Set</span> <button class="link danger" data-reset="${idx}">Reset</button>`
         : '<span class="pin-no">Not set yet</span>'}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="hint">No members match.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7" class="hint">No members match.</td></tr>';
   body.querySelectorAll('[data-f]').forEach((el) => {
     el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
       const m = members[Number(el.dataset.idx)];
@@ -2088,11 +2089,13 @@ function drawMemberRows() {
 async function saveMembers() {
   const bad = members.find((m) => String(m.Email || '').trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(m.Email).trim()));
   if (bad) { showStatus('memStatus', false, `${bad.Name || 'A member'}: "${bad.Email}" is not a valid email address.`); return; }
+  const badGhin = members.find((m) => String(m.GHIN || '').replace(/\s/g, '') && !/^\d{5,10}$/.test(String(m.GHIN).replace(/\s/g, '')));
+  if (badGhin) { showStatus('memStatus', false, `${badGhin.Name || 'A member'}: "${badGhin.GHIN}" is not a valid GHIN number (digits only).`); return; }
   const btn = document.getElementById('memSave');
   btn.disabled = true;
   showStatus('memStatus', true, 'Saving…');
   try {
-    const payload = members.map((m) => ({ PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', Active: m.Active }));
+    const payload = members.map((m) => ({ PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', GHIN: String(m.GHIN || '').replace(/\s/g, ''), Active: m.Active }));
     const res = await apiPost('saveMembers', { members: JSON.stringify(payload) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     members = res.data;
