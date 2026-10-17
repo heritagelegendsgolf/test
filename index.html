@@ -162,6 +162,7 @@
   .grp-cols { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; }
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
+  .limit-banner { background:#fdecea; border:1px solid #f0b4ae; color:var(--error); border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
   .view-only-banner { background:#fff6dd; border:1px solid #e8cf86; color:#6b5200; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
   /* Admin > Emails: one button per email that opens to its settings */
   .em-item { background:#fff; border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
@@ -366,6 +367,7 @@
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
         </div>
         <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
+        <div id="emailLimitBanner" class="limit-banner" hidden></div>
         <div id="adminContent"></div>
       </div>
     </section>
@@ -914,10 +916,17 @@ function myFunDefaults(group) {
     riding: last ? last.Riding === 'TRUE' : false,
   };
 }
+// Admins can change any sign-up's tees and comment (✎ on the name chip).
+let adminEditId = null;
 function chipHtml(s, n, key) {
   const det = detailText(s);
-  const rm = amAdmin() ? `<button class="chip-remove" title="Remove ${escapeHtml(displayName(s.Name))}" data-admin-rm="${escapeHtml(s.SignupID)}">×</button>` : '';
-  return `<span class="name-chip ${String(s.PlayerID) === myId() ? 'me' : ''}"><span class="chip-n">${n}</span>${escapeHtml(displayName(s.Name))}${det ? `<span class="chip-det">${escapeHtml(det)}</span>` : ''}${s.Note ? `<span class="chip-note">${escapeHtml(s.Note)}</span>` : ''}${rm}</span>`;
+  const rm = amAdmin() ? `<button class="chip-remove" title="Change ${escapeHtml(displayName(s.Name))}'s tees or comment" data-admin-edit="${escapeHtml(s.SignupID)}">✎</button><button class="chip-remove" title="Remove ${escapeHtml(displayName(s.Name))}" data-admin-rm="${escapeHtml(s.SignupID)}">×</button>` : '';
+  return `<span class="name-chip ${String(s.PlayerID) === myId() ? 'me' : ''}"><span class="chip-n">${n}</span>${escapeHtml(displayName(s.Name))}${det ? `<span class="chip-det">${escapeHtml(det)}</span>` : ''}${s.Note ? `<span class="chip-note">${escapeHtml(s.Note)}</span>` : ''}${rm}</span>${amAdmin() && adminEditId === s.SignupID ? adminEditHtml(s) : ''}`;
+}
+function adminEditHtml(s) {
+  const hasTee = s.Group === 'fun' || s.Group === 'nassau', tees = TEE_LIST();
+  const teeSel = hasTee ? `<label class="hint">Tees</label><select data-admin-edit-tee>${tees.indexOf(s.Tee) === -1 ? '<option value="" selected>Tees…</option>' : ''}${tees.map((t) => `<option ${t === s.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>` : '';
+  return `<div class="ts-note-edit admin-edit" data-admin-edit-form="${escapeHtml(s.SignupID)}">${teeSel}<label class="hint">Comment</label><input type="text" maxlength="120" data-admin-edit-note value="${escapeHtml(s.Note || '')}"><button class="secondary" data-admin-edit-save>Save</button><button class="link" data-admin-edit-cancel>Cancel</button></div>`;
 }
 function groupChipsHtml(d, g) {
   const list = groupList(d.DateKey, g), slots = g === 'fun' ? d.funSlots : d.nassauSlots;
@@ -1328,6 +1337,19 @@ function wireSignups(el) {
   el.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.key, group: b.dataset.group, mode: 'edit', signupId: b.dataset.edit }; renderSignups(); });
   el.querySelectorAll('[data-leave]').forEach((b) => b.onclick = () => leaveSignup(b.dataset.leave, !!b.dataset.late, false));
   el.querySelectorAll('[data-admin-rm]').forEach((b) => b.onclick = () => leaveSignup(b.dataset.adminRm, false, true));
+  el.querySelectorAll('[data-admin-edit]').forEach((b) => b.onclick = () => { adminEditId = adminEditId === b.dataset.adminEdit ? null : b.dataset.adminEdit; renderSignups(); });
+  el.querySelectorAll('[data-admin-edit-form]').forEach((f) => {
+    const id = f.dataset.adminEditForm, s = (board.signups || []).find((x) => x.SignupID === id);
+    const save = async () => {
+      const body = { signupId: id, asAdmin: true, note: f.querySelector('[data-admin-edit-note]').value };
+      const t = f.querySelector('[data-admin-edit-tee]');
+      if (t && t.value) body.tee = t.value;
+      if (await act('legendsUpdate', body, `${displayName(s ? s.Name : '')} updated.`)) { adminEditId = null; renderSignups(); }
+    };
+    f.querySelector('[data-admin-edit-save]').onclick = save;
+    f.querySelector('[data-admin-edit-note]').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+    f.querySelector('[data-admin-edit-cancel]').onclick = () => { adminEditId = null; renderSignups(); };
+  });
   el.querySelectorAll('[data-switch]').forEach((b) => b.onclick = () => switchGroup(b.dataset.switch, b.dataset.key, b.dataset.group));
   el.querySelectorAll('[data-admin-add]').forEach((s) => s.onchange = () => { if (s.value) adminAdd(s.dataset.adminAdd, s.dataset.group, s.value); });
   const form = document.getElementById('joinForm');
@@ -1935,6 +1957,7 @@ async function adminSave(action, body, statusId, okMsg) {
 }
 function renderAdminSub() {
   const el = document.getElementById('adminContent');
+  renderEmailLimitBanner();
   if (adminSub === 'members') return renderMembersAdmin(el);
   if (!board) { el.innerHTML = '<div class="card hint">Loading…</div>'; return; }
   if (adminSub === 'duty') return renderDutyAdmin(el);
@@ -1951,6 +1974,20 @@ function renderAdminSub() {
   if (adminSub === 'news') return renderNewsAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
+// Top of every admin page: a warning when the automatic emails due on a day would go
+// over Gmail's daily limit (board.emailForecast — see laEmailForecast_ in LegendsApp.gs).
+function emDayLabel(day) { return day === board.today ? 'today' : dateShort(day); }
+function renderEmailLimitBanner() {
+  const b = document.getElementById('emailLimitBanner');
+  const f = board && board.emailForecast;
+  const over = f ? f.days.filter((d) => d.over) : [];
+  b.hidden = !over.length;
+  if (!over.length) return;
+  b.innerHTML = `⚠️ <b>Too many emails</b> for Gmail's daily limit of ${f.limit} recipients: ` +
+    over.map((d) => `<b>${escapeHtml(emDayLabel(d.day))}</b> needs about ${d.total}${d.day === board.today ? ` with only ${d.limit} left` : ''}`).join('; ') +
+    `. Some emails won't go out on ${over.length === 1 ? 'that day' : 'those days'}. <button type="button" class="link" id="emailLimitGo">See Emails</button>`;
+  document.getElementById('emailLimitGo').onclick = () => { if (leaveAdminPageOk()) showAdminSub('emails'); };
+}
 
 // ---------------- Members ----------------
 let members = [];
@@ -3011,6 +3048,17 @@ async function emPreview(el, type, key) {
     if (box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
 }
+// Expected recipients for each of the next 14 days, from today's sign-ups and settings.
+function emForecastHtml(typeTitle) {
+  const f = board.emailForecast;
+  if (!f) return '';
+  const rows = f.days.filter((d) => d.total).map((d) => `<tr${d.over ? ' class="imp-bad"' : ''}><td><b>${escapeHtml(emDayLabel(d.day))}</b></td>
+    <td>${d.total}${d.day === board.today ? ` of ${d.limit} left` : ''}${d.over ? ' ⚠️ over' : ''}</td>
+    <td>${d.items.map((x) => `${escapeHtml(typeTitle(x.type))} for ${escapeHtml(dateShort(x.key))} (${x.count})`).join('<br>')}</td></tr>`).join('');
+  return `<h3>Expected each day</h3>
+    <div class="tbl-wrap"><table class="ad"><thead><tr><th>Sent on</th><th>Recipients</th><th>Emails</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="hint">No automatic emails due in the next two weeks.</td></tr>'}</tbody></table></div>
+    <p class="hint">Worked out from the sign-ups, duty and saved settings as they are now, so later days grow as people sign up. One-off emails (a standby player moving up, swap requests, Send now) use a few more.</p>`;
+}
 function renderEmailsAdmin(el) {
   const st = board.settings;
   const log = (board.reminderLog || []).slice().sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1)).slice(0, 12);
@@ -3023,6 +3071,9 @@ function renderEmailsAdmin(el) {
     <div class="card"><h2>All emails</h2>
       <label>App link in emails</label><input type="text" data-emset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}">
       <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Playing tomorrow” uses one per player.</p>
+      <label>Daily email limit (recipients)</label><input type="number" min="1" data-emset="EmailDailyLimit" value="${escapeHtml(st.EmailDailyLimit || '100')}" style="max-width:120px;">
+      <p class="hint">100 for a free Gmail account, 1500 for Google Workspace. Every To, Cc and Bcc address counts, so splitting an email into parts doesn't help.</p>
+      ${emForecastHtml(typeTitle)}
       <div class="row" style="margin-top:10px;"><button class="primary" data-em-save="all">Save</button></div>
       <div id="emStatus-all" class="status"></div>
     </div>
