@@ -120,7 +120,7 @@
   }
   @media print {
     header, nav, .no-print, .ts-toggle-wrap, .ts-closed-toggle-label, .my-summary, .admin-add, .ts-note-edit, #testBanner { display:none !important; }
-    body { background:#fff; } .ts-card, .cal-c { break-inside:avoid; } .card { border:none; padding:0; } .ts-grid-wrap { max-height:none; overflow:visible; }
+    body { background:#fff; } .ts-card, .cal-c { break-inside:avoid; } .card { border:none; padding:0; } .ts-grid-wrap { max-height:none; overflow:visible; } .tbl-wrap { max-height:none !important; overflow:visible !important; }
   }
   .files-cat { margin:16px 0 4px; font-size:.95rem; color:var(--green-dark); border-bottom:1px solid var(--border); padding-bottom:3px; }
   .file-row { display:flex; align-items:center; gap:12px; padding:9px 4px; border-bottom:1px dashed #e7dfc9; }
@@ -253,6 +253,9 @@
 
   /* admin tables */
   .tbl-wrap { overflow-x: auto; }
+  /* wide admin tables scroll inside their own box, so the sideways scrollbar is always on screen and the header row stays put */
+  .tbl-wrap:has(> table.ad) { overflow: auto; max-height: calc(100vh - 140px); border: 1px solid var(--border); border-radius: 6px; }
+  .tbl-wrap:has(> table.ad) table.ad th { position: sticky; top: 0; z-index: 2; background: var(--card); box-shadow: inset 0 -1px 0 var(--border); }
   table.ad { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
   table.ad th, table.ad td { padding: 5px 5px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
   table.ad th { font-size: 0.72rem; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -387,7 +390,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-17a';
+const APP_VERSION = '2026-10-19b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3150,7 +3153,7 @@ async function renderAdminsAdmin(el) {
       <div class="tbl-wrap"><table class="ad"><thead><tr><th>Name</th><th style="width:130px;">Admin PIN</th><th style="width:150px;">Rights</th><th style="width:70px;">Active</th><th style="width:80px;"></th></tr></thead><tbody>
       ${adminUsers.map((a, i) => `<tr>
         <td>${a._pick ? adminPickHtml(i) : `<input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani">`}</td>
-        <td><input type="text" inputmode="numeric" maxlength="8" data-ai="${i}" data-f="PIN" value="${escapeHtml(a.PIN || '')}" style="width:110px;"></td>
+        <td>${amViewOnly() ? '<span class="hint">Hidden</span>' : `<input type="text" inputmode="numeric" maxlength="8" data-ai="${i}" data-f="PIN" value="${escapeHtml(a.PIN || '')}" style="width:110px;">`}</td>
         <td><select data-ai="${i}" data-f="Role"><option value="Full" ${a.Role !== 'View' ? 'selected' : ''}>Full</option><option value="View" ${a.Role === 'View' ? 'selected' : ''}>View only</option></select></td>
         <td style="text-align:center;"><input type="checkbox" data-ai="${i}" data-f="Active" ${a.Active !== 'FALSE' ? 'checked' : ''}></td>
         <td><button class="link danger" data-arm="${i}">Remove</button></td></tr>`).join('')}
