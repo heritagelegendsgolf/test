@@ -255,6 +255,12 @@
   .tbl-wrap { overflow-x: auto; }
   /* wide admin tables scroll inside their own box, so the sideways scrollbar is always on screen and the header row stays put */
   .tbl-wrap:has(> table.ad) { overflow: auto; max-height: calc(100vh - 140px); border: 1px solid var(--border); border-radius: 6px; }
+  .tbl-topbar { overflow-x: auto; overflow-y: hidden; margin-bottom: 2px; }
+  .tbl-topbar > div { height: 1px; }
+  .tbl-topbar::-webkit-scrollbar { height: 12px; }
+  .tbl-topbar::-webkit-scrollbar-track { background: #eeeee8; border-radius: 6px; }
+  .tbl-topbar::-webkit-scrollbar-thumb { background: #b5b5aa; border-radius: 6px; }
+  @media print { .tbl-topbar { display: none; } }
   .tbl-wrap:has(> table.ad) table.ad th { position: sticky; top: 0; z-index: 2; background: var(--card); box-shadow: inset 0 -1px 0 var(--border); }
   table.ad { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
   table.ad th, table.ad td { padding: 5px 5px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
@@ -390,7 +396,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-19b';
+const APP_VERSION = '2026-10-19c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3243,6 +3249,34 @@ async function loadVersion() {
   } else {
     showGate();
   }
+})();
+
+// Wide admin tables get a second sideways scrollbar above them, kept in step with the table,
+// so you can scroll left/right without going down to the table's bottom edge.
+function syncTopScrollbars() {
+  document.querySelectorAll('.tbl-wrap').forEach((w) => {
+    if (!w.querySelector(':scope > table.ad')) return;
+    let bar = w.previousElementSibling;
+    if (!bar || !bar.classList.contains('tbl-topbar')) {
+      bar = document.createElement('div');
+      bar.className = 'tbl-topbar';
+      bar.appendChild(document.createElement('div'));
+      w.before(bar);
+      bar.addEventListener('scroll', () => { if (w.scrollLeft !== bar.scrollLeft) w.scrollLeft = bar.scrollLeft; });
+      w.addEventListener('scroll', () => { if (bar.scrollLeft !== w.scrollLeft) bar.scrollLeft = w.scrollLeft; });
+    }
+    const wide = w.scrollWidth > w.clientWidth + 1;
+    if (bar.hidden !== !wide) bar.hidden = !wide;
+    const width = w.scrollWidth + 'px';
+    if (bar.firstChild.style.width !== width) bar.firstChild.style.width = width;
+  });
+}
+(function () {
+  if (typeof window === 'undefined' || typeof MutationObserver === 'undefined') return;
+  let queued = false;
+  const queue = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; syncTopScrollbars(); }); };
+  new MutationObserver(queue).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', queue);
 })();
 </script>
 </body>
