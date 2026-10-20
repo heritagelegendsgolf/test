@@ -13,6 +13,8 @@
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
   [hidden] { display: none !important; }
+  html.big-text body { zoom: 1.2; } /* "Larger text" option in the header */
+  .who .text-size-btn { background:none; text-decoration:none; border:1px solid rgba(255,255,255,.6); border-radius:12px; color:#fff; cursor:pointer; font-size:0.82rem; padding:1px 9px; margin-left:8px; }
   #testBanner { background: #b8860b; color: #fff; text-align: center; font-weight: 700; padding: 5px 10px; font-size: 0.8rem; letter-spacing: 0.5px; }
   header { background: var(--green); color: #fff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   header h1 { margin: 0; font-size: 1.25rem; }
@@ -120,7 +122,9 @@
   }
   @media print {
     header, nav, .no-print, .ts-toggle-wrap, .ts-closed-toggle-label, .my-summary, .admin-add, .ts-note-edit, #testBanner { display:none !important; }
-    body { background:#fff; } .ts-card, .cal-c { break-inside:avoid; } .card { border:none; padding:0; } .ts-grid-wrap { max-height:none; overflow:visible; } .tbl-wrap { max-height:none !important; overflow:visible !important; }
+    body { background:#fff; } .ts-card, .cal-c { break-inside:avoid; }
+    /* an expanded day is often taller than a page — let it run on, or the whole row jumps to page 2 and leaves page 1 blank */
+    .ts-cal-cell .ts-card { break-inside:auto; } .ts-cal-header { break-after:avoid; } .card { border:none; padding:0; } .ts-grid-wrap { max-height:none; overflow:visible; } .tbl-wrap { max-height:none !important; overflow:visible !important; }
   }
   .files-cat { margin:16px 0 4px; font-size:.95rem; color:var(--green-dark); border-bottom:1px solid var(--border); padding-bottom:3px; }
   .file-row { display:flex; align-items:center; gap:12px; padding:9px 4px; border-bottom:1px dashed #e7dfc9; }
@@ -129,9 +133,10 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
-  .snap-title { margin:0 0 4px; }
+  .snap-title { margin:0 0 6px; font-size:1.25rem; font-weight:800; color:var(--green-dark); text-transform:uppercase; letter-spacing:.03em; border-bottom:2px solid var(--gold); padding-bottom:4px; }
+  .snap-title-2 { margin-top:18px; }
   .snap-cols { display:grid; grid-template-columns:1fr 1fr; gap:4px 28px; }
-  .my-summary h3 { margin:12px 0 4px; font-size:.95rem; text-transform:uppercase; letter-spacing:.04em; color:#7c9a79; }
+  .my-summary h3 { margin:12px 0 4px; font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--green); }
   .snap-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; }
   .snap-row:last-child { border-bottom:none; }
   .snap-date { width:44px; flex-shrink:0; text-align:center; font-family:ui-monospace,Menlo,Consolas,monospace; line-height:1.05; border-right:1px dashed #e3dfcf; padding-right:8px; }
@@ -283,7 +288,7 @@
 
 <!-- SIGN-IN -->
 <div id="gateWrap" hidden>
-  <header><div><h1>Heritage Legends Golf</h1><div class="sub">Sign-ups &amp; Tee Time Duty</div></div></header>
+  <header><div><h1>Heritage Legends Golf</h1><div class="sub">Sign-ups &amp; Tee Time Duty</div></div><div class="who"><button type="button" class="text-size-btn" data-text-size onclick="toggleBigText()">A+ Larger text</button></div></header>
   <div class="gate" id="gate"></div>
 </div>
 
@@ -295,7 +300,7 @@
       <div class="sub">Sign-ups &amp; Tee Time Duty</div>
     </div>
     <div class="who">
-      <div><span id="whoName"></span><button type="button" id="myInfoBtn" onclick="openMyInfo()">My info</button><button type="button" id="changePinBtn" onclick="changeMyPin()">Change PIN</button><button type="button" onclick="signOut()">Sign out</button></div>
+      <div><span id="whoName"></span><button type="button" id="myInfoBtn" onclick="openMyInfo()">My info</button><button type="button" id="changePinBtn" onclick="changeMyPin()">Change PIN</button><button type="button" onclick="signOut()">Sign out</button><button type="button" class="text-size-btn" id="textSizeBtn" onclick="toggleBigText()">A+ Larger text</button></div>
       <div class="ver" id="verBadge"></div>
     </div>
   </header>
@@ -386,6 +391,17 @@
 <div id="savingPill" hidden><span class="spin"></span><span id="savingPillText">Saving…</span></div>
 
 <script>
+// "Larger text": enlarges everything on the page (and printouts); remembered on this device.
+function applyBigText(on) {
+  document.documentElement.classList.toggle('big-text', on);
+  document.querySelectorAll('#textSizeBtn, [data-text-size]').forEach((b) => { b.textContent = on ? 'A− Normal text' : 'A+ Larger text'; });
+}
+function toggleBigText() {
+  const on = !document.documentElement.classList.contains('big-text');
+  try { localStorage.setItem('legends_big_text', on ? '1' : ''); } catch (e) {}
+  applyBigText(on);
+}
+try { applyBigText(localStorage.getItem('legends_big_text') === '1'); } catch (e) {}
 // ====================== CONFIG ======================
 // Same backend as the tournament pages (live.html / tournament-admin.html).
 const CONFIG = {
@@ -396,7 +412,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20c';
+const APP_VERSION = '2026-10-20d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -881,13 +897,14 @@ function mySummaryHtml(items) {
       inf.targetClosed ? 'No need to get tee times — ' + escapeHtml(inf.targetClosed) + ' in two weeks' : (inf.target ? `Request tee times for ${escapeHtml(dateLongPlain(inf.target))}` : ''), '', 'duty').html;
   }).join('');
   return `<div class="card my-summary">
-      <h2 class="snap-title">My Sign-up Snapshot</h2>
+      <h2 class="snap-title">My Tee Time Duty</h2>
+      ${dutyRows ? `<div class="snap-duty">${dutyRows}</div>` : '<p class="hint">No upcoming tee time duty.</p>'}
+      <h2 class="snap-title snap-title-2">My Sign-up Snapshot</h2>
       <div class="snap-cols">
         <div><h3>My sign-ups</h3>${mine.length ? list(mine) : '<p class="hint">Nothing yet.</p>'}</div>
         <div><h3>Available sign-ups</h3>${canJoin.length ? list(canJoin) : '<p class="hint">Nothing open right now.</p>'}
           ${soon.length ? `<p class="snap-soon"><b>Opening soon:</b> ${soon.join(' · ')}</p>` : ''}</div>
       </div>
-      ${dutyRows ? `<h3>My Tee Time Duty</h3><div class="snap-duty">${dutyRows}</div>` : ''}
     </div>`;
 }
 function dateLongPlain(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]}, ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()]} ${d.getUTCDate()}`; }
