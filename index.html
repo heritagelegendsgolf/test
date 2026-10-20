@@ -417,7 +417,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20g';
+const APP_VERSION = '2026-10-20h';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -906,7 +906,7 @@ function mySummaryHtml(items) {
   return `<div class="card my-summary">
       <h2 class="snap-title snap-banner">My Tee Time Duty</h2>
       ${dutyRows ? `<div class="snap-duty">${dutyRows}</div>` : '<p class="hint">No upcoming tee time duty.</p>'}
-      <h2 class="snap-title snap-title-2">My Sign-up Snapshot</h2>
+      <h2 class="snap-title snap-banner snap-title-2">My Sign-up Snapshot</h2>
       <div class="snap-cols">
         <div><h3>My sign-ups</h3>${mine.length ? list(mine) : '<p class="hint">Nothing yet.</p>'}</div>
         <div><h3>Available sign-ups</h3>${canJoin.length ? list(canJoin) : '<p class="hint">Nothing open right now.</p>'}
