@@ -417,7 +417,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20i';
+const APP_VERSION = '2026-10-20j';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2075,11 +2075,11 @@ function renderMembersAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Members &amp; sign-in</h2>
-      <div class="seg" id="memTabs" style="margin-bottom:10px;"><button type="button" data-memtab="active" class="${memTab === 'active' ? 'on' : ''}">Active Legends</button><button type="button" data-memtab="inactive" class="${memTab === 'inactive' ? 'on' : ''}">Inactive Legends</button><button type="button" data-memtab="rip" class="${memTab === 'rip' ? 'on' : ''}">RIP</button></div>
+      <div class="seg" id="memTabs" style="margin-bottom:10px;"><button type="button" data-memtab="active" class="${memTab === 'active' ? 'on' : ''}">Active Legends</button><button type="button" data-memtab="inactive" class="${memTab === 'inactive' ? 'on' : ''}">Inactive Legends</button><button type="button" data-memtab="rip" class="${memTab === 'rip' ? 'on' : ''}">RIP</button><button type="button" data-memtab="emergency" class="${memTab === 'emergency' ? 'on' : ''}">Emergency Contacts</button></div>
       <p class="hint">Every Legend who should be able to sign in needs an email address. The first time they sign in they choose a 4-digit PIN; <b>Reset</b> clears it so they choose a new one (and signs them out everywhere). To move someone, change their <em>Status</em> (Active, Inactive or RIP) and save. Inactive and RIP Legends can no longer sign in and drop off the lists, but their history is kept; the RIP list is in order of the year they died. <b>+ Add member</b> adds a new Legend to the tab you're on; <b>Remove</b> deletes someone from the roster altogether (their past sign-ups keep their name). Members can also update their own email and phones with <b>My info</b> at the top of the page. This is the same roster the tournament uses — team, handicap and tee are not touched here.</p>
       <div class="row" style="margin-bottom:10px;">
         <input type="text" id="memFilter" placeholder="Search names or emails" style="max-width:240px;" value="${escapeHtml(q)}">
-        <label class="hint"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
+        <label class="hint mem-missing-label"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
         <span class="hint" id="memCounts"></span>
       </div>
       <div class="tbl-wrap"><table class="ad" style="min-width:920px;">
@@ -2095,7 +2095,7 @@ function renderMembersAdmin(el) {
     </div>
     <div class="card">
       <h2>Import from the Roster of Legends spreadsheet</h2>
-      <p class="hint">Open <b>Roster of Legends</b> in Excel, go to the <b>Active Legends</b> tab, select the rows of people (from the first name down to the last email — the header row is fine to include) and copy. Paste below and click <b>Read</b>. You'll see who matched before anything changes; then <b>Apply</b> fills in emails and phones above, and <b>Save members</b> saves them.</p>
+      <p class="hint">Open <b>Roster of Legends</b> in Excel, go to the <b>Active Legends</b> tab, select the rows of people (from the first name down to the last email — the header row is fine to include) and copy. Paste below and click <b>Read</b>. Include the <b>Emergency Contact</b> column (everything to the right of the email is read as the emergency contact). You'll see who matched before anything changes; then <b>Apply</b> fills in emails, phones and emergency contacts above, and <b>Save members</b> saves them.</p>
       <textarea id="impText" rows="5" placeholder="Paste rows copied from Excel here"></textarea>
       <label class="hint" style="display:block;margin-top:6px;"><input type="checkbox" id="impInactive"> These rows are from the <b>Inactive Legends</b> tab (they'll be saved as inactive)</label>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="impRead">Read</button><button class="primary" id="impApply" disabled>Apply to the list above</button></div>
@@ -2119,6 +2119,7 @@ function renderMembersAdmin(el) {
 function drawMemberRows() {
   const q = document.getElementById('memFilter').value.trim().toLowerCase();
   const missingOnly = document.getElementById('memMissingOnly').checked;
+  if (memTab === 'emergency') { drawEmergencyRows(q, missingOnly); return; }
   const rip = memTab === 'rip';
   const byName = (a, b) => (a.m.PlayerID === undefined) - (b.m.PlayerID === undefined) || String(a.m.Name).localeCompare(String(b.m.Name));
   // RIP: by year died (unknown years last), then last name
@@ -2169,9 +2170,34 @@ function drawMemberRows() {
   const active = saved.filter((m) => memStatus(m) === 'active');
   const n = { active: active.length, inactive: saved.filter((m) => memStatus(m) === 'inactive').length, rip: saved.filter((m) => memStatus(m) === 'rip').length };
   const label = { active: 'Active Legends', inactive: 'Inactive Legends', rip: 'RIP' };
-  document.querySelectorAll('[data-memtab]').forEach((b) => { b.textContent = `${label[b.dataset.memtab]} (${n[b.dataset.memtab]})`; });
+  document.querySelectorAll('[data-memtab]').forEach((b) => { if (label[b.dataset.memtab]) b.textContent = `${label[b.dataset.memtab]} (${n[b.dataset.memtab]})`; });
+  document.getElementById('memAdd').hidden = false;
+  document.querySelectorAll('.mem-missing-label').forEach((l) => { l.lastChild.textContent = ' Only missing email'; });
   const removing = members.filter((m) => m._remove).length;
   document.getElementById('memCounts').textContent = `${active.length} active · ${active.filter((m) => String(m.Email || '').trim()).length} with email · ${active.filter((m) => m.hasPin).length} have signed in` + (removing ? ` · ${removing} to remove when you save` : '');
+}
+// Emergency Contacts tab: active Legends with who to call. "Only missing" shows those with none.
+function drawEmergencyRows(q, missingOnly) {
+  const rows = members.map((m, idx) => ({ m, idx }))
+    .filter(({ m }) => m.PlayerID !== undefined && !m._remove && memStatus(m) === 'active')
+    .filter(({ m }) => !q || String(m.Name).toLowerCase().includes(q) || String(m.EmergencyContact || '').toLowerCase().includes(q))
+    .filter(({ m }) => !missingOnly || !String(m.EmergencyContact || '').trim())
+    .sort((a, b) => String(a.m.Name).localeCompare(String(b.m.Name)));
+  document.getElementById('memHead').innerHTML = '<tr><th style="width:24%">Name (Last, First)</th><th style="width:22%">Their phone</th><th>Emergency contact (name, relationship, phone)</th></tr>';
+  const body = document.getElementById('memBody');
+  body.innerHTML = rows.map(({ m, idx }) => `<tr>
+      <td>${escapeHtml(m.Name)}</td>
+      <td>${escapeHtml([m.MobilePhone && m.MobilePhone + ' (M)', m.HomePhone && m.HomePhone + ' (H)'].filter(Boolean).join(' · '))}</td>
+      <td><input type="text" maxlength="200" data-idx="${idx}" data-f="EmergencyContact" value="${escapeHtml(m.EmergencyContact || '')}" placeholder="e.g. Sue (wife) 919-555-1234"></td>
+    </tr>`).join('') || '<tr><td colspan="3" class="hint">No members match.</td></tr>';
+  body.querySelectorAll('[data-f]').forEach((el) => el.addEventListener('input', () => { members[Number(el.dataset.idx)].EmergencyContact = el.value; markDirty(); }));
+  const active = members.filter((m) => m.PlayerID !== undefined && !m._remove && memStatus(m) === 'active');
+  const have = active.filter((m) => String(m.EmergencyContact || '').trim()).length;
+  document.getElementById('memCounts').textContent = `${have} of ${active.length} active Legends have an emergency contact`;
+  document.getElementById('memAdd').hidden = true;
+  const saved = members.filter((m) => m.PlayerID !== undefined && !m._remove), label = { active: 'Active Legends', inactive: 'Inactive Legends', rip: 'RIP' };
+  document.querySelectorAll('[data-memtab]').forEach((b) => { if (label[b.dataset.memtab]) b.textContent = `${label[b.dataset.memtab]} (${saved.filter((m) => memStatus(m) === b.dataset.memtab).length})`; });
+  document.querySelectorAll('.mem-missing-label').forEach((l) => { l.lastChild.textContent = ' Only missing emergency contact'; });
 }
 async function saveMembers() {
   const badYear = members.find((m) => !m._remove && m.Deceased === 'TRUE' && String(m.DiedYear || '').trim() && !/^(19|20)\d\d$/.test(String(m.DiedYear).trim()));
@@ -2185,7 +2211,7 @@ async function saveMembers() {
   showStatus('memStatus', true, 'Saving…');
   try {
     const payload = members.filter((m) => !(m._remove && m.PlayerID === undefined)).map((m) => m._remove ? { PlayerID: m.PlayerID, Name: m.Name, Remove: true }
-      : { PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', GHIN: String(m.GHIN || '').replace(/\s/g, ''), Active: m.Active, Deceased: m.Deceased === 'TRUE' ? 'TRUE' : 'FALSE', DiedYear: String(m.DiedYear || '').trim() });
+      : { PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', GHIN: String(m.GHIN || '').replace(/\s/g, ''), Active: m.Active, Deceased: m.Deceased === 'TRUE' ? 'TRUE' : 'FALSE', DiedYear: String(m.DiedYear || '').trim(), EmergencyContact: String(m.EmergencyContact || '').trim() });
     const res = await apiPost('saveMembers', { members: JSON.stringify(payload) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     members = res.data;
@@ -2226,7 +2252,8 @@ function parseRosterPaste(text) {
     // Only the Telephone column (before the email) — the Emergency Contact column after it holds a spouse's number.
     const phoneCells = cells.filter((c, k) => k < emailIdx && /\d{3}[-. )]+\d{3}[-. ]\d{4}/.test(c));
     const ph = splitPhones(phoneCells.join(' '));
-    out.push({ first, last, email: cells[emailIdx], home: ph.home, mobile: ph.mobile });
+    const emergency = cells.slice(emailIdx + 1).filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 200);
+    out.push({ first, last, email: cells[emailIdx], home: ph.home, mobile: ph.mobile, emergency });
   });
   return out;
 }
@@ -2272,8 +2299,8 @@ function readImport() {
   });
   const matched = importPlan.filter((p) => p.member).length;
   preview.innerHTML = `<p class="hint"><b>${matched}</b> matched to the roster · <b>${importPlan.length - matched}</b> not found (tick to add as new members).</p>
-    <div class="tbl-wrap"><table class="ad"><thead><tr><th>From spreadsheet</th><th>Email</th><th>Home</th><th>Mobile</th><th>Roster match</th></tr></thead><tbody>
-    ${importPlan.map((p, i) => `<tr><td>${escapeHtml(p.first)} ${escapeHtml(p.last)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.home)}</td><td>${escapeHtml(p.mobile)}</td>
+    <div class="tbl-wrap"><table class="ad"><thead><tr><th>From spreadsheet</th><th>Email</th><th>Home</th><th>Mobile</th><th>Emergency contact</th><th>Roster match</th></tr></thead><tbody>
+    ${importPlan.map((p, i) => `<tr><td>${escapeHtml(p.first)} ${escapeHtml(p.last)}</td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.home)}</td><td>${escapeHtml(p.mobile)}</td><td style="white-space:normal;">${escapeHtml(p.emergency)}</td>
       <td>${p.member ? `<span class="imp-ok">✓ ${escapeHtml(p.member.Name)}</span>` : `<label class="imp-new"><input type="checkbox" data-impadd="${i}" checked> add as “${escapeHtml(p.newName)}”</label>`}</td></tr>`).join('')}
     </tbody></table></div>`;
   preview.querySelectorAll('[data-impadd]').forEach((c) => c.onchange = () => { importPlan[Number(c.dataset.impadd)].add = c.checked; });
@@ -2284,8 +2311,8 @@ function applyImport() {
   let n = 0;
   const inactive = !!(document.getElementById('impInactive') || {}).checked;
   importPlan.forEach((p) => {
-    if (p.member) { p.member.Email = p.email; if (p.home) p.member.HomePhone = p.home; if (p.mobile) p.member.MobilePhone = p.mobile; if (inactive) { p.member.Active = 'FALSE'; delete p.member._tab; } n++; }
-    else if (p.add) { members.push({ Name: p.newName, Email: p.email, HomePhone: p.home, MobilePhone: p.mobile, Active: inactive ? 'FALSE' : 'TRUE', hasPin: false }); n++; }
+    if (p.member) { p.member.Email = p.email; if (p.home) p.member.HomePhone = p.home; if (p.mobile) p.member.MobilePhone = p.mobile; if (p.emergency) p.member.EmergencyContact = p.emergency; if (inactive) { p.member.Active = 'FALSE'; delete p.member._tab; } n++; }
+    else if (p.add) { members.push({ Name: p.newName, Email: p.email, HomePhone: p.home, MobilePhone: p.mobile, EmergencyContact: p.emergency || '', Active: inactive ? 'FALSE' : 'TRUE', hasPin: false }); n++; }
   });
   importPlan = null;
   document.getElementById('impApply').disabled = true;
