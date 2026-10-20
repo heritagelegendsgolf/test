@@ -135,6 +135,8 @@
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
   .snap-title { margin:0 0 6px; font-size:1.25rem; font-weight:800; color:var(--green-dark); text-transform:uppercase; letter-spacing:.03em; border-bottom:2px solid var(--gold); padding-bottom:4px; }
   .my-summary .snap-title-2 { margin-top:22px; }
+  /* banner like the calendar's day headers, a shade softer */
+  .my-summary .snap-banner { background:#4f7d61; color:#fff; border:none; border-radius:8px; text-align:center; padding:6px 10px; font-size:1.1rem; margin-bottom:10px; }
   .snap-cols { display:grid; grid-template-columns:1fr 1fr; gap:4px 28px; }
   .my-summary h3 { margin:12px 0 4px; font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--green); }
   .snap-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; }
@@ -414,7 +416,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20e';
+const APP_VERSION = '2026-10-20f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -899,7 +901,7 @@ function mySummaryHtml(items) {
       inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : ''), '', 'duty').html;
   }).join('');
   return `<div class="card my-summary">
-      <h2 class="snap-title">My Tee Time Duty</h2>
+      <h2 class="snap-title snap-banner">My Tee Time Duty</h2>
       ${dutyRows ? `<div class="snap-duty">${dutyRows}</div>` : '<p class="hint">No upcoming tee time duty.</p>'}
       <h2 class="snap-title snap-title-2">My Sign-up Snapshot</h2>
       <div class="snap-cols">
