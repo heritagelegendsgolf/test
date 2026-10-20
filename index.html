@@ -396,7 +396,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20b';
+const APP_VERSION = '2026-10-20c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -846,14 +846,14 @@ function mySummaryHtml(items) {
       if (d.closed) return;
       const state = dayState(d);
       let found = null;
-      ['fun', 'nassau'].forEach((g) => {
-        const list = groupList(d.DateKey, g), idx = list.findIndex((x) => String(x.PlayerID) === me);
-        if (idx === -1) return;
-        const slots = g === 'fun' ? d.funSlots : d.nassauSlots, times = g === 'fun' ? d.funTimes : d.nassauTimes;
-        const det = detailText(list[idx]);
+      const main = mySignupOn(d.DateKey), second = myOtherSignupOn(d.DateKey);
+      if (main) {
+        const g = main.Group, p = groupPos(d.DateKey, main), times = g === 'fun' ? d.funTimes : d.nassauTimes;
+        const det = detailText(main);
         found = { l1: `${g === 'fun' ? 'Fun' : 'Nassau'} group · ${escapeHtml(times)}`,
-          l2: `${idx < slots ? `<b>#${idx + 1} on the list</b>` : `<b class="standby-txt">#${idx - slots + 1} on standby</b>`}${det ? ` · ${escapeHtml(det)}` : ''}` };
-      });
+          l2: `${!p.standby ? `<b>#${p.n} on the list</b>` : `<b class="standby-txt">#${p.n} on standby</b>`}${det ? ` · ${escapeHtml(det)}` : ''}` +
+            (second ? ` · <span class="standby-txt">also ${second.Group === 'fun' ? 'Fun' : 'Nassau'} standby #${groupPos(d.DateKey, second).n}</span>` : '') };
+      }
       if (found) mine.push(row(d.DateKey, found.l1, found.l2, toggleHtml(d, state, true)));
       else if (state === 'open') {
         const f = groupList(d.DateKey, 'fun').length, n = groupList(d.DateKey, 'nassau').length;
@@ -904,9 +904,20 @@ function schedIsOpen(k) { return k in schedExpanded ? !!schedExpanded[k] : sched
 const TEE_LIST = () => String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
 const HOLES_PILLS = [['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']];
 
-function mySignupOn(key) {
+// Normally one round a day, but someone on standby in one group may also play in the
+// other. mySignupOn gives the row the toggle is about (the playing one when there are
+// two); myOtherSignupOn gives the second row, if any.
+function mySignupsOn(key) {
   const me = myId();
-  return (board.signups || []).find((s) => s.DateKey === key && (s.Group === 'fun' || s.Group === 'nassau') && String(s.PlayerID) === me) || null;
+  return (board.signups || []).filter((s) => s.DateKey === key && (s.Group === 'fun' || s.Group === 'nassau') && String(s.PlayerID) === me);
+}
+function mySignupOn(key) {
+  const rows = mySignupsOn(key);
+  return (rows.length > 1 && rows.find((s) => !groupPos(key, s).standby)) || rows[0] || null;
+}
+function myOtherSignupOn(key) {
+  const main = mySignupOn(key);
+  return main ? mySignupsOn(key).find((s) => s.SignupID !== main.SignupID) || null : null;
 }
 function groupPos(key, s) {
   const d = board.dates.find((x) => x.DateKey === key);
@@ -980,6 +991,11 @@ function toggleHtml(d, state, compact) {
   if (mine.pending) return `<div class="ts-toggle-wrap"><span class="ts-saving"><span class="spin"></span>Signing up…</span></div>`;
   const pos = groupPos(d.DateKey, mine), other = mine.Group === 'fun' ? 'nassau' : 'fun';
   const inLabel = `${pos.standby ? `Standby #${pos.n}` : 'Signed up'} · ${label(mine.Group)} ✓`;
+  const second = myOtherSignupOn(d.DateKey);
+  const secondPos = second ? groupPos(d.DateKey, second) : null;
+  // On standby in one group and a spot open in the other (or playing and the other is down to standby): offer both.
+  const alsoOpt = second || state !== 'open' || full(other) || pos.standby === wouldStandby(other) ? ''
+    : `<option value="also:${other}">${pos.standby ? `Also play ${label(other)} now (keep my standby)` : `Also go on ${label(other)} standby`}</option>`;
   let extra = '';
   const teeSelect = `<select class="ts-tee-select" data-tee-set="${escapeHtml(mine.SignupID)}">${mine.Tee ? '' : '<option value="" selected>Tees…</option>'}${TEE_LIST().map((t) => `<option ${t === mine.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>`;
   if (mine.Group === 'nassau' && state === 'open') {
@@ -991,10 +1007,13 @@ function toggleHtml(d, state, compact) {
   } else if (!compact && detailText(mine)) {
     extra = `<span class="ts-mini">${escapeHtml(detailText(mine))}</span>`;
   }
+  if (second) extra = `<span class="ts-mini standby-txt">+ ${label(second.Group)} standby #${secondPos.n}</span>` + extra;
   return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${pos.standby ? 'standby' : ''}" data-signup-select="${d.DateKey}" data-mine="${escapeHtml(mine.SignupID)}">
       <option value="${mine.Group}" selected>${inLabel}</option>
-      ${state === 'open' && !full(other) ? `<option value="${other}">Switch to ${label(other)}</option>` : ''}
-      <option value="out">${state === 'closed' ? 'Remove me (late)' : 'Remove me'}</option>
+      ${alsoOpt}
+      ${state === 'open' && !full(other) && !second ? `<option value="${other}">Switch to ${label(other)}</option>` : ''}
+      ${second ? `<option value="drop:${escapeHtml(second.SignupID)}">Leave the ${label(second.Group)} standby list</option>` : ''}
+      <option value="out">${state === 'closed' ? 'Remove me (late)' : 'Remove me'}${second ? ` from ${label(mine.Group)}` : ''}</option>
     </select>${extra}</div>`;
 }
 function myNoteEditorHtml(key, s) {
@@ -1158,19 +1177,30 @@ async function onSignupSelect(sel) {
   const key = sel.dataset.signupSelect, v = sel.value, mineId = sel.dataset.mine;
   const d = board.dates.find((x) => x.DateKey === key);
   const restore = () => renderSignups();
-  if (!mineId) {
+  if (v.indexOf('drop:') === 0) {
+    const before = (board.signups || []).length;
+    await leaveSignup(v.slice(5), dayState(d) === 'closed', false);
+    if ((board.signups || []).length === before) restore();
+    return;
+  }
+  const also = v.indexOf('also:') === 0;
+  if (!mineId || also) {
     if (v === 'out') return;
     if (busy) { restore(); return; }
-    const body = { signupId: newId('s'), dateKey: key, group: v, note: '' };
-    const df = myFunDefaults(v);
+    const g = also ? v.slice(5) : v;
+    if (also && !confirm(g === 'fun' || g === 'nassau' ? (groupPos(key, (board.signups || []).find((x) => x.SignupID === mineId)).standby
+      ? `Take a spot in the ${g === 'fun' ? 'Fun' : 'Nassau'} group and stay on standby for the other? If your standby spot comes through, you'll be moved over automatically and your ${g === 'fun' ? 'Fun' : 'Nassau'} spot goes to the next person.`
+      : `Go on the ${g === 'fun' ? 'Fun' : 'Nassau'} standby list and keep your spot? If the standby spot comes through, you'll be moved over automatically and your current spot goes to the next person.`) : '')) { restore(); return; }
+    const body = { signupId: newId('s'), dateKey: key, group: g, note: '' };
+    const df = myFunDefaults(g);
     body.tee = df.tee;
-    if (v === 'fun') { body.holes = df.holes; body.riding = df.riding; }
+    if (g === 'fun') { body.holes = df.holes; body.riding = df.riding; }
     // Show it on the list right away (marked pending) while the server saves it.
-    const pending = { SignupID: body.signupId, DateKey: key, Group: v, PlayerID: myId(), Name: session.member.Name,
+    const pending = { SignupID: body.signupId, DateKey: key, Group: g, PlayerID: myId(), Name: session.member.Name,
       Tee: body.tee || '', Holes: body.holes || '', Riding: body.riding ? 'TRUE' : '', Note: '', SignedUpAt: Date.now(), pending: true };
     board.signups = (board.signups || []).concat([pending]);
     restore();
-    const ok = await act('legendsJoin', body, v === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group — check your tees.');
+    const ok = await act('legendsJoin', body, g === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group — check your tees.');
     if (!ok) { board.signups = (board.signups || []).filter((s) => s.SignupID !== body.signupId); restore(); }
     return;
   }
