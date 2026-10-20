@@ -134,7 +134,7 @@
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
   .snap-title { margin:0 0 6px; font-size:1.25rem; font-weight:800; color:var(--green-dark); text-transform:uppercase; letter-spacing:.03em; border-bottom:2px solid var(--gold); padding-bottom:4px; }
-  .snap-title-2 { margin-top:18px; }
+  .my-summary .snap-title-2 { margin-top:22px; }
   .snap-cols { display:grid; grid-template-columns:1fr 1fr; gap:4px 28px; }
   .my-summary h3 { margin:12px 0 4px; font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--green); }
   .snap-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e7dfc9; }
@@ -145,9 +145,11 @@
   .snap-row .ts-signup-select { padding:6px 10px; font-size:12px; }
   .snap-row .ts-holes-group { flex-wrap:wrap; justify-content:flex-end; }
   .snap-soon { font-size:.82rem; color:#6b6a5e; margin:8px 0 0; }
-  .snap-duty { display:grid; grid-template-columns:1fr 1fr; gap:0 28px; }
+  .snap-duty { display:grid; grid-template-columns:repeat(3,1fr); gap:0 20px; }
+  .snap-duty .snap-row { border-bottom:none; }
   .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
-  @media (max-width:760px) { .snap-cols, .snap-duty { grid-template-columns:1fr; } }
+  @media (max-width:760px) { .snap-cols { grid-template-columns:1fr; } }
+  @media (max-width:560px) { .snap-duty { grid-template-columns:1fr; } .snap-duty .snap-row { border-bottom:1px dashed #e7dfc9; } }
   @media (max-width:480px) { .snap-row { flex-wrap:wrap; } .snap-row .ts-toggle-wrap { width:100%; } .snap-row .ts-signup-select { width:100%; } }
   .news-card { border-left:4px solid var(--gold); }
   .news-item { display:flex; gap:14px; align-items:flex-start; padding:8px 0; border-top:1px dashed #e7dfc9; }
@@ -412,7 +414,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20d';
+const APP_VERSION = '2026-10-20e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -893,8 +895,8 @@ function mySummaryHtml(items) {
   const list = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => x.html).join('');
   const dutyRows = duty.map((x) => {
     const inf = dutyInfo[x.DateKey] || {};
-    return row(x.DateKey, x.Role === 'phone' ? `Phone in at ${escapeHtml(inf.call || '')}` : `In person — arrive by ${escapeHtml(inf.arrive || '')}`,
-      inf.targetClosed ? 'No need to get tee times — ' + escapeHtml(inf.targetClosed) + ' in two weeks' : (inf.target ? `Request tee times for ${escapeHtml(dateLongPlain(inf.target))}` : ''), '', 'duty').html;
+    return row(x.DateKey, x.Role === 'phone' ? `Phone in · ${escapeHtml(inf.call || '')}` : `In person · by ${escapeHtml(inf.arrive || '')}`,
+      inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : ''), '', 'duty').html;
   }).join('');
   return `<div class="card my-summary">
       <h2 class="snap-title">My Tee Time Duty</h2>
