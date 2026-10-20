@@ -148,10 +148,11 @@
   .snap-row .ts-holes-group { flex-wrap:wrap; justify-content:flex-end; }
   .snap-soon { font-size:.82rem; color:#6b6a5e; margin:8px 0 0; }
   .snap-duty { display:grid; grid-template-columns:repeat(3,1fr); gap:0 20px; }
-  .snap-duty .snap-row { border-bottom:none; }
+  .duty-cell { text-align:center; padding:6px 4px; }
+  .duty-date { font-weight:800; color:var(--green-dark); font-size:1rem; margin-bottom:2px; }
   .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
   @media (max-width:760px) { .snap-cols { grid-template-columns:1fr; } }
-  @media (max-width:560px) { .snap-duty { grid-template-columns:1fr; } .snap-duty .snap-row { border-bottom:1px dashed #e7dfc9; } }
+  @media (max-width:560px) { .snap-duty { grid-template-columns:1fr; } .duty-cell { border-bottom:1px dashed #e7dfc9; } }
   @media (max-width:480px) { .snap-row { flex-wrap:wrap; } .snap-row .ts-toggle-wrap { width:100%; } .snap-row .ts-signup-select { width:100%; } }
   .news-card { border-left:4px solid var(--gold); }
   .news-item { display:flex; gap:14px; align-items:flex-start; padding:8px 0; border-top:1px dashed #e7dfc9; }
@@ -416,7 +417,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20f';
+const APP_VERSION = '2026-10-20g';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -897,8 +898,10 @@ function mySummaryHtml(items) {
   const list = (arr) => arr.sort((a, b) => (a.key < b.key ? -1 : 1)).map((x) => x.html).join('');
   const dutyRows = duty.map((x) => {
     const inf = dutyInfo[x.DateKey] || {};
-    return row(x.DateKey, x.Role === 'phone' ? `Phone in · ${escapeHtml(inf.call || '')}` : `In person · by ${escapeHtml(inf.arrive || '')}`,
-      inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : ''), '', 'duty').html;
+    // date on top, then what to do, then which day's tee times
+    return `<div class="duty-cell"><div class="duty-date">${escapeHtml(dateShort(x.DateKey))}</div>
+      <div class="snap-l1">${x.Role === 'phone' ? `Phone in · ${escapeHtml(inf.call || '')}` : `In person · by ${escapeHtml(inf.arrive || '')}`}</div>
+      <div class="snap-l2">${inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : '')}</div></div>`;
   }).join('');
   return `<div class="card my-summary">
       <h2 class="snap-title snap-banner">My Tee Time Duty</h2>
