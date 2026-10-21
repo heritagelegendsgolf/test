@@ -417,7 +417,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-21b';
+const APP_VERSION = '2026-10-21c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3023,7 +3023,7 @@ async function doSugImport() {
 // the changes on the page even before they're saved.
 const EMAIL_TYPES = [
   { type: 'proshop', prefix: 'ProShop', on: 'ProShopAutoSend', title: 'List of players for pro shop',
-    desc: 'The list of who is playing — in sign-up order, Fun group then Nassau group, with each Fun player\'s tees, holes and riding, and the standby lists marked as not playing. Changes after it goes are still phoned in to the pro shop. You can preview any day, or send it yourself at any time.',
+    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. Changes after it goes are still phoned in to the pro shop. You can preview any day, or send it yourself at any time.',
     wording: [['ProShopMessage', 'Message added after “Hello — here are the Heritage Legends players…” (optional)', 2], ['ProShopFooterText', 'Closing line', 2]] },
   { type: 'duty', prefix: 'Duty', on: 'RemindDuty', title: 'Tee Time Duty reminder', personal: true,
     desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
