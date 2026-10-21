@@ -417,7 +417,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-20j';
+const APP_VERSION = '2026-10-21b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -709,10 +709,11 @@ async function openMyInfo() {
   } catch (e) { box.hidden = true; toast('Could not reach the server — try again.', true); return; }
   box.innerHTML = `<div class="card" style="max-width:420px;width:100%;">
       <h2 style="margin-top:0;">My info</h2>
-      <p class="hint">Keep these up to date so the Legends can reach you. Your email is also how you sign in. Only you and the admins can see these.</p>
+      <p class="hint">Keep these up to date so the Legends can reach you, and so we know who to call if something happens on the course. Your email is also how you sign in. Only you and the admins can see these.</p>
       <label>Email</label><input type="email" id="miEmail" value="${escapeHtml(c.Email)}" autocapitalize="off">
       <label style="margin-top:8px;display:block;">Mobile phone</label><input type="tel" id="miMobile" value="${escapeHtml(c.MobilePhone)}">
       <label style="margin-top:8px;display:block;">Home phone</label><input type="tel" id="miHome" value="${escapeHtml(c.HomePhone)}">
+      <label style="margin-top:8px;display:block;">Emergency contact</label><input type="text" id="miEmergency" maxlength="200" value="${escapeHtml(c.EmergencyContact || '')}" placeholder="Name (relationship) phone — e.g. Sue Smith (wife) 919-555-1234">
       <div class="row" style="margin-top:12px;"><button class="primary" id="miSave">Save</button><button class="link" id="miCancel">Cancel</button></div>
       <div id="miStatus" class="status"></div>
     </div>`;
@@ -723,7 +724,7 @@ async function openMyInfo() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus('miStatus', false, 'Enter a valid email address.'); return; }
     const btn = document.getElementById('miSave'); btn.disabled = true;
     try {
-      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim() });
+      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim(), emergencyContact: tidyEmergency(document.getElementById('miEmergency').value) });
       if (!res.success) { if (!handleSignedOut(res.error)) showStatus('miStatus', false, cleanError(res.error)); return; }
       saveSession({ token: session.token, member: res.data.member });
       box.hidden = true;
@@ -2176,6 +2177,22 @@ function drawMemberRows() {
   const removing = members.filter((m) => m._remove).length;
   document.getElementById('memCounts').textContent = `${active.length} active · ${active.filter((m) => String(m.Email || '').trim()).length} with email · ${active.filter((m) => m.hasPin).length} have signed in` + (removing ? ` · ${removing} to remove when you save` : '');
 }
+// Puts an emergency contact in the house style: "Name (relationship) 919-555-1234", several
+// contacts separated by "; ". Phone numbers become 919-555-1234 and (M)/(C)/(H) tags are dropped.
+function tidyEmergency(text) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  const parts = [];
+  let pos = 0;
+  t.replace(/\(?(\d{3})\)?[\s.-]*(\d{3})[\s.-]*(\d{4})(\s*\((?:M|C|H)\))?/gi, (all, a, b, c, tag, at) => {
+    const name = t.slice(pos, at).replace(/^[\s.,;]+|[\s.,;:-]+$/g, '');
+    parts.push((name ? name + ' ' : '') + `${a}-${b}-${c}`);
+    pos = at + all.length;
+    return all;
+  });
+  const rest = t.slice(pos).replace(/^[\s.,;]+|[\s.,;]+$/g, '');
+  if (rest) parts.push(rest);
+  return parts.join('; ');
+}
 // Emergency Contacts tab: active Legends with who to call. "Only missing" shows those with none.
 function drawEmergencyRows(q, missingOnly) {
   const rows = members.map((m, idx) => ({ m, idx }))
@@ -2190,7 +2207,10 @@ function drawEmergencyRows(q, missingOnly) {
       <td>${escapeHtml([m.MobilePhone && m.MobilePhone + ' (M)', m.HomePhone && m.HomePhone + ' (H)'].filter(Boolean).join(' · '))}</td>
       <td><input type="text" maxlength="200" data-idx="${idx}" data-f="EmergencyContact" value="${escapeHtml(m.EmergencyContact || '')}" placeholder="e.g. Sue (wife) 919-555-1234"></td>
     </tr>`).join('') || '<tr><td colspan="3" class="hint">No members match.</td></tr>';
-  body.querySelectorAll('[data-f]').forEach((el) => el.addEventListener('input', () => { members[Number(el.dataset.idx)].EmergencyContact = el.value; markDirty(); }));
+  body.querySelectorAll('[data-f]').forEach((el) => {
+    el.addEventListener('input', () => { members[Number(el.dataset.idx)].EmergencyContact = el.value; markDirty(); });
+    el.addEventListener('change', () => { el.value = tidyEmergency(el.value); members[Number(el.dataset.idx)].EmergencyContact = el.value; });
+  });
   const active = members.filter((m) => m.PlayerID !== undefined && !m._remove && memStatus(m) === 'active');
   const have = active.filter((m) => String(m.EmergencyContact || '').trim()).length;
   document.getElementById('memCounts').textContent = `${have} of ${active.length} active Legends have an emergency contact`;
@@ -2252,7 +2272,7 @@ function parseRosterPaste(text) {
     // Only the Telephone column (before the email) — the Emergency Contact column after it holds a spouse's number.
     const phoneCells = cells.filter((c, k) => k < emailIdx && /\d{3}[-. )]+\d{3}[-. ]\d{4}/.test(c));
     const ph = splitPhones(phoneCells.join(' '));
-    const emergency = cells.slice(emailIdx + 1).filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 200);
+    const emergency = tidyEmergency(cells.slice(emailIdx + 1).filter(Boolean).join(' ')).slice(0, 200);
     out.push({ first, last, email: cells[emailIdx], home: ph.home, mobile: ph.mobile, emergency });
   });
   return out;
