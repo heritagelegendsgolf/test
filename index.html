@@ -133,6 +133,17 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
+  .roster-head { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px; margin-bottom:6px; }
+  .roster-card table.roster-tbl td, .roster-card table.roster-tbl th { white-space:nowrap; padding:5px 10px; }
+  .roster-card table.roster-tbl td a { color:inherit; }
+  @media print {
+    .roster-card table.roster-tbl { font-size: 9px; width: 100%; }
+    .roster-card table.roster-tbl td, .roster-card table.roster-tbl th { padding: 2px 4px; }
+    .roster-card table.roster-tbl th { font-size: 8px; }
+    .roster-card table.roster-tbl a { text-decoration: none; }
+    .roster-wrap { border: none !important; }
+    .tbl-wrap:has(> table.ad) table.ad th { position: static; box-shadow: none; }
+  }
   .snap-title { margin:0 0 6px; font-size:1.25rem; font-weight:800; color:var(--green-dark); text-transform:uppercase; letter-spacing:.03em; border-bottom:2px solid var(--gold); padding-bottom:4px; }
   .my-summary .snap-title-2 { margin-top:22px; }
   /* banner like the calendar's day headers, a shade softer */
@@ -312,6 +323,7 @@
   <nav id="tabs">
     <button data-tab="signups" class="active">Sign-ups</button>
     <button data-tab="duty">Tee Time Duty</button>
+    <button data-tab="roster">Roster</button>
     <button data-tab="files">Related Files</button>
     <button data-tab="tournament">Annual Tournament</button>
     <button data-tab="admin">Admin</button>
@@ -334,6 +346,10 @@
         </div>
         <div id="dutyBody"></div>
       </div>
+    </section>
+
+    <section id="tab-roster" class="tab-panel" hidden>
+      <div id="rosterBody"><div class="card hint">Loading…</div></div>
     </section>
 
     <section id="tab-files" class="tab-panel" hidden>
@@ -417,7 +433,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-21c';
+const APP_VERSION = '2026-10-21d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -441,7 +457,7 @@ async function apiGet(action, extra) {
 // Anything sent to the server that isn't just reading shows the "Saving…" pill
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
-const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'legendsGetBoard', 'legendsFileGet',
+const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'legendsGetBoard', 'legendsFileGet',
   'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
@@ -709,7 +725,7 @@ async function openMyInfo() {
   } catch (e) { box.hidden = true; toast('Could not reach the server — try again.', true); return; }
   box.innerHTML = `<div class="card" style="max-width:420px;width:100%;">
       <h2 style="margin-top:0;">My info</h2>
-      <p class="hint">Keep these up to date so the Legends can reach you, and so we know who to call if something happens on the course. Your email is also how you sign in. Only you and the admins can see these.</p>
+      <p class="hint">Keep these up to date so the Legends can reach you, and so we know who to call if something happens on the course. Your email is also how you sign in. These are shown to the other Legends on the <b>Roster</b> tab, so the group can reach you (your PIN never is).</p>
       <label>Email</label><input type="email" id="miEmail" value="${escapeHtml(c.Email)}" autocapitalize="off">
       <label style="margin-top:8px;display:block;">Mobile phone</label><input type="tel" id="miMobile" value="${escapeHtml(c.MobilePhone)}">
       <label style="margin-top:8px;display:block;">Home phone</label><input type="tel" id="miHome" value="${escapeHtml(c.HomePhone)}">
@@ -782,6 +798,7 @@ function selectTab(tab) {
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== 'tab-' + tab; });
   if (tab === 'admin') renderAdminGate();
+  if (tab === 'roster') rosterData = null; // fresh copy each time the tab is opened
   renderCurrent();
 }
 function renderCurrent() {
@@ -789,7 +806,67 @@ function renderCurrent() {
   if (currentTab === 'signups') renderSignups();
   else if (currentTab === 'duty') renderDuty();
   else if (currentTab === 'files') renderFiles();
+  else if (currentTab === 'roster') renderRoster();
   else if (currentTab === 'admin' && adminSession && ['sugimport', 'proshop', 'news', 'reminders', 'emails'].indexOf(adminSub) === -1) renderAdminSub(); // don't wipe an import preview being checked
+}
+
+// ====================== ROSTER TAB ======================
+// Active Legends with email, phones and emergency contact — one line each, A-Z by
+// last name. Scrolls in its own box on screen; prints landscape.
+let rosterData = null, rosterLoading = false, rosterQuery = '';
+// "Sue Smith (wife) 919-555-1234; Bob 919-555-0000" -> { names: 'Sue Smith (wife) · Bob', phones: '919-555-1234 · 919-555-0000' }
+function splitEmergency(text) {
+  const names = [], phones = [];
+  String(text || '').split(/\s*;\s*/).filter(Boolean).forEach((part) => {
+    const m = part.match(/^(.*?)\s*(\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4})\s*$/);
+    if (m) { if (m[1]) names.push(m[1]); phones.push(m[2]); } else names.push(part);
+  });
+  return { names: names.join(' · '), phones: phones.join(' · ') };
+}
+async function renderRoster() {
+  const el = document.getElementById('rosterBody');
+  if (!rosterData) {
+    if (rosterLoading) return;
+    rosterLoading = true;
+    el.innerHTML = '<div class="card hint">Loading the roster…</div>';
+    try {
+      const res = await apiPost('memberRoster', {});
+      if (!res.success) { if (!handleSignedOut(res.error)) el.innerHTML = `<div class="card status error">${escapeHtml(cleanError(res.error))}</div>`; return; }
+      rosterData = res.data;
+    } catch (e) { el.innerHTML = '<div class="card status error">Could not reach the server — try again.</div>'; return; }
+    finally { rosterLoading = false; }
+  }
+  const today = keyDate(board ? board.today : new Date().toISOString().slice(0, 10));
+  el.innerHTML = `<div class="card roster-card">
+      <div class="roster-head">
+        <div><h2 style="margin:0;">Heritage Legends Roster</h2>
+          <div class="hint">${rosterData.length} active Legends · as of ${DOW_LONG[today.getUTCDay()]}, ${MON[today.getUTCMonth()]} ${today.getUTCDate()}, ${today.getUTCFullYear()}</div></div>
+        <div class="row no-print"><input type="text" id="rosterSearch" placeholder="Search names" value="${escapeHtml(rosterQuery)}" style="max-width:200px;"><button class="secondary" id="rosterPrint">🖨️ Print</button></div>
+      </div>
+      <div class="tbl-wrap roster-wrap"><table class="ad roster-tbl"><thead><tr><th>Name</th><th>Email</th><th>Home</th><th>Mobile</th><th>Emergency contact</th><th>Emergency phone</th></tr></thead>
+        <tbody id="rosterRows"></tbody></table></div>
+    </div>`;
+  const draw = () => {
+    const q = rosterQuery.trim().toLowerCase();
+    const rows = rosterData.filter((r) => !q || String(r.Name).toLowerCase().includes(q) || String(r.EmergencyContact).toLowerCase().includes(q));
+    document.getElementById('rosterRows').innerHTML = rows.map((r) => {
+      const [last, first] = [String(r.Name).split(',')[0], String(r.Name).split(',').slice(1).join(',').trim()];
+      const ec = splitEmergency(r.EmergencyContact);
+      return `<tr><td><b>${escapeHtml(last)}</b>${first ? ', ' + escapeHtml(first) : ''}</td><td>${r.Email ? `<a href="mailto:${escapeHtml(r.Email)}">${escapeHtml(r.Email)}</a>` : ''}</td>
+        <td>${escapeHtml(r.HomePhone)}</td><td>${escapeHtml(r.MobilePhone)}</td><td>${ec.names ? escapeHtml(ec.names) : '<span style="color:var(--muted);">—</span>'}</td><td>${escapeHtml(ec.phones)}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="hint">No one matches.</td></tr>';
+  };
+  draw();
+  document.getElementById('rosterSearch').oninput = (e) => { rosterQuery = e.target.value; draw(); };
+  document.getElementById('rosterPrint').onclick = () => {
+    if (rosterQuery) { rosterQuery = ''; document.getElementById('rosterSearch').value = ''; draw(); } // print everyone
+    // Landscape only for the roster: add the page rule just for this print.
+    const st = document.createElement('style'); st.textContent = '@page { size: letter landscape; margin: 0.4in; }';
+    document.head.appendChild(st);
+    const done = () => { st.remove(); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    window.print();
+  };
 }
 
 // ====================== BOARD (shared data) ======================
