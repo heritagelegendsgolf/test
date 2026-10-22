@@ -448,7 +448,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-22b';
+const APP_VERSION = '2026-10-22c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -745,6 +745,8 @@ async function openMyInfo() {
       <label style="margin-top:8px;display:block;">Mobile phone</label><input type="tel" id="miMobile" value="${escapeHtml(c.MobilePhone)}">
       <label style="margin-top:8px;display:block;">Home phone</label><input type="tel" id="miHome" value="${escapeHtml(c.HomePhone)}">
       <label style="margin-top:8px;display:block;">Emergency contact</label><input type="text" id="miEmergency" maxlength="200" value="${escapeHtml(c.EmergencyContact || '')}" placeholder="Name (relationship) phone — e.g. Sue Smith (wife) 919-555-1234">
+      <label style="margin-top:8px;display:block;">Preferred tees</label><select id="miTee" style="width:auto;"><option value="">Not chosen${c.UsualTee ? ` (you usually play ${escapeHtml(c.UsualTee)})` : ''}</option>${HCP_TEES.map((t) => `<option ${t.tee === c.PreferredTee ? 'selected' : ''}>${t.tee}</option>`).join('')}</select>
+      <div class="hint">New sign-ups start on these tees (you can still pick others for a day), and the Handicaps tab uses them for your course handicap.</div>
       <div class="row" style="margin-top:12px;"><button class="primary" id="miSave">Save</button><button class="link" id="miCancel">Cancel</button></div>
       <div id="miStatus" class="status"></div>
     </div>`;
@@ -755,12 +757,15 @@ async function openMyInfo() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus('miStatus', false, 'Enter a valid email address.'); return; }
     const btn = document.getElementById('miSave'); btn.disabled = true;
     try {
-      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim(), emergencyContact: tidyEmergency(document.getElementById('miEmergency').value) });
+      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim(), emergencyContact: tidyEmergency(document.getElementById('miEmergency').value), preferredTee: document.getElementById('miTee').value });
       if (!res.success) { if (!handleSignedOut(res.error)) showStatus('miStatus', false, cleanError(res.error)); return; }
       saveSession({ token: session.token, member: res.data.member });
       box.hidden = true;
       toast('Your info is saved.');
       membersLoaded = false; // admin list refreshes next time it's opened
+      hcpData = null; hcpAdmin = null;
+      const meRow = rosterById(session.member.PlayerID); if (meRow) meRow.PreferredTee = res.data.PreferredTee || '';
+      if (currentTab !== 'admin') renderCurrent();
     } catch (e) { showStatus('miStatus', false, 'Could not reach the server — try again.'); }
     finally { btn.disabled = false; }
   };
@@ -986,7 +991,7 @@ function renderHandicapsAdmin(el) {
     </div>
     <div class="card">
       <h2>Player handicaps</h2>
-      <p class="hint">Edit an index or GHIN # by hand here, or change someone's tees. Course handicaps update as you type. A tee marked <i>usual</i> is the one they sign up with most; <i>default</i> means they have no sign-ups yet, so Gold is used. Nothing is saved until you click <b>Save handicaps</b>.</p>
+      <p class="hint">Edit an index or GHIN # by hand here, or change someone's tees (this is the same preferred tee members set under <b>My info</b>, and new sign-ups start on it). Course handicaps update as you type. A tee marked <i>usual</i> is the one they sign up with most; <i>default</i> means they have no sign-ups yet, so Gold is used. Nothing is saved until you click <b>Save handicaps</b>.</p>
       <div class="row" style="margin-bottom:8px;"><label>Handicaps effective as of <input type="date" id="hcAsOf" value="${escapeHtml(hcpAdmin.asOf || '')}" style="width:auto;"></label>
         <input type="text" id="hcFilter" placeholder="Search names" style="max-width:200px;"></div>
       <div class="tbl-wrap"><table class="ad hc-tbl" style="min-width:640px;"><thead><tr><th>Player</th><th>GHIN #</th><th>Handicap index</th><th>Tees</th><th class="num">Course handicap</th></tr></thead>
@@ -1315,13 +1320,21 @@ function groupPos(key, s) {
   const slots = s.Group === 'fun' ? d.funSlots : d.nassauSlots;
   return { idx, standby: idx >= slots, n: idx >= slots ? idx - slots + 1 : idx + 1 };
 }
-// The tees / holes / riding a member used last time in that group, so a new sign-up starts there.
+// A player's starting tee for a new sign-up: their preferred tee (My info), else
+// their tournament roster tee, else the first on the list. `last` (a recent sign-up's
+// tee) comes before the roster tee when there's no preferred tee.
+function prefTee(r, tees, last) {
+  if (r && tees.indexOf(r.PreferredTee) !== -1) return r.PreferredTee;
+  if (last && tees.indexOf(last) !== -1) return last;
+  return r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0];
+}
+// The tees (preferred, else last used) / holes / riding a member used last time in that group, so a new sign-up starts there.
 function myFunDefaults(group) {
   const me = myId(), g = group || 'fun';
   const last = (board.signups || []).filter((s) => s.Group === g && String(s.PlayerID) === me && s.Tee).sort((a, b) => Number(b.SignedUpAt || 0) - Number(a.SignedUpAt || 0))[0];
   const r = rosterById(me), tees = TEE_LIST();
   return {
-    tee: last && tees.indexOf(last.Tee) !== -1 ? last.Tee : (r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0]),
+    tee: prefTee(r, tees, last && last.Tee),
     holes: last ? (last.Holes || '18') : '18',
     riding: last ? last.Riding === 'TRUE' : false,
   };
@@ -1673,7 +1686,7 @@ function joinFormHtml(d, group) {
   const editing = openForm.mode === 'edit' ? (board.signups || []).find((s) => s.SignupID === openForm.signupId) : null;
   const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
   const me = session ? rosterById(session.member.PlayerID) : null;
-  const tee = editing ? editing.Tee : (me && tees.indexOf(me.Tee) !== -1 ? me.Tee : tees[0]);
+  const tee = editing ? editing.Tee : prefTee(me, tees);
   const holes = editing ? (editing.Holes || '18') : (openForm.holes || '18');
   const riding = editing ? editing.Riding === 'TRUE' : false;
   const note = editing ? editing.Note : '';
@@ -1857,7 +1870,7 @@ async function adminAdd(key, group, playerId) {
   const body = { signupId: newId('a'), dateKey: key, group, playerId, asAdmin: true };
   if (group === 'fun' || group === 'nassau') {
     const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
-    body.tee = r && tees.indexOf(r.Tee) !== -1 ? r.Tee : tees[0];
+    body.tee = prefTee(r, tees.filter(Boolean));
     if (group === 'fun') body.holes = '18';
   }
   await act('legendsJoin', body, `${displayName(r ? r.Name : '')} added.`);
