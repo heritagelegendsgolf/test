@@ -448,7 +448,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-22a';
+const APP_VERSION = '2026-10-22b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -888,7 +888,7 @@ async function renderRoster() {
 
 // ====================== HANDICAPS ======================
 // Course handicap = ROUND(Index × Slope / 113 + (Rating − Par)), as in the
-// "Handicap Index & Course/Playing Handicap Report" spreadsheet. Tees run Red → Black.
+// "Handicap Index & Course/Playing Handicap Report" spreadsheet. Tees run Red → Blue.
 const HCP_TEES = [
   { tee: 'Red', rating: 64.1, slope: 111, par: 72 },
   { tee: 'Gold/Red', rating: 65.8, slope: 114, par: 72 },
@@ -897,8 +897,6 @@ const HCP_TEES = [
   { tee: 'White', rating: 69.4, slope: 126, par: 72 },
   { tee: 'Blue/White', rating: 70.4, slope: 127, par: 72 },
   { tee: 'Blue', rating: 71.4, slope: 129, par: 72 },
-  { tee: 'Black/Blue', rating: 72.4, slope: 131, par: 72 },
-  { tee: 'Black', rating: 73.2, slope: 132, par: 72 },
 ];
 // "+1.2" (plus handicap), "14.3", "8" -> "14.3"-style text; '' when blank; null when not an index.
 function cleanHi(v) {
