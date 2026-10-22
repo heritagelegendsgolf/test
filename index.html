@@ -133,6 +133,15 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
+  .hc-h { margin:0 0 2px; font-size:1rem; color:var(--green); }
+  .hc-calc { margin-top:8px; align-items:center; gap:10px; }
+  .hc-calc label { display:flex; align-items:center; gap:6px; }
+  .hc-out { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .hc-rule { border:none; border-top:1px solid var(--border); margin:14px 0; }
+  table.hc-tbl .num { text-align:right; } table.hc-tbl .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  table.hc-tbl tr.hc-new td { background:#fff8dc; }
+  .hc-un { margin:4px 0; gap:8px; align-items:center; }
+  label.file-pick { display:inline-block; padding:7px 13px; border:1px solid var(--green); border-radius:8px; cursor:pointer; color:var(--green); font-weight:600; }
   .roster-head { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px; margin-bottom:6px; }
   .roster-card table.roster-tbl td, .roster-card table.roster-tbl th { white-space:nowrap; padding:5px 10px; }
   .roster-card table.roster-tbl td a { color:inherit; }
@@ -324,6 +333,7 @@
     <button data-tab="signups" class="active">Sign-ups</button>
     <button data-tab="duty">Tee Time Duty</button>
     <button data-tab="roster">Roster</button>
+    <button data-tab="handicaps">Handicaps</button>
     <button data-tab="files">Related Files</button>
     <button data-tab="tournament">Annual Tournament</button>
     <button data-tab="admin">Admin</button>
@@ -346,6 +356,10 @@
         </div>
         <div id="dutyBody"></div>
       </div>
+    </section>
+
+    <section id="tab-handicaps" class="tab-panel" hidden>
+      <div id="hcpBody"><div class="card hint">Loading…</div></div>
     </section>
 
     <section id="tab-roster" class="tab-panel" hidden>
@@ -393,6 +407,7 @@
           <button type="button" class="subtab-btn" data-group="setup" data-asub="events">Events</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="emails">Emails</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="members" hidden>Members</button>
+          <button type="button" class="subtab-btn" data-group="info" data-asub="handicaps" hidden>Handicaps</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="news" hidden>News</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="closures" hidden>Closures &amp; notices</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="teetimes" hidden>Club first tee times</button>
@@ -433,7 +448,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-21d';
+const APP_VERSION = '2026-10-22a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -457,7 +472,7 @@ async function apiGet(action, extra) {
 // Anything sent to the server that isn't just reading shows the "Saving…" pill
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
-const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'legendsGetBoard', 'legendsFileGet',
+const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'getHandicaps', 'legendsGetBoard', 'legendsFileGet',
   'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
@@ -799,6 +814,7 @@ function selectTab(tab) {
   document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== 'tab-' + tab; });
   if (tab === 'admin') renderAdminGate();
   if (tab === 'roster') rosterData = null; // fresh copy each time the tab is opened
+  if (tab === 'handicaps') hcpData = null;
   renderCurrent();
 }
 function renderCurrent() {
@@ -807,6 +823,7 @@ function renderCurrent() {
   else if (currentTab === 'duty') renderDuty();
   else if (currentTab === 'files') renderFiles();
   else if (currentTab === 'roster') renderRoster();
+  else if (currentTab === 'handicaps') renderHandicaps();
   else if (currentTab === 'admin' && adminSession && ['sugimport', 'proshop', 'news', 'reminders', 'emails'].indexOf(adminSub) === -1) renderAdminSub(); // don't wipe an import preview being checked
 }
 
@@ -867,6 +884,279 @@ async function renderRoster() {
     window.addEventListener('afterprint', done);
     window.print();
   };
+}
+
+// ====================== HANDICAPS ======================
+// Course handicap = ROUND(Index × Slope / 113 + (Rating − Par)), as in the
+// "Handicap Index & Course/Playing Handicap Report" spreadsheet. Tees run Red → Black.
+const HCP_TEES = [
+  { tee: 'Red', rating: 64.1, slope: 111, par: 72 },
+  { tee: 'Gold/Red', rating: 65.8, slope: 114, par: 72 },
+  { tee: 'Gold', rating: 67.1, slope: 120, par: 72 },
+  { tee: 'White/Gold', rating: 68.3, slope: 124, par: 72 },
+  { tee: 'White', rating: 69.4, slope: 126, par: 72 },
+  { tee: 'Blue/White', rating: 70.4, slope: 127, par: 72 },
+  { tee: 'Blue', rating: 71.4, slope: 129, par: 72 },
+  { tee: 'Black/Blue', rating: 72.4, slope: 131, par: 72 },
+  { tee: 'Black', rating: 73.2, slope: 132, par: 72 },
+];
+// "+1.2" (plus handicap), "14.3", "8" -> "14.3"-style text; '' when blank; null when not an index.
+function cleanHi(v) {
+  const t = String(v == null ? '' : v).trim().replace(/^\+\s*/, '+');
+  if (!t) return '';
+  if (!/^\+?\d{1,2}(\.\d{1,2})?$/.test(t)) return null;
+  return (t[0] === '+' ? '+' : '') + Number(t.replace('+', '')).toFixed(1);
+}
+function courseHcp(hi, tee) {
+  const h = cleanHi(hi), t = HCP_TEES.find((x) => x.tee === tee);
+  if (!h || !t) return null;
+  const v = (h[0] === '+' ? -Number(h.slice(1)) : Number(h)) * t.slope / 113 + (t.rating - t.par);
+  return Math.sign(v) * Math.round(Math.abs(v)); // Excel ROUND: halves go away from zero
+}
+function chText(hi, tee) { const c = courseHcp(hi, tee); return c === null ? '–' : c < 0 ? '+' + (-c) : String(c); }
+function firstLast(name) { const n = lastFirst(name); return n.first && n.first !== name ? `${n.first} ${n.last}` : String(name || ''); }
+function hcpCalcHtml(px) {
+  return `<h3 class="hc-h">Handicap calculator</h3>
+    <div class="hint">Work out the Heritage course handicap for any index from any tee box.</div>
+    <div class="row hc-calc">
+      <label>Handicap index <input type="text" id="${px}CalcIdx" inputmode="decimal" placeholder="–" style="width:80px;"></label>
+      <select id="${px}CalcTee" style="width:auto;"><option value="">Select tee</option>${HCP_TEES.map((t) => `<option value="${t.tee}">${t.tee} (${t.rating}/${t.slope})</option>`).join('')}</select>
+      <span class="hc-out">Course handicap: <b id="${px}CalcOut">–</b></span>
+    </div>`;
+}
+function wireHcpCalc(px) {
+  const go = () => { document.getElementById(px + 'CalcOut').textContent = chText(document.getElementById(px + 'CalcIdx').value, document.getElementById(px + 'CalcTee').value); };
+  document.getElementById(px + 'CalcIdx').oninput = go;
+  document.getElementById(px + 'CalcTee').onchange = go;
+}
+function asOfText(key) { if (!key) return 'not set yet'; const d = keyDate(key); return `${MON[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`; }
+// The Sunday the GHIN revision came out: today if it's Sunday, else the one before.
+function lastSundayKey() { const d = keyDate(board ? board.today : new Date().toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); return d.toISOString().slice(0, 10); }
+
+// ---- Handicaps tab (every signed-in member; read-only) ----
+let hcpData = null, hcpLoading = false;
+async function renderHandicaps() {
+  const el = document.getElementById('hcpBody');
+  if (!hcpData) {
+    if (hcpLoading) return;
+    hcpLoading = true;
+    el.innerHTML = '<div class="card hint">Loading handicaps…</div>';
+    try {
+      const res = await apiPost('getHandicaps', {});
+      if (!res.success) { if (!handleSignedOut(res.error)) el.innerHTML = `<div class="card status error">${escapeHtml(cleanError(res.error))}</div>`; return; }
+      hcpData = res.data;
+    } catch (e) { el.innerHTML = '<div class="card status error">Could not reach the server — try again.</div>'; return; }
+    finally { hcpLoading = false; }
+  }
+  el.innerHTML = `<div class="card">
+      ${hcpCalcHtml('hcp')}
+      <hr class="hc-rule">
+      <h3 class="hc-h">Player handicaps</h3>
+      <div class="hint">Handicaps effective as of ${escapeHtml(asOfText(hcpData.asOf))}. Indexes are updated from GHIN every Sunday for the week ahead.</div>
+      <div class="tbl-wrap"><table class="ad hc-tbl"><thead><tr><th>Player</th><th class="num">Handicap index</th><th>Tees</th><th class="num">Course handicap</th></tr></thead>
+        <tbody>${hcpData.players.map((p) => `<tr><td>${escapeHtml(firstLast(p.Name))}</td><td class="num mono">${escapeHtml(p.HandicapIndex || '–')}</td><td>${escapeHtml(p.Tee)}</td><td class="num mono">${chText(p.HandicapIndex, p.Tee)}</td></tr>`).join('')
+          || '<tr><td colspan="4" class="hint">No handicaps yet.</td></tr>'}</tbody></table></div>
+    </div>`;
+  wireHcpCalc('hcp');
+}
+
+// ---- Admin > Info > Handicaps (edit, and the weekly GHIN upload) ----
+let hcpAdmin = null; // { asOf, players: [...] } with _touched flags while editing
+async function loadHcpAdmin() {
+  try {
+    const res = await apiPost('getHandicaps', {});
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('hcStatus', false, cleanError(res.error)); return; }
+    hcpAdmin = res.data;
+    adminDirty = false;
+    if (adminSub === 'handicaps') renderHandicapsAdmin(document.getElementById('adminContent'));
+  } catch (e) { showStatus('hcStatus', false, 'Could not reach the server — try again.'); }
+}
+function renderHandicapsAdmin(el) {
+  if (!hcpAdmin) { el.innerHTML = '<div class="card hint">Loading handicaps…</div><div id="hcStatus" class="status"></div>'; loadHcpAdmin(); return; }
+  el.innerHTML = `
+    <div class="card">${hcpCalcHtml('hcA')}</div>
+    <div class="card">
+      <h2>Upload this week's GHIN handicaps</h2>
+      <p class="hint">Every Sunday afternoon, upload the new GHIN report: an Excel or CSV file (like the <b>Handicap Index &amp; Course/Playing Handicap Report</b>) or a PDF. You can also copy the rows out of Excel and paste them in the box instead. Each line needs a GHIN # and an index; people are matched by GHIN # first, then by name. The new indexes fill in the table below so you can check them, and nothing changes for members until you click <b>Save handicaps</b>.</p>
+      <div class="row">
+        <label class="secondary file-pick">📄 Choose file <input type="file" id="hcFile" accept=".xlsx,.xls,.csv,.pdf" hidden></label>
+        <span class="hint" id="hcFileName"></span>
+      </div>
+      <textarea id="hcPaste" rows="3" placeholder="…or paste rows from Excel here" style="margin-top:8px;"></textarea>
+      <div class="row" style="margin-top:6px;"><button class="secondary" id="hcRead">Read pasted rows</button></div>
+      <div id="hcUpload" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <h2>Player handicaps</h2>
+      <p class="hint">Edit an index or GHIN # by hand here, or change someone's tees. Course handicaps update as you type. A tee marked <i>usual</i> is the one they sign up with most; <i>default</i> means they have no sign-ups yet, so Gold is used. Nothing is saved until you click <b>Save handicaps</b>.</p>
+      <div class="row" style="margin-bottom:8px;"><label>Handicaps effective as of <input type="date" id="hcAsOf" value="${escapeHtml(hcpAdmin.asOf || '')}" style="width:auto;"></label>
+        <input type="text" id="hcFilter" placeholder="Search names" style="max-width:200px;"></div>
+      <div class="tbl-wrap"><table class="ad hc-tbl" style="min-width:640px;"><thead><tr><th>Player</th><th>GHIN #</th><th>Handicap index</th><th>Tees</th><th class="num">Course handicap</th></tr></thead>
+        <tbody id="hcRows"></tbody></table></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" id="hcSave">Save handicaps</button>${dirtyNote}</div>
+      <div id="hcStatus" class="status"></div>
+    </div>`;
+  wireHcpCalc('hcA');
+  drawHcpRows();
+  document.getElementById('hcFilter').oninput = drawHcpRows;
+  document.getElementById('hcAsOf').onchange = markDirty;
+  document.getElementById('hcSave').onclick = saveHandicapsAdmin;
+  document.getElementById('hcFile').onchange = (e) => { const f = e.target.files[0]; if (f) readHcpFile(f); e.target.value = ''; };
+  document.getElementById('hcRead').onclick = () => {
+    const text = document.getElementById('hcPaste').value;
+    if (!text.trim()) { hcpUploadMsg('<div class="status error">Paste some rows first.</div>'); return; }
+    applyHcpUpload(text.split(/\r?\n/).map((l) => l.split('\t')), 'the pasted rows');
+  };
+}
+function drawHcpRows() {
+  const q = document.getElementById('hcFilter').value.trim().toLowerCase();
+  const tb = document.getElementById('hcRows');
+  tb.innerHTML = hcpAdmin.players.map((p, i) => ({ p, i })).filter(({ p }) => !q || String(p.Name).toLowerCase().includes(q)).map(({ p, i }) => `
+    <tr class="${p._new ? 'hc-new' : ''}"><td>${escapeHtml(firstLast(p.Name))}</td>
+      <td><input type="text" inputmode="numeric" data-hi="${i}" data-f="GHIN" value="${escapeHtml(p.GHIN || '')}" placeholder="GHIN #" style="width:110px;"></td>
+      <td><input type="text" inputmode="decimal" data-hi="${i}" data-f="HandicapIndex" value="${escapeHtml(p.HandicapIndex || '')}" placeholder="–" class="mono" style="width:80px;"></td>
+      <td><select data-hi="${i}" data-f="Tee" style="width:auto;">${HCP_TEES.map((t) => `<option ${t.tee === p.Tee ? 'selected' : ''}>${t.tee}</option>`).join('')}</select>
+        ${p.TeeFrom !== 'set' && !p._teeTouched ? `<span class="hint"><i>${p.TeeFrom === 'signups' ? 'usual' : 'default'}</i></span>` : ''}</td>
+      <td class="num mono" data-ch="${i}">${chText(p.HandicapIndex, p.Tee)}</td></tr>`).join('') || '<tr><td colspan="5" class="hint">No one matches.</td></tr>';
+  tb.querySelectorAll('[data-f]').forEach((x) => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
+    const p = hcpAdmin.players[Number(x.dataset.hi)];
+    p[x.dataset.f] = x.value;
+    if (x.dataset.f === 'Tee') { p._teeTouched = true; const n = x.parentElement.querySelector('.hint'); if (n) n.remove(); }
+    tb.querySelector(`[data-ch="${x.dataset.hi}"]`).textContent = chText(p.HandicapIndex, p.Tee);
+    markDirty();
+  }));
+}
+async function saveHandicapsAdmin() {
+  const bad = hcpAdmin.players.find((p) => cleanHi(p.HandicapIndex) === null);
+  if (bad) { showStatus('hcStatus', false, `${firstLast(bad.Name)}: "${bad.HandicapIndex}" is not a handicap index (like 14.3, or +1.2).`); return; }
+  const badG = hcpAdmin.players.find((p) => String(p.GHIN || '').replace(/\s/g, '') && !/^\d{5,10}$/.test(String(p.GHIN).replace(/\s/g, '')));
+  if (badG) { showStatus('hcStatus', false, `${firstLast(badG.Name)}: "${badG.GHIN}" is not a valid GHIN number (digits only).`); return; }
+  const players = hcpAdmin.players.map((p) => ({ PlayerID: p.PlayerID, GHIN: String(p.GHIN || '').replace(/\s/g, ''), HandicapIndex: cleanHi(p.HandicapIndex),
+    Tee: p.TeeFrom === 'set' || p._teeTouched ? p.Tee : '' })); // an unset tee keeps following their sign-ups
+  showStatus('hcStatus', true, 'Saving…');
+  try {
+    const res = await apiPost('saveHandicaps', { players: JSON.stringify(players), asOf: document.getElementById('hcAsOf').value });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('hcStatus', false, cleanError(res.error)); return; }
+    hcpAdmin = res.data; hcpData = null; adminDirty = false;
+    renderHandicapsAdmin(document.getElementById('adminContent'));
+    showStatus('hcStatus', true, 'Saved. Members see the new handicaps on the Handicaps tab.');
+  } catch (e) { showStatus('hcStatus', false, 'Could not reach the server — try again.'); }
+}
+function hcpUploadMsg(html) { document.getElementById('hcUpload').innerHTML = html; }
+function loadScriptOnce(url) {
+  return new Promise((ok, bad) => {
+    if (document.querySelector(`script[src="${url}"]`)) { ok(); return; }
+    const s = document.createElement('script'); s.src = url; s.onload = ok; s.onerror = () => bad(new Error('Could not load ' + url));
+    document.head.appendChild(s);
+  });
+}
+const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+async function readHcpFile(file) {
+  document.getElementById('hcFileName').textContent = file.name;
+  hcpUploadMsg('<div class="hint">Reading the file…</div>');
+  try {
+    let grid;
+    if (/\.pdf$/i.test(file.name)) {
+      await loadScriptOnce(PDFJS_URL);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_URL.replace('pdf.min.js', 'pdf.worker.min.js');
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      grid = [];
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const items = (await (await pdf.getPage(n)).getTextContent()).items.filter((it) => String(it.str).trim());
+        const lines = {};
+        items.forEach((it) => { const y = Math.round(it.transform[5] / 3); (lines[y] = lines[y] || []).push(it); });
+        Object.keys(lines).map(Number).sort((a, b) => b - a).forEach((y) => {
+          const cells = [];
+          lines[y].sort((a, b) => a.transform[4] - b.transform[4]).forEach((it) => {
+            const t = String(it.str).trim(), prev = cells[cells.length - 1];
+            // join the words of a name ("Alston," + "Rufus") into one cell
+            if (prev !== undefined && /[a-z]/i.test(t) && /[a-z]$|,$/i.test(prev)) cells[cells.length - 1] = prev + ' ' + t; else cells.push(t);
+          });
+          grid.push(cells);
+        });
+      }
+    } else {
+      await loadScriptOnce(XLSX_URL);
+      const wb = /\.csv$/i.test(file.name) ? XLSX.read(await file.text(), { type: 'string' }) : XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      grid = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+    }
+    applyHcpUpload(grid, file.name);
+  } catch (e) { hcpUploadMsg(`<div class="status error">Could not read ${escapeHtml(file.name)}: ${escapeHtml(e.message || e)}</div>`); }
+}
+// Rows of cells -> [{ghin, name, hi}]. Uses the header row when there is one
+// (GHIN / Name or First+Last / H.I. or Index); otherwise each line's GHIN # (5-10
+// digits), its index (a number with a decimal point) and the words as the name.
+function hcpRowsFromGrid(grid) {
+  const norm = (c) => String(c == null ? '' : c).trim();
+  const hIdx = grid.findIndex((r) => r.some((c) => /ghin/i.test(c)) && r.some((c) => /^(h\.?\s*i\.?|hi|index|handicap index|hcp index)$/i.test(norm(c))));
+  const out = [];
+  if (hIdx !== -1) {
+    const h = grid[hIdx].map((c) => norm(c).toLowerCase());
+    const col = (re) => h.findIndex((c) => re.test(c));
+    const g = col(/ghin/), i = col(/^(h\.?\s*i\.?|hi|index|handicap index|hcp index)$/), fn = col(/^first/), ln = col(/^last/), nm = col(/name/);
+    grid.slice(hIdx + 1).forEach((r) => {
+      const hi = cleanHi(norm(r[i]).replace(/^NH$/i, ''));
+      const name = fn !== -1 && ln !== -1 ? `${norm(r[ln])}, ${norm(r[fn])}` : norm(r[nm]);
+      const ghin = norm(r[g]).replace(/\D/g, '');
+      if (hi && (ghin || name.replace(/[, ]/g, ''))) out.push({ ghin, name, hi });
+    });
+    return out;
+  }
+  grid.forEach((r) => {
+    const cells = r.map(norm).filter(Boolean);
+    const ghin = cells.find((c) => /^\d{5,10}$/.test(c)) || '';
+    const his = cells.filter((c) => /^\+?\d{1,2}\.\d$/.test(c));
+    const name = cells.filter((c) => /[a-z]{2}/i.test(c)).sort((a, b) => b.length - a.length)[0] || '';
+    if (his.length && (ghin || name)) out.push({ ghin, name, hi: cleanHi(his[his.length - 1]) });
+  });
+  return out;
+}
+// Same matching as hcpFindMember_ in Code.gs: GHIN # first, then last name (and first name or nickname).
+const HCP_NICKS = { charles: 'chuck', william: 'bill', robert: 'bob', james: 'jim', richard: 'dick', thomas: 'tom', david: 'dave', daniel: 'dan', jeffrey: 'jeff', gregory: 'greg', stephen: 'steve', steven: 'steve', michael: 'mike', lewis: 'lou', joseph: 'joe', edward: 'ed', kenneth: 'ken', ronald: 'ron', donald: 'don', lawrence: 'larry', gerald: 'jerry', peter: 'pete', albert: 'al', alan: 'al', allan: 'al', anthony: 'tony', frederick: 'fred', walter: 'walt', stanley: 'stan' };
+function hcpMatch(players, ghin, name) {
+  if (ghin) { const g = players.filter((p) => String(p.GHIN || '') === ghin); if (g.length === 1) return g[0]; }
+  const key = (x) => String(x || '').toLowerCase().replace(/[^a-z]/g, '');
+  let first, last;
+  const n = String(name || '').trim();
+  if (n.includes(',')) { last = n.split(',')[0]; first = n.split(',').slice(1).join(',').trim().split(/\s+/)[0]; }
+  else { const t = n.replace(/^(mr|mrs|ms|dr)\.?\s+/i, '').replace(/,?\s+(jr|sr|ii|iii|iv)\.?$/i, '').split(/\s+/); first = t[0]; last = t[t.length - 1]; }
+  if (!key(last)) return null;
+  const same = players.filter((p) => key(lastFirst(p.Name).last) === key(last));
+  if (same.length <= 1) return same[0] || null;
+  const f = key(first), nick = HCP_NICKS[f] || f;
+  const hit = same.filter((p) => { const fn = key(lastFirst(p.Name).first.split(/\s+/)[0]); return fn && [f, nick].some((c) => fn === c || (Math.min(fn.length, c.length) >= 3 && (fn.startsWith(c) || c.startsWith(fn)))); });
+  return hit.length === 1 ? hit[0] : null;
+}
+function applyHcpUpload(grid, what) {
+  const rows = hcpRowsFromGrid(grid);
+  if (!rows.length) { hcpUploadMsg(`<div class="status error">No GHIN numbers with handicap indexes were found in ${escapeHtml(what)}.</div>`); return; }
+  const used = new Set(), unmatched = [];
+  let changed = 0;
+  hcpAdmin.players.forEach((p) => { p._new = false; });
+  rows.forEach((r) => {
+    const p = hcpMatch(hcpAdmin.players, r.ghin, r.name);
+    if (!p || used.has(p)) { unmatched.push(r); return; }
+    used.add(p);
+    if (r.ghin && !p.GHIN) p.GHIN = r.ghin;
+    if (p.HandicapIndex !== r.hi) { p.HandicapIndex = r.hi; p._new = true; changed++; }
+  });
+  const missing = hcpAdmin.players.filter((p) => !used.has(p));
+  document.getElementById('hcAsOf').value = lastSundayKey();
+  markDirty();
+  drawHcpRows();
+  const pick = (k) => `<select data-hcpick="${k}" style="width:auto;"><option value="">Not a Legend / skip</option>${missing.map((p) => `<option value="${hcpAdmin.players.indexOf(p)}">${escapeHtml(firstLast(p.Name))}</option>`).join('')}</select>`;
+  hcpUploadMsg(`<div class="status ok">Read ${rows.length} players from ${escapeHtml(what)}: ${used.size} matched, ${changed} with a new index (highlighted below). The "effective as of" date is set to Sunday ${escapeHtml(asOfText(lastSundayKey()))}. Check the table, then click <b>Save handicaps</b>.</div>
+    ${unmatched.length ? `<p class="hint" style="margin-top:8px;"><b>Not matched to an active Legend</b> (pick who they are, or leave them out):</p>
+      ${unmatched.map((r, k) => `<div class="row hc-un"><span>${escapeHtml(r.name || '(no name)')} · GHIN ${escapeHtml(r.ghin || '–')} · ${escapeHtml(r.hi)}</span>${pick(k)}</div>`).join('')}` : ''}
+    ${missing.length ? `<p class="hint" style="margin-top:8px;"><b>Not in this file</b> (they keep their current index): ${missing.map((p) => escapeHtml(firstLast(p.Name))).join(', ')}</p>` : ''}`);
+  document.querySelectorAll('[data-hcpick]').forEach((s) => s.onchange = () => {
+    if (s.value === '') return;
+    const r = unmatched[Number(s.dataset.hcpick)], p = hcpAdmin.players[Number(s.value)];
+    if (r.ghin) p.GHIN = r.ghin;
+    p.HandicapIndex = r.hi; p._new = true;
+    s.disabled = true; markDirty(); drawHcpRows();
+  });
 }
 
 // ====================== BOARD (shared data) ======================
@@ -2042,7 +2332,7 @@ window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefa
 // For view-only admins: after any admin page draws, hide the buttons that change
 // things and lock the fields (previews, date ranges and filters still work).
 const VIEW_OK = '[data-ps-preview],[data-rem-preview],[data-em-toggle],#dLoad,[data-memtab],[data-asub],[data-agroup]';
-const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly';
+const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly,#hcACalcIdx,#hcACalcTee,#hcFilter';
 function lockForViewOnly() {
   if (!amViewOnly()) return;
   const root = document.getElementById('adminContent');
@@ -2113,6 +2403,7 @@ function renderAdminSub() {
   if (adminSub === 'proshop' || adminSub === 'reminders') adminSub = 'emails';
   if (adminSub === 'emails') return renderEmailsAdmin(el);
   if (adminSub === 'news') return renderNewsAdmin(el);
+  if (adminSub === 'handicaps') return renderHandicapsAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 // Top of every admin page: a warning when the automatic emails due on a day would go
@@ -2160,7 +2451,7 @@ function renderMembersAdmin(el) {
         <label class="hint mem-missing-label"><input type="checkbox" id="memMissingOnly" ${missing ? 'checked' : ''}> Only missing email</label>
         <span class="hint" id="memCounts"></span>
       </div>
-      <div class="tbl-wrap"><table class="ad" style="min-width:920px;">
+      <div class="tbl-wrap"><table class="ad" style="min-width:840px;">
         <thead id="memHead"></thead>
         <tbody id="memBody"></tbody>
       </table></div>
@@ -2184,7 +2475,7 @@ function renderMembersAdmin(el) {
   document.getElementById('memMissingOnly').onchange = drawMemberRows;
   el.querySelectorAll('[data-memtab]').forEach((b) => b.onclick = () => { memTab = b.dataset.memtab; el.querySelectorAll('[data-memtab]').forEach((x) => x.classList.toggle('on', x === b)); drawMemberRows(); });
   document.getElementById('memAdd').onclick = () => {
-    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', GHIN: '', Active: memTab === 'active' ? 'TRUE' : 'FALSE', Deceased: memTab === 'rip' ? 'TRUE' : 'FALSE', DiedYear: '', hasPin: false, _tab: memTab });
+    members.push({ Name: '', Email: '', HomePhone: '', MobilePhone: '', Active: memTab === 'active' ? 'TRUE' : 'FALSE', Deceased: memTab === 'rip' ? 'TRUE' : 'FALSE', DiedYear: '', hasPin: false, _tab: memTab });
     document.getElementById('memFilter').value = '';
     document.getElementById('memMissingOnly').checked = false;
     drawMemberRows(); markDirty();
@@ -2209,7 +2500,7 @@ function drawMemberRows() {
     .filter(({ m }) => m.PlayerID === undefined || !q || String(m.Name).toLowerCase().includes(q) || String(m.Email).toLowerCase().includes(q))
     .filter(({ m }) => !missingOnly || !String(m.Email || '').trim())
     .sort(rip ? byYear : byName);
-  document.getElementById('memHead').innerHTML = `<tr><th style="width:19%">Name (Last, First)</th>${rip ? '<th style="width:8%">Year died</th>' : ''}<th style="width:21%">Email</th><th style="width:12%">Home phone</th><th style="width:12%">Mobile phone</th><th style="width:10%">GHIN #</th><th>Status</th><th>PIN</th><th></th></tr>`;
+  document.getElementById('memHead').innerHTML = `<tr><th style="width:19%">Name (Last, First)</th>${rip ? '<th style="width:8%">Year died</th>' : ''}<th style="width:21%">Email</th><th style="width:12%">Home phone</th><th style="width:12%">Mobile phone</th><th>Status</th><th>PIN</th><th></th></tr>`;
   const body = document.getElementById('memBody');
   body.innerHTML = rows.map(({ m, idx }) => `
     <tr class="${memStatus(m) !== 'active' ? 'inactive' : ''}">
@@ -2218,13 +2509,12 @@ function drawMemberRows() {
       <td><input type="email" data-idx="${idx}" data-f="Email" value="${escapeHtml(m.Email)}" placeholder="email" autocapitalize="off"></td>
       <td><input type="tel" data-idx="${idx}" data-f="HomePhone" value="${escapeHtml(m.HomePhone || '')}" placeholder="home"></td>
       <td><input type="tel" data-idx="${idx}" data-f="MobilePhone" value="${escapeHtml(m.MobilePhone || '')}" placeholder="mobile"></td>
-      <td><input type="text" inputmode="numeric" data-idx="${idx}" data-f="GHIN" value="${escapeHtml(m.GHIN || '')}" placeholder="GHIN #"></td>
       <td><select data-idx="${idx}" data-status="1" style="width:auto;">${[['active', 'Active'], ['inactive', 'Inactive'], ['rip', 'RIP']].map(([v, t]) => `<option value="${v}" ${memStatus(m) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
       <td>${m.PlayerID === undefined ? '<span class="pin-no">new</span>'
         : m.hasPin ? `<span class="pin-yes">✓ Set</span> <button class="link danger" data-reset="${idx}">Reset</button>`
         : '<span class="pin-no">Not set yet</span>'}</td>
       <td><button class="link danger" data-remove="${idx}" title="Remove from the roster">Remove</button></td>
-    </tr>`).join('') || `<tr><td colspan="${rip ? 9 : 8}" class="hint">No members match.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="${rip ? 8 : 7}" class="hint">No members match.</td></tr>`;
   body.querySelectorAll('[data-f]').forEach((el) => {
     el.addEventListener('input', () => { members[Number(el.dataset.idx)][el.dataset.f] = el.value; markDirty(); });
   });
@@ -2301,14 +2591,12 @@ async function saveMembers() {
   if (badYear) { showStatus('memStatus', false, `${badYear.Name || 'A member'}: "${badYear.DiedYear}" is not a year (e.g. 2024).`); return; }
   const bad = members.find((m) => String(m.Email || '').trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(m.Email).trim()));
   if (bad) { showStatus('memStatus', false, `${bad.Name || 'A member'}: "${bad.Email}" is not a valid email address.`); return; }
-  const badGhin = members.find((m) => String(m.GHIN || '').replace(/\s/g, '') && !/^\d{5,10}$/.test(String(m.GHIN).replace(/\s/g, '')));
-  if (badGhin) { showStatus('memStatus', false, `${badGhin.Name || 'A member'}: "${badGhin.GHIN}" is not a valid GHIN number (digits only).`); return; }
   const btn = document.getElementById('memSave');
   btn.disabled = true;
   showStatus('memStatus', true, 'Saving…');
   try {
     const payload = members.filter((m) => !(m._remove && m.PlayerID === undefined)).map((m) => m._remove ? { PlayerID: m.PlayerID, Name: m.Name, Remove: true }
-      : { PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', GHIN: String(m.GHIN || '').replace(/\s/g, ''), Active: m.Active, Deceased: m.Deceased === 'TRUE' ? 'TRUE' : 'FALSE', DiedYear: String(m.DiedYear || '').trim(), EmergencyContact: String(m.EmergencyContact || '').trim() });
+      : { PlayerID: m.PlayerID, Name: m.Name, Email: m.Email, HomePhone: m.HomePhone || '', MobilePhone: m.MobilePhone || '', Active: m.Active, Deceased: m.Deceased === 'TRUE' ? 'TRUE' : 'FALSE', DiedYear: String(m.DiedYear || '').trim(), EmergencyContact: String(m.EmergencyContact || '').trim() });
     const res = await apiPost('saveMembers', { members: JSON.stringify(payload) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('memStatus', false, res.error); return; }
     members = res.data;
