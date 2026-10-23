@@ -455,7 +455,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-23d';
+const APP_VERSION = '2026-10-23e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3144,11 +3144,15 @@ function teeSequence(first, count) {
 function isClubTee(t) { const iv = Number(board.settings.TeeIntervalMin) || 8, m = t % 60; return m % iv === 0 && m <= 52; }
 // The club tee times on either side of t, for the error message.
 function nearClubTees(t) { const h = t - (t % 60), all = teeSequence(h, 9); const before = all.filter((x) => x < t).pop(), after = all.find((x) => x > t); return [before, after].filter((x) => x !== undefined).map(fmtClock).join(' or '); }
-function defaultLegendsFirst(key) {
+// The club's first tee time in effect on a date (minutes after midnight).
+function clubFirstTee(key) {
   const eff = (board.clubTeeTimes || []).filter((r) => r.EffectiveDate && r.EffectiveDate <= key && parseClock(r.FirstTeeTime) !== null)
     .sort((a, b) => (a.EffectiveDate < b.EffectiveDate ? -1 : 1));
   const club = parseClock(eff.length ? eff[eff.length - 1].FirstTeeTime : board.settings.DefaultClubFirstTee);
-  return fmtClock((club === null ? 480 : club) + (Number(board.settings.LegendsFirstOffsetMin) || 0));
+  return club === null ? 480 : club;
+}
+function defaultLegendsFirst(key) {
+  return fmtClock(clubFirstTee(key) + (Number(board.settings.LegendsFirstOffsetMin) || 0));
 }
 function totalTeeTimes() { return (Number(board.settings.FunTeeTimes) || 0) + (Number(board.settings.NassauTeeTimes) || 0); }
 
@@ -3183,6 +3187,7 @@ function renderDaysAdmin(el) {
     const funCell = el.querySelector(`[data-show="fun"][data-k="${k}"]`), nasCell = el.querySelector(`[data-show="nassau"][data-k="${k}"]`);
     if (first === null) { funCell.innerHTML = nasCell.innerHTML = val(k, 'LegendsFirst') ? '<span class="hint" style="color:var(--error)">enter a time like 8:40</span>' : '<span class="hint">times TBD</span>'; return; }
     if (!isClubTee(first)) { funCell.innerHTML = `<span class="hint" style="color:var(--error)">not a club tee time; try ${escapeHtml(nearClubTees(first))}</span>`; nasCell.innerHTML = ''; return; }
+    if (first < clubFirstTee(k)) { funCell.innerHTML = `<span class="hint" style="color:var(--error)">before the club's first tee time (${escapeHtml(fmtClock(clubFirstTee(k)))})</span>`; nasCell.innerHTML = ''; return; }
     const seq = teeSequence(first, nf + nn);
     const range = (a) => (a.length ? `${fmtClock(a[0])} – ${fmtClock(a[a.length - 1])}` : '—');
     funCell.textContent = range(seq.slice(0, nf));
@@ -3212,6 +3217,7 @@ function renderDaysAdmin(el) {
     if (inp(k, 'LegendsFirst').value.trim() && parseClock(inp(k, 'LegendsFirst').value) === null) { showStatus('daysStatus', false, `${dateShort(k)}: enter the first time like 8:40 AM.`); return; }
     const ft = parseClock(inp(k, 'LegendsFirst').value);
     if (ft !== null && !isClubTee(ft)) { showStatus('daysStatus', false, `${dateShort(k)}: ${fmtClock(ft)} isn't a club tee time. Try ${nearClubTees(ft)}.`); return; }
+    if (ft !== null && ft < clubFirstTee(k)) { showStatus('daysStatus', false, `${dateShort(k)}: the Legends can't start before the club's first tee time (${fmtClock(clubFirstTee(k))}).`); return; }
     // Slots and times now come from the tee time counts, so older per-day overrides are cleared.
     const c = cfgBy[k] || {};
     const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: touched[k] ? '' : (c.FunTimes || ''), NassauTimes: touched[k] ? '' : (c.NassauTimes || ''), OpenEarly: '' };
