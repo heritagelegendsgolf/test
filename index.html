@@ -133,6 +133,9 @@
   .file-meta { font-size:.78rem; color:#8b8a7c; } .file-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; }
   label.file-replace { display:inline-block; font-size:.8rem; padding:4px 10px; border:1px solid var(--green); border-radius:6px; color:var(--green); cursor:pointer; }
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
+  .pr-chip { white-space:nowrap; } .pr-chip.blind { font-style:italic; color:var(--muted); } .pr-chip.gone b { text-decoration:line-through; }
+  table.pr-swap .ctr, table.pr-swap th.ctr { text-align:center; } table.pr-tbl .num, table.pr-swap .num { text-align:right; }
+  table.pr-tbl .mono, table.pr-swap .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
   .hc-h { margin:0 0 2px; font-size:1rem; color:var(--green); }
   .hc-calc { margin-top:8px; align-items:center; gap:10px; }
   .hc-calc label { display:flex; align-items:center; gap:6px; }
@@ -400,6 +403,7 @@
         <div class="admin-groups" id="adminGroups">
           <button type="button" class="admin-group active" data-agroup="setup">Setup</button>
           <button type="button" class="admin-group" data-agroup="info">Info</button>
+          <button type="button" class="admin-group" data-agroup="pairings">Pairings</button>
         </div>
         <div class="subtabs" id="adminSubtabs">
           <button type="button" class="subtab-btn active" data-group="setup" data-asub="duty">Tee Time Duty</button>
@@ -415,6 +419,7 @@
           <button type="button" class="subtab-btn" data-group="info" data-asub="admins" hidden>Admins</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="sugimport" hidden>SignUp Genius import</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
+          <button type="button" class="subtab-btn" data-group="pairings" data-asub="pairnassau" hidden>Nassau</button>
         </div>
         <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
         <div id="emailLimitBanner" class="limit-banner" hidden></div>
@@ -448,7 +453,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-22c';
+const APP_VERSION = '2026-10-23a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2328,7 +2333,7 @@ document.querySelectorAll('#adminSubtabs [data-asub]').forEach((b) => b.addEvent
   if (b.dataset.asub === adminSub || !leaveAdminPageOk()) return;
   showAdminSub(b.dataset.asub);
 }));
-const lastSubInGroup = { setup: 'duty', info: 'members' };
+const lastSubInGroup = { setup: 'duty', info: 'members', pairings: 'pairnassau' };
 document.querySelectorAll('#adminGroups [data-agroup]').forEach((b) => b.addEventListener('click', () => {
   const cur = document.querySelector(`#adminSubtabs [data-asub="${adminSub}"]`);
   if (cur && cur.dataset.group === b.dataset.agroup) return;
@@ -2342,8 +2347,8 @@ window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefa
 
 // For view-only admins: after any admin page draws, hide the buttons that change
 // things and lock the fields (previews, date ranges and filters still work).
-const VIEW_OK = '[data-ps-preview],[data-rem-preview],[data-em-toggle],#dLoad,[data-memtab],[data-asub],[data-agroup]';
-const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly,#hcACalcIdx,#hcACalcTee,#hcFilter';
+const VIEW_OK = '[data-ps-preview],[data-rem-preview],[data-em-toggle],#dLoad,[data-memtab],[data-asub],[data-agroup],#prPreview';
+const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly,#hcACalcIdx,#hcACalcTee,#hcFilter,#prDate';
 function lockForViewOnly() {
   if (!amViewOnly()) return;
   const root = document.getElementById('adminContent');
@@ -2415,6 +2420,7 @@ function renderAdminSub() {
   if (adminSub === 'emails') return renderEmailsAdmin(el);
   if (adminSub === 'news') return renderNewsAdmin(el);
   if (adminSub === 'handicaps') return renderHandicapsAdmin(el);
+  if (adminSub === 'pairnassau') return renderPairingsAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 // Top of every admin page: a warning when the automatic emails due on a day would go
@@ -2430,6 +2436,183 @@ function renderEmailLimitBanner() {
     over.map((d) => `<b>${escapeHtml(emDayLabel(d.day))}</b> needs about ${d.total}${d.day === board.today ? ` with only ${d.limit} left` : ''}`).join('; ') +
     `. Some emails won't go out on ${over.length === 1 ? 'that day' : 'those days'}. <button type="button" class="link" id="emailLimitGo">See Emails</button>`;
   document.getElementById('emailLimitGo').onclick = () => { if (leaveAdminPageOk()) showAdminSub('emails'); };
+}
+
+// ---------------- Pairings > Nassau ----------------
+// Pairings are made on the server (laPairMake_ in LegendsApp.gs): automatically at
+// 6 AM on the day of play, or with "Make pairings". Here admins move players, pick
+// blinds, add extra strokes, set Larry's Game and send the email.
+let pair = { key: '', view: null, edit: null };
+function pairNameOf(id) { const p = pair.view && pairById()[id]; return p ? firstLast(p.Name) : '?'; }
+function pairById() { const m = {}; const v = pair.view; [].concat(v.players, v.standby, v.gone).forEach((p) => { m[p.PlayerID] = p; }); return m; }
+function pairEditFrom(view) {
+  const r = view.pairings;
+  return r ? { teams: (r.teams || []).map((t) => t.slice()), blinds: (r.blinds || []).map((b) => Object.assign({}, b)), notInBet: (r.notInBet || []).slice(), game: r.game || '', extra: {} } : null;
+}
+async function loadPairings(key, action) {
+  const el = document.getElementById('adminContent');
+  pair.key = key;
+  showStatus('prStatus', true, action === 'legendsPairingsMake' ? 'Making pairings…' : 'Loading…');
+  try {
+    const res = await apiPost(action || 'legendsPairingsGet', { dateKey: key });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('prStatus', false, cleanError(res.error)); return; }
+    pair.view = res.data; pair.edit = pairEditFrom(res.data); adminDirty = false;
+    if (adminSub === 'pairnassau') renderPairingsAdmin(el);
+    if (action === 'legendsPairingsMake') showStatus('prStatus', true, 'New pairings made. Check them, then preview and send the email.');
+  } catch (e) { showStatus('prStatus', false, 'Could not reach the server — try again.'); }
+}
+function pairLayoutText(n, lay) {
+  if (!lay) return n < 6 ? `${n} players — pairings need at least 6.` : `${n} players — pairings handle at most 24.`;
+  const four = lay.sizes.every((s) => s === 4);
+  return `${n} players → ${lay.sizes.length} ${four ? 'foursomes' : 'pairings'} (${lay.sizes.join(', ')})${lay.blinds ? `, ${lay.blinds} blind${lay.blinds === 1 ? '' : 's'}` : ''}${lay.stableford ? ', Stableford' : ''}`;
+}
+function renderPairingsAdmin(el) {
+  const days = (board.dates || []).filter((d) => !d.closed);
+  if (!pair.key || !days.some((d) => d.DateKey === pair.key)) pair.key = days.length ? days[0].DateKey : '';
+  if (!pair.key) { el.innerHTML = '<div class="card hint">No upcoming Legends days.</div>'; return; }
+  if (!pair.view || pair.view.dateKey !== pair.key) {
+    el.innerHTML = `<div class="card"><h2>Nassau pairings</h2><div class="hint">Loading…</div><div id="prStatus" class="status"></div></div>`;
+    loadPairings(pair.key); return;
+  }
+  const v = pair.view, e = pair.edit, byId = pairById();
+  const rec = v.pairings;
+  const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+  el.innerHTML = `
+    <div class="card">
+      <h2>Nassau pairings</h2>
+      <div class="row" style="align-items:center;gap:10px;">
+        <select id="prDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === pair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>
+        <span class="hint">${escapeHtml(pairLayoutText(v.players.length, v.layout))}${v.standby.length ? ` · ${v.standby.length} on standby` : ''} · first tee ${escapeHtml(v.teeTime)}</span>
+      </div>
+      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short play with a blind and tee off first.</p>
+      <div class="row"><button class="primary" id="prMake" ${v.layout ? '' : 'disabled'}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
+        ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.EmailSentAt ? ` · <b>email sent ${escapeHtml(when(rec.EmailSentAt))}</b>` : ''}</span>` : ''}</div>
+      <div id="prStatus" class="status"></div>
+    </div>
+    ${e ? `<div class="card">
+      <h2>Pairings for ${escapeHtml(dateShort(pair.key))}</h2>
+      <div class="row" style="align-items:center;gap:8px;margin-bottom:8px;"><label for="prGame"><b>Larry's Game:</b></label><input type="text" id="prGame" maxlength="80" value="${escapeHtml(e.game)}" placeholder="e.g. Minimum Best 22 net per 9" style="max-width:340px;"></div>
+      <div id="prWarn"></div>
+      <div class="tbl-wrap"><table class="ad pr-tbl" style="min-width:760px;"><thead><tr><th>Pairing</th><th>A</th><th>B</th><th>C</th><th>D / blind</th><th class="num">Avg index</th></tr></thead><tbody id="prTeams"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>Swap players between pairings</h2>
+      <p class="hint">Click where each player belongs, or <i>Not in bet</i>. Pick a <b>Blind for</b> pairing to have someone's score also count for a pairing that's a man short. <b>Extra strokes</b> are added to that player's course handicap (for example after a medical layoff) and stay until you clear them. Click <b>Save changes</b> when done. <b>Redo pairings</b> undoes any changes made here.</p>
+      <div class="tbl-wrap"><table class="ad pr-swap" style="min-width:760px;"><thead><tr><th>Player</th><th>Tees</th><th class="num">Index</th>${e.teams.map((t, i) => `<th class="ctr">${escapeHtml(v.names[i])}</th>`).join('')}<th class="ctr">Not in bet</th><th>Blind for</th><th>Extra strokes</th></tr></thead><tbody id="prSwap"></tbody></table></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" id="prSave">Save changes</button>${dirtyNote}</div>
+      <div id="prSaveStatus" class="status"></div>
+    </div>
+    <div class="card">
+      <h2>Email to the Legends</h2>
+      <p class="hint">The "Larry's Game" email goes to every Legend (the group address on Admin &gt; Setup &gt; Emails, if one is set). Preview it, then send. Save any changes first.</p>
+      <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send to the Legends'}</button></div>
+      <div id="prMailStatus" class="status"></div>
+      <div id="prMail"></div>
+    </div>` : ''}`;
+  document.getElementById('prDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = pair.key; return; } pair.view = null; pair.key = ev.target.value; renderPairingsAdmin(el); };
+  document.getElementById('prMake').onclick = () => {
+    if (rec && !confirm('Redo the pairings from the current sign-ups? This replaces the pairings and any swaps made here.')) return;
+    adminDirty = false; loadPairings(pair.key, 'legendsPairingsMake');
+  };
+  if (!e) return;
+  drawPairings();
+  document.getElementById('prGame').oninput = (ev) => { e.game = ev.target.value; markDirty(); };
+  document.getElementById('prSave').onclick = savePairings;
+  document.getElementById('prPreview').onclick = previewPairEmail;
+  document.getElementById('prSend').onclick = sendPairEmail;
+}
+function pairTeamOf(id) { const e = pair.edit; const t = e.teams.findIndex((x) => x.includes(id)); return t !== -1 ? t : e.notInBet.includes(id) ? 'out' : null; }
+function pairHi(p) { const h = cleanHi(p && p.HI); return h ? (h[0] === '+' ? -Number(h.slice(1)) : Number(h)) : null; }
+function drawPairings() {
+  const v = pair.view, e = pair.edit, byId = pairById();
+  const chip = (id, blind) => {
+    const p = byId[id]; if (!p) return '';
+    const ch = p.CH === null || p.CH === undefined ? '–' : p.CH < 0 ? '+' + (-p.CH) : p.CH;
+    return `<div class="pr-chip${blind ? ' blind' : ''}${p.gone ? ' gone' : ''}">${blind ? 'Blind: ' : ''}<b>${escapeHtml(firstLast(p.Name))}</b><br><span class="hint">${escapeHtml(p.Tee || '')} · ${escapeHtml(p.HI || '–')} → ${ch}${p.Extra ? ` (+${p.Extra})` : ''}</span></div>`;
+  };
+  document.getElementById('prTeams').innerHTML = e.teams.map((t, i) => {
+    const ids = t.slice().sort((a, b) => (pairHi(byId[a]) ?? 99) - (pairHi(byId[b]) ?? 99));
+    const bl = e.blinds.filter((b) => b.team === i).map((b) => b.playerId);
+    const cells = ids.map((id) => chip(id)).concat(bl.map((id) => chip(id, true)));
+    while (cells.length < 4) cells.push('');
+    const his = ids.concat(bl).map((id) => pairHi(byId[id])).filter((x) => x !== null);
+    const avg = his.length ? (his.reduce((a, b) => a + b, 0) / his.length).toFixed(1) : '–';
+    return `<tr><td><b>${escapeHtml(v.names[i])}</b> <span class="hint">(${v.order[i]})</span></td>${cells.slice(0, 4).map((c) => `<td>${c}</td>`).join('')}${cells.length > 4 ? '' : ''}<td class="num mono">${avg}</td></tr>`;
+  }).join('');
+  // problems worth a look
+  const warn = [];
+  const placed = new Set([].concat(...e.teams, e.notInBet));
+  const unplaced = v.players.filter((p) => !placed.has(p.PlayerID));
+  if (unplaced.length) warn.push(`Signed up but not in a pairing: <b>${unplaced.map((p) => escapeHtml(firstLast(p.Name))).join(', ')}</b> — place them below, or Redo pairings.`);
+  const gone = [...placed].filter((id) => byId[id] && (byId[id].gone || !v.players.some((p) => p.PlayerID === id)));
+  if (gone.length) warn.push(`No longer in the playing list: <b>${gone.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')}</b> — move them to Not in bet, or Redo pairings.`);
+  e.teams.forEach((t, i) => { const n = t.length + e.blinds.filter((b) => b.team === i).length; if (t.length > 4) warn.push(`${v.names[i]} has ${t.length} players — at most 4.`); else if (t.length && n < 4 && !(v.layout && v.layout.stableford)) warn.push(`${v.names[i]} has ${t.length} player${t.length === 1 ? '' : 's'}${n > t.length ? ' and a blind' : ''} — pick a blind for them below.`); });
+  const noIdx = [...placed].filter((id) => byId[id] && !byId[id].gone && !cleanHi(byId[id].HI));
+  if (noIdx.length) warn.push(`No Handicap Index for ${noIdx.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')} (ranked last) — add it on Info &gt; Handicaps.`);
+  document.getElementById('prWarn').innerHTML = warn.map((w) => `<div class="status error" style="margin-bottom:6px;">⚠️ ${w}</div>`).join('');
+  // swap grid
+  const rows = [...new Set(v.players.map((p) => p.PlayerID).concat([...placed]))].map((id) => byId[id]).filter(Boolean)
+    .sort((a, b) => lastFirst(a.Name).last.localeCompare(lastFirst(b.Name).last) || String(a.Name).localeCompare(String(b.Name)));
+  document.getElementById('prSwap').innerHTML = rows.map((p) => {
+    const at = pairTeamOf(p.PlayerID), bl = e.blinds.find((b) => b.playerId === p.PlayerID);
+    const radio = (val) => `<td class="ctr"><input type="radio" name="pr_${p.PlayerID}" data-pr="${p.PlayerID}" value="${val}" ${String(at) === String(val) ? 'checked' : ''}></td>`;
+    const extra = p.PlayerID in e.extra ? e.extra[p.PlayerID] : (p.Extra || '');
+    return `<tr class="${p.gone ? 'inactive' : ''}"><td><b>${escapeHtml(firstLast(p.Name))}</b>${p.gone ? ' <span class="hint">(dropped out)</span>' : ''}</td><td>${escapeHtml(p.Tee || '')}</td><td class="num mono">${escapeHtml(p.HI || '–')}</td>
+      ${e.teams.map((t, i) => radio(i)).join('')}${radio('out')}
+      <td><select data-prblind="${p.PlayerID}" style="width:auto;"><option value="">—</option>${e.teams.map((t, i) => (i === at ? '' : `<option value="${i}" ${bl && bl.team === i ? 'selected' : ''}>${escapeHtml(v.names[i])}</option>`)).join('')}</select></td>
+      <td><input type="number" min="0" max="18" data-prextra="${p.PlayerID}" value="${escapeHtml(String(extra || ''))}" placeholder="0" style="width:64px;"></td></tr>`;
+  }).join('');
+  document.querySelectorAll('[data-pr]').forEach((r) => r.onchange = () => {
+    const id = r.dataset.pr;
+    e.teams.forEach((t) => { const k = t.indexOf(id); if (k !== -1) t.splice(k, 1); });
+    e.notInBet = e.notInBet.filter((x) => x !== id);
+    if (r.value === 'out') e.notInBet.push(id); else e.teams[Number(r.value)].push(id);
+    e.blinds = e.blinds.filter((b) => !(b.playerId === id && String(b.team) === r.value)); // can't be a blind for their own pairing
+    markDirty(); drawPairings();
+  });
+  document.querySelectorAll('[data-prblind]').forEach((s) => s.onchange = () => {
+    const id = s.dataset.prblind;
+    e.blinds = e.blinds.filter((b) => b.playerId !== id);
+    if (s.value !== '') e.blinds.push({ playerId: id, team: Number(s.value) });
+    markDirty(); drawPairings();
+  });
+  document.querySelectorAll('[data-prextra]').forEach((x) => x.oninput = () => { e.extra[x.dataset.prextra] = x.value; markDirty(); });
+}
+async function savePairings() {
+  const e = pair.edit;
+  if (e.teams.some((t) => t.length > 4)) { showStatus('prSaveStatus', false, 'A pairing can have at most 4 players.'); return; }
+  showStatus('prSaveStatus', true, 'Saving…');
+  try {
+    const res = await apiPost('legendsPairingsSave', { dateKey: pair.key, teams: JSON.stringify(e.teams), blinds: JSON.stringify(e.blinds), notInBet: JSON.stringify(e.notInBet), game: e.game, extra: JSON.stringify(e.extra) });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('prSaveStatus', false, cleanError(res.error)); return; }
+    pair.view = res.data; pair.edit = pairEditFrom(res.data); adminDirty = false; hcpAdmin = null;
+    renderPairingsAdmin(document.getElementById('adminContent'));
+    showStatus('prSaveStatus', true, 'Saved.');
+  } catch (er) { showStatus('prSaveStatus', false, 'Could not reach the server — try again.'); }
+}
+async function previewPairEmail() {
+  if (adminDirty) { showStatus('prMailStatus', false, 'Save your changes first, so the email shows them.'); return; }
+  const box = document.getElementById('prMail');
+  box.innerHTML = '<p class="hint">Loading preview…</p>';
+  try {
+    const res = await apiPost('legendsPairingsPreview', { dateKey: pair.key });
+    if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
+    const m = res.data;
+    box.innerHTML = `<div class="preview-box"><div class="hint"><b>${m.total} recipient${m.total === 1 ? '' : 's'}</b><br><b>To:</b> ${escapeHtml(m.to)}${m.cc ? `<br><b>Cc:</b> ${escapeHtml(m.cc)}` : ''}${m.bccCount ? `<br><b>Bcc:</b> ${m.bccCount} Legends` : ''}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div><hr>${m.html}</div>`;
+  } catch (er) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
+}
+async function sendPairEmail() {
+  if (adminDirty) { showStatus('prMailStatus', false, 'Save your changes first.'); return; }
+  const v = pair.view;
+  if (!confirm(`Send the Nassau pairings for ${dateShort(pair.key)} to all the Legends${v.pairings && v.pairings.EmailSentAt ? ' again' : ''}?`)) return;
+  showStatus('prMailStatus', true, 'Sending…');
+  try {
+    const res = await apiPost('legendsPairingsSend', { dateKey: pair.key });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('prMailStatus', false, cleanError(res.error)); return; }
+    pair.view = res.data; pair.edit = pairEditFrom(res.data);
+    renderPairingsAdmin(document.getElementById('adminContent'));
+    showStatus('prMailStatus', true, 'Sent to the Legends.');
+  } catch (er) { showStatus('prMailStatus', false, 'Could not reach the server — try again.'); }
 }
 
 // ---------------- Members ----------------
