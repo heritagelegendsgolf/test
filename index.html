@@ -453,7 +453,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-23a';
+const APP_VERSION = '2026-10-23b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1192,6 +1192,10 @@ async function loadBoard(quiet) {
     // Don't redraw underneath someone who is mid-way through typing in a form.
     const ae = document.activeElement;
     if (quiet && ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) { board = res.data; clockSkew = res.data.now - Date.now(); return; }
+    // Admin pages aren't redrawn by the background refresh: it would wipe an email
+    // preview, a file being read, or changes not saved yet. They redraw when you
+    // switch pages or save.
+    if (quiet && currentTab === 'admin') { board = res.data; clockSkew = res.data.now - Date.now(); renderEmailLimitBanner(); return; }
     adoptBoard(res.data);
   } catch (e) {
     if (!quiet) document.getElementById('signupsBody').innerHTML = '<div class="card status error">Could not reach the server — check your connection and reload.</div>';
