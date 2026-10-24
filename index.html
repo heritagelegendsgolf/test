@@ -142,6 +142,12 @@
   .hc-out { font-family: ui-monospace, Menlo, Consolas, monospace; }
   .hc-rule { border:none; border-top:1px solid var(--border); margin:14px 0; }
   table.hc-tbl .num { text-align:center; }
+table.swap-tbl { border-collapse:collapse; width:100%; max-width:640px; }
+table.swap-tbl td { padding:8px 10px 8px 0; border-top:1px solid var(--border, #ddd); vertical-align:middle; }
+table.swap-tbl td:first-child, table.swap-tbl th:first-child { width:190px; white-space:nowrap; padding-right:32px; }
+table.swap-tbl th { text-align:left; padding:4px 10px 6px 0; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted, #666); }
+table.swap-tbl select { width:100%; max-width:420px; }
+table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .hc-card table.hc-tbl th, .hc-card table.hc-tbl td { padding:6px 16px; }
   .hc-card table.hc-tbl { max-width:760px; } table.hc-tbl .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
   table.hc-tbl tr.hc-new td { background:#fff8dc; }
@@ -353,6 +359,7 @@
         <div class="ts-section-title-row" style="margin-top:0;"><h2 style="margin:0;">Tee Time Duty</h2><button class="ts-print-btn no-print" id="dutyPrint" onclick="window.print()">🖨️ Print</button></div>
         <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day requests tee times for two weeks later.</p>
         <div id="dutyInstr"></div>
+        <div id="dutySwap"></div>
         <div class="view-btns no-print">
           <button class="subtab-btn active" data-dview="calendar">Calendar view</button>
           <button class="subtab-btn" data-dview="date">List by date</button>
@@ -455,7 +462,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-23e';
+const APP_VERSION = '2026-10-24e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1922,7 +1929,7 @@ function renderDuty() {
   let days = dutyDays();
   if (want && dutyView !== 'calendar') days = days.filter((d) => d.rows.some((r) => String(r.PlayerID) === String(want)));
   const el = document.getElementById('dutyBody');
-  if (!dutyDays().length) { el.innerHTML = '<p class="hint">No tee time duty has been entered yet.</p>'; return; }
+  if (!dutyDays().length) { document.getElementById('dutySwap').innerHTML = ''; el.innerHTML = '<p class="hint">No tee time duty has been entered yet.</p>'; return; }
   const names = (rows, role) => rows.filter((r) => r.Role === role).map((r) => `<span${String(r.PlayerID) === myId() ? ' style="font-weight:700;color:var(--green-dark)"' : ''}>${escapeHtml(displayName(r.Name))}</span>`).join(', ');
 
   if (dutyView === 'date') {
@@ -1978,8 +1985,9 @@ function renderDuty() {
         return `<div class="cal-c ${mine ? 'mine' : ''} ${closed ? 'closed' : ''}">${ks.map(cellHtml).join('<hr style="border:none;border-top:1px dashed #ccc;margin:4px 0;">')}</div>`;
       }).join('')).join('')}</div>`;
   }
-  el.innerHTML = swapPanelHtml() + el.innerHTML;
-  wireSwaps(el);
+  // The swap form sits above the view buttons, so they come right after "Send swap requests".
+  document.getElementById('dutySwap').innerHTML = swapPanelHtml();
+  wireSwaps(document.getElementById('tab-duty'));
 }
 
 // ---------------- duty swaps (members) ----------------
@@ -1997,6 +2005,7 @@ function swapChoices(fromKey) {
     String(x.PlayerID) !== myId() && !onFrom.has(String(x.PlayerID)))
     .sort((a, b) => (a.DateKey < b.DateKey ? -1 : a.DateKey > b.DateKey ? 1 : a.Name.localeCompare(b.Name)));
 }
+function myDutyDates() { return [...new Set((board.duty || []).filter((x) => String(x.PlayerID) === myId() && x.DateKey >= board.today).map((x) => x.DateKey))].sort(); }
 function swapRoleOf(key, pid) { const r = dutyForDay(key).find((x) => String(x.PlayerID) === String(pid)); return r ? (r.Role === 'phone' ? 'phone in' : 'in person') : ''; }
 function swapIncomingHtml() {
   if (!session) return '';
@@ -2015,11 +2024,15 @@ function swapPanelHtml() {
     if (all.length) html += `<div class="card no-print"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
   }
   if (swapFrom && session) {
-    const ch = swapChoices(swapFrom);
-    html += `<div class="card no-print" id="swapForm"><h3 style="margin-top:0;">Swap your ${escapeHtml(dateShort(swapFrom))} duty (${escapeHtml(swapRoleOf(swapFrom, myId()))})</h3>
-      <p class="hint">Pick the date and person you'd like to trade with. They get an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>
-      ${ch.length ? `<select id="swapTo"><option value="">Choose a date and person…</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})</option>`).join('')}</select>` : '<p class="hint">There are no other upcoming duty dates to swap with.</p>'}
-      <div class="row" style="margin-top:8px;">${ch.length ? '<button class="primary" id="swapSend">Send swap request</button>' : ''}<button class="link" id="swapClose">Cancel</button></div></div>`;
+    // Every upcoming duty date of mine, each with its own choice of who to trade with.
+    const mine = myDutyDates();
+    const any = mine.some((k) => swapChoices(k).length);
+    html += `<div class="card no-print" id="swapForm"><h3 style="margin-top:0;font-size:1.2em;">Swap your tee time duty dates</h3>
+      <p class="hint">Pick who you'd like to trade with for any or all of your dates; leave the others on “Keep this date”. Each person gets an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>
+      <table class="swap-tbl"><thead><tr><th>My Dates</th><th>Request swap with...</th></tr></thead>${mine.map((k) => { const ch = swapChoices(k); return `<tr${k === swapFrom ? ' class="swap-picked"' : ''}>
+        <td><b>${escapeHtml(dateShort(k))}</b><br><span class="hint">${escapeHtml(swapRoleOf(k, myId()))}</span></td>
+        <td>${ch.length ? `<select data-swap-to="${k}"><option value="">Keep this date</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})</option>`).join('')}</select>` : '<span class="hint">No other duty dates to swap with.</span>'}</td></tr>`; }).join('')}</table>
+      <div class="row" style="margin-top:8px;">${any ? '<button class="primary" id="swapSend">Send swap requests</button>' : ''}<button class="link" id="swapClose">Cancel</button></div></div>`;
   }
   return html;
 }
@@ -2028,13 +2041,16 @@ function wireSwaps(el) {
   const close = document.getElementById('swapClose'); if (close) close.onclick = () => { swapFrom = null; renderCurrent(); };
   const send = document.getElementById('swapSend');
   if (send) send.onclick = async () => {
-    const v = document.getElementById('swapTo').value;
-    if (!v) { toast('Choose a date and person first.', true); return; }
-    const [toKey, targetId] = v.split('|');
+    const picks = [...document.querySelectorAll('[data-swap-to]')].filter((x) => x.value).map((x) => { const [toKey, targetId] = x.value.split('|'); return { fromKey: x.dataset.swapTo, toKey, targetId }; });
+    if (!picks.length) { toast('Choose a date and person for at least one of your dates.', true); return; }
+    // Two of my dates can't both go to the same day, or I'd be on duty twice that day.
+    const days = picks.map((x) => x.toKey);
+    if (new Set(days).size !== days.length) { toast(`You picked ${dateShort(days.find((d, i) => days.indexOf(d) !== i))} twice. Choose a different date for one of them.`, true); return; }
     send.disabled = true;
-    const from = swapFrom;
-    if (await act('legendsSwapRequest', { fromKey: from, toKey, targetId, siteUrl: location.origin + location.pathname }, 'Swap request sent — they will get an email.')) { swapFrom = null; renderCurrent(); }
-    else send.disabled = false;
+    let sent = 0;
+    for (const x of picks) if (await act('legendsSwapRequest', Object.assign({ siteUrl: location.origin + location.pathname }, x), '')) sent++; else break;
+    if (sent === picks.length) { swapFrom = null; renderCurrent(); toast(sent === 1 ? 'Swap request sent. They will get an email.' : `${sent} swap requests sent. Each person will get an email.`); }
+    else { renderCurrent(); if (sent) toast(`${sent} of ${picks.length} swap requests sent; the rest were not. See the list above.`, true); }
   };
   el.querySelectorAll('[data-swap-accept]').forEach((b) => b.onclick = async () => {
     if (!confirm('Accept this swap? Your tee time duty dates will change right away.')) return;
