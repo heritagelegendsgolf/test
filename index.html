@@ -462,7 +462,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-24e';
+const APP_VERSION = '2026-10-24f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1986,7 +1986,10 @@ function renderDuty() {
       }).join('')).join('')}</div>`;
   }
   // The swap form sits above the view buttons, so they come right after "Send swap requests".
+  // Keep any choices already made in the swap form when the page refreshes itself.
+  const kept = {}; document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { kept[x.dataset.swapTo] = x.value; });
   document.getElementById('dutySwap').innerHTML = swapPanelHtml();
+  document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { const v = kept[x.dataset.swapTo]; if (v && [...x.options].some((o) => o.value === v)) x.value = v; });
   wireSwaps(document.getElementById('tab-duty'));
 }
 
@@ -2023,22 +2026,23 @@ function swapPanelHtml() {
     const all = myPendingSwaps();
     if (all.length) html += `<div class="card no-print"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
   }
-  if (swapFrom && session) {
-    // Every upcoming duty date of mine, each with its own choice of who to trade with.
-    const mine = myDutyDates();
+  // Always shown to a signed-in member with upcoming duty: every date of mine, each with
+  // its own choice of who to trade with. (A Swap… link just highlights that date.)
+  const mine = session ? myDutyDates() : [];
+  if (mine.length) {
     const any = mine.some((k) => swapChoices(k).length);
     html += `<div class="card no-print" id="swapForm"><h3 style="margin-top:0;font-size:1.2em;">Swap your tee time duty dates</h3>
       <p class="hint">Pick who you'd like to trade with for any or all of your dates; leave the others on “Keep this date”. Each person gets an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>
       <table class="swap-tbl"><thead><tr><th>My Dates</th><th>Request swap with...</th></tr></thead>${mine.map((k) => { const ch = swapChoices(k); return `<tr${k === swapFrom ? ' class="swap-picked"' : ''}>
         <td><b>${escapeHtml(dateShort(k))}</b><br><span class="hint">${escapeHtml(swapRoleOf(k, myId()))}</span></td>
         <td>${ch.length ? `<select data-swap-to="${k}"><option value="">Keep this date</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})</option>`).join('')}</select>` : '<span class="hint">No other duty dates to swap with.</span>'}</td></tr>`; }).join('')}</table>
-      <div class="row" style="margin-top:8px;">${any ? '<button class="primary" id="swapSend">Send swap requests</button>' : ''}<button class="link" id="swapClose">Cancel</button></div></div>`;
+      <div class="row" style="margin-top:8px;">${any ? '<button class="primary" id="swapSend">Send swap requests</button>' : ''}<button class="link" id="swapClose">Clear</button></div></div>`;
   }
   return html;
 }
 function wireSwaps(el) {
   el.querySelectorAll('[data-swap-from]').forEach((b) => b.onclick = () => { swapFrom = b.dataset.swapFrom; renderCurrent(); const f = document.getElementById('swapForm'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
-  const close = document.getElementById('swapClose'); if (close) close.onclick = () => { swapFrom = null; renderCurrent(); };
+  const close = document.getElementById('swapClose'); if (close) close.onclick = () => { swapFrom = null; document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { x.value = ''; }); renderCurrent(); };
   const send = document.getElementById('swapSend');
   if (send) send.onclick = async () => {
     const picks = [...document.querySelectorAll('[data-swap-to]')].filter((x) => x.value).map((x) => { const [toKey, targetId] = x.value.split('|'); return { fromKey: x.dataset.swapTo, toKey, targetId }; });
@@ -2049,7 +2053,7 @@ function wireSwaps(el) {
     send.disabled = true;
     let sent = 0;
     for (const x of picks) if (await act('legendsSwapRequest', Object.assign({ siteUrl: location.origin + location.pathname }, x), '')) sent++; else break;
-    if (sent === picks.length) { swapFrom = null; renderCurrent(); toast(sent === 1 ? 'Swap request sent. They will get an email.' : `${sent} swap requests sent. Each person will get an email.`); }
+    if (sent === picks.length) { swapFrom = null; document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { x.value = ''; }); renderCurrent(); toast(sent === 1 ? 'Swap request sent. They will get an email.' : `${sent} swap requests sent. Each person will get an email.`); }
     else { renderCurrent(); if (sent) toast(`${sent} of ${picks.length} swap requests sent; the rest were not. See the list above.`, true); }
   };
   el.querySelectorAll('[data-swap-accept]').forEach((b) => b.onclick = async () => {
