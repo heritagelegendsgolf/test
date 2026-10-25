@@ -456,13 +456,13 @@ try { applyBigText(localStorage.getItem('legends_big_text') === '1'); } catch (e
 // Same backend as the tournament pages (live.html / tournament-admin.html).
 const CONFIG = {
   test: { backendUrl: 'https://script.google.com/macros/s/AKfycbzTyDa25NoGyjcB7-3SIr8jnNCgBmzerlqZuNX5jWRZwLcoySdJxKsFURZFjJSjMzQq/exec', key: '&wW3d@j>3£56' },
-  live: { backendUrl: 'https://script.google.com/macros/s/AKfycbwpSXsN89fdgQxJNMkYWAvXiCifqnmXAhTZom0OVFg13oh7oYBrjsxVW38Vl3bDnlLv/exec', key: '&wW3d@j>3£56' },
+  live: { backendUrl: 'https://script.google.com/macros/s/AKfycbwoTlfNNHC9D-ulRs-Z77inQ3ItiBLDpYi2HE6RSBMsiqp6FwYevxQyqne1FXoi91-R-g/exec', key: '&wW3d@j>3£56' },
 };
 const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-24f';
+const APP_VERSION = '2026-10-25b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3759,12 +3759,59 @@ function emPanelHtml(t) {
     </div>
   </div>`;
 }
+// "Moved up from standby": sent right away when a standby player gets a spot, so it
+// has no schedule; the admin picks who gets a copy and can change the wording.
+const SB_SAMPLE = { first: 'Michael', name: 'Michael Roane', group: 'Nassau group on Fri, Oct 30' };
+function emStandbyHtml() {
+  const st = board.settings, on = String(st.StandbyEmailOn).toUpperCase() !== 'FALSE';
+  const copy = String(st.StandbyCopyTo || '').split(/[,\s]+/);
+  const box = (id, label) => `<label class="em-aud"><input type="checkbox" data-emto="standby" value="${id}" ${copy.includes(id) ? 'checked' : ''}> ${label}</label>`;
+  return `<div class="em-item">
+    <button type="button" class="em-btn" data-em-toggle="standby" aria-expanded="${emOpen.standby ? 'true' : 'false'}"><span class="em-chev">▸</span><span class="em-title">Moved up from standby</span><span class="em-state ${on ? 'on' : 'off'}">${on ? 'On' : 'Off'}</span></button>
+    <div class="em-panel" data-em-panel="standby" ${emOpen.standby ? '' : 'hidden'}>
+      <p class="hint">When someone drops out of a full group (or an admin removes them), the first person on standby takes the spot and gets this email right away.</p>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="StandbyEmailOn" ${on ? 'checked' : ''}> <b>Send automatically</b></label>
+      <h3>Who gets it</h3>
+      <p>The player who moved up.</p>
+      <p class="hint">Also send a copy (Cc) to:</p>
+      ${box('admin', `Legends admin (${escapeHtml(st.AdminEmail || 'no address set')})`)}
+      ${box('proshop', `Pro Shop <span class="hint">— ${escapeHtml(st.ProShopEmails || 'no address yet')}</span>`)}
+      ${box('extra', 'Additional recipients (place commas between addresses)')}
+      <textarea data-emset="StandbyExtraEmails" rows="2" class="em-sub" placeholder="e.g. someone@gmail.com">${escapeHtml(st.StandbyExtraEmails || '')}</textarea>
+      <h3>Wording</h3>
+      <label class="hint em-field">Subject</label><input type="text" data-emset="StandbySubject" value="${escapeHtml(st.StandbySubject || '')}">
+      <label class="hint em-field">Text</label><textarea data-emset="StandbyText" rows="3">${escapeHtml(st.StandbyText || '')}</textarea>
+      <p class="hint"><code>{first}</code> becomes their first name, <code>{name}</code> their full name, and <code>{group}</code> the group and day (for example “${escapeHtml(SB_SAMPLE.group)}”). If they were also signed up for the other group that day, a sentence saying they've been taken off it is added automatically.</p>
+      <h3>App link</h3>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="StandbyAppLink" ${String(st.StandbyAppLink).toUpperCase() === 'TRUE' ? 'checked' : ''}> Include an “Open the Legends app” link</label>
+      <h3>Preview</h3>
+      <div class="row"><button class="secondary" data-sb-preview>Preview</button><span class="hint">Shows the email with the wording and copies above, even before you save, using Michael Roane as an example.</span></div>
+      <div data-sb-preview-box></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="standby">Save</button></div>
+      <div id="emStatus-standby" class="status"></div>
+    </div>
+  </div>`;
+}
+function emStandbyPreview(el) {
+  const v = (k) => (el.querySelector(`[data-emset="${k}"]`) || {}).value || '';
+  const fill = (t) => String(t).replace(/\{first\}/g, SB_SAMPLE.first).replace(/\{name\}/g, SB_SAMPLE.name).replace(/\{group\}/g, SB_SAMPLE.group);
+  const copy = [...el.querySelectorAll('[data-emto="standby"]:checked')].map((i) => i.value);
+  const cc = [];
+  if (copy.includes('admin') && board.settings.AdminEmail) cc.push(board.settings.AdminEmail);
+  if (copy.includes('proshop')) cc.push(...String(v('ProShopEmails') || board.settings.ProShopEmails || '').split(/[,\s]+/).filter(Boolean));
+  if (copy.includes('extra')) cc.push(...v('StandbyExtraEmails').split(/[,\s]+/).filter(Boolean));
+  const link = el.querySelector('[data-emset-bool="StandbyAppLink"]').checked && board.settings.SiteUrl ? `\n\nOpen the Legends app: ${board.settings.SiteUrl}` : '';
+  const off = !el.querySelector('[data-emset-bool="StandbyEmailOn"]').checked;
+  const body = fill(v('StandbyText') || 'Good news, {first} — a spot opened up and you have moved off the standby list. You are now in the {group}.') + link + '\n\nHeritage Legends Golf';
+  el.querySelector('[data-sb-preview-box]').innerHTML = `<div class="preview-box">${off ? '<p class="status error">Send automatically is off, so this email would not go out.</p>' : ''}<div class="hint"><b>To:</b> Michael Roane's email${cc.length ? `<br><b>Cc:</b> ${escapeHtml([...new Set(cc)].join(', '))}` : ''}<br><b>Subject:</b> ${escapeHtml(fill(v('StandbySubject') || "You're in: {group}"))}</div><hr><div style="white-space:pre-wrap;">${escapeHtml(body)}</div></div>`;
+}
 // Every setting on the page, ready for legendsSaveAppSettings (or a preview).
 function emCollect(el) {
   const patch = {};
   el.querySelectorAll('[data-emset]').forEach((i) => { patch[i.dataset.emset] = i.value; });
   el.querySelectorAll('[data-emset-bool]').forEach((i) => { patch[i.dataset.emsetBool] = i.checked ? 'TRUE' : 'FALSE'; });
   EMAIL_TYPES.forEach((t) => { patch[t.prefix + 'SendTo'] = [...el.querySelectorAll(`[data-emto="${t.type}"]:checked`)].map((i) => i.value).join(','); });
+  if (el.querySelector('[data-em-panel="standby"]')) patch.StandbyCopyTo = [...el.querySelectorAll('[data-emto="standby"]:checked')].map((i) => i.value).join(',');
   return patch;
 }
 async function emPreview(el, type, key) {
@@ -3806,6 +3853,7 @@ function renderEmailsAdmin(el) {
       <p class="hint">The app sends these from the Legends email (${escapeHtml(st.AdminEmail)}). Click one to see what it says, when it goes and who gets it. Try changes with <b>Preview</b>, then <b>Save</b>. ${dirtyNote}</p>
     </div>
     ${EMAIL_TYPES.map(emPanelHtml).join('')}
+    ${emStandbyHtml()}
     <div class="card"><h2>All emails</h2>
       <label>App link in emails</label><input type="text" data-emset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}">
       <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Playing tomorrow” uses one per player.</p>
@@ -3831,6 +3879,7 @@ function renderEmailsAdmin(el) {
     markDirty();
   }));
   el.querySelectorAll('[data-em-save]').forEach((b) => b.onclick = () => adminSave('legendsSaveAppSettings', { settings: JSON.stringify(emCollect(el)) }, 'emStatus-' + b.dataset.emSave));
+  const sbp = el.querySelector('[data-sb-preview]'); if (sbp) sbp.onclick = () => emStandbyPreview(el);
   el.querySelectorAll('[data-rem-preview]').forEach((b) => b.onclick = () => emPreview(el, b.dataset.remPreview, el.querySelector(`[data-rem-date="${b.dataset.remPreview}"]`).value));
   el.querySelectorAll('[data-rem-date]').forEach((i) => i.addEventListener('change', () => {
     const s = el.querySelector(`[data-em-sent="${i.dataset.remDate}"]`);
