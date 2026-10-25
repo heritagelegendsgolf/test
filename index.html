@@ -204,6 +204,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
   .limit-banner { background:#fdecea; border:1px solid #f0b4ae; color:var(--error); border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
+  .other-admins-banner { background:#fdecea; border:1px solid #e6a59e; color:#7a1f15; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
   .view-only-banner { background:#fff6dd; border:1px solid #e8cf86; color:#6b5200; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
   /* Admin > Emails: one button per email that opens to its settings */
   .em-item { background:#fff; border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
@@ -438,6 +439,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
           <button type="button" class="subtab-btn" data-group="pairings" data-asub="pairnassau" hidden>Nassau</button>
         </div>
         <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
+        <div id="otherAdminsBanner" class="other-admins-banner" role="status" hidden></div>
         <div id="emailLimitBanner" class="limit-banner" hidden></div>
         <div id="adminContent"></div>
       </div>
@@ -469,7 +471,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-25d';
+const APP_VERSION = '2026-10-25e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -494,7 +496,7 @@ async function apiGet(action, extra) {
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
 const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'getHandicaps', 'legendsGetBoard', 'legendsFileGet',
-  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog'];
+  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
   if (/Import/.test(action)) return 'Importing…';
@@ -735,6 +737,7 @@ function finishSignIn(data) {
   showApp();
 }
 function signOut() {
+  if (currentTab === 'admin') adminPresencePing(true);
   saveSession(null);
   saveAdminSession(null);
   board = null;
@@ -835,6 +838,7 @@ function showApp(tab, preloaded) {
 }
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 function selectTab(tab) {
+  if (currentTab === 'admin' && tab !== 'admin') adminPresencePing(true);
   currentTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== 'tab-' + tab; });
@@ -2351,6 +2355,7 @@ function renderNewsAdmin(el) {
 let adminSub = 'duty';
 function showAdminSub(sub) {
   adminSub = sub;
+  setTimeout(() => adminPresencePing(), 0);
   const btn = document.querySelector(`#adminSubtabs [data-asub="${sub}"]`);
   const group = btn ? btn.dataset.group : 'setup';
   document.querySelectorAll('#adminGroups [data-agroup]').forEach((x) => x.classList.toggle('active', x.dataset.agroup === group));
@@ -2398,8 +2403,43 @@ function renderAdminGate() {
   const vb = document.getElementById('viewOnlyBanner'); if (vb) vb.hidden = !amViewOnly();
   document.getElementById('adminLocked').hidden = unlocked;
   document.getElementById('adminBody').hidden = !unlocked;
-  if (unlocked) renderAdminSub();
+  if (unlocked) { renderAdminSub(); adminPresencePing(); }
 }
+// ---- Two admins at once (Tom 2026-10-25): each open Admin page checks in about once
+// a minute, and shows a warning while another admin who can make changes is in Admin
+// too, so neither undoes what the other is doing. See adminPresence_ in Code.gs.
+let adminSid = '', otherAdmins = [];
+try { adminSid = sessionStorage.getItem('legends_admin_sid') || ''; } catch (e) {}
+if (!adminSid) { adminSid = Math.random().toString(36).slice(2, 12); try { sessionStorage.setItem('legends_admin_sid', adminSid); } catch (e) {} }
+function adminWhereLabel() {
+  const b = document.querySelector(`#adminSubtabs [data-asub="${adminSub}"]`);
+  const g = b && document.querySelector(`#adminGroups [data-agroup="${b.dataset.group}"]`);
+  return (g ? g.textContent.trim() + ' › ' : '') + (b ? b.textContent.trim() : 'Admin');
+}
+async function adminPresencePing(leaving) {
+  if (!adminSession) return;
+  if (leaving) { otherAdmins = []; renderOtherAdminsBanner(); }
+  try {
+    const res = await apiPost('adminPresence', { sid: adminSid, where: leaving ? '' : adminWhereLabel() });
+    if (res.success && !leaving) { otherAdmins = res.data.others || []; renderOtherAdminsBanner(); }
+  } catch (e) {}
+}
+function renderOtherAdminsBanner() {
+  const el = document.getElementById('otherAdminsBanner');
+  if (!el) return;
+  const others = currentTab === 'admin' && amAdmin() ? otherAdmins.filter((o) => o.role !== 'View') : [];
+  el.hidden = !others.length;
+  if (!others.length) { el.innerHTML = ''; return; }
+  const here = adminWhereLabel();
+  const who = others.map((o) => `<b>${escapeHtml(o.name)}</b> (${o.where === here ? 'on this same page' : 'on ' + escapeHtml(o.where)})`);
+  const list = who.length === 1 ? who[0] : who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1];
+  el.innerHTML = `⚠️ ${list} ${others.length === 1 ? 'is' : 'are'} also working in Admin right now. If you both change the same thing, whoever saves last undoes the other's changes, so check with each other before saving.`;
+}
+setInterval(() => { if (!document.hidden && currentTab === 'admin' && adminSession && !document.getElementById('app').hidden) adminPresencePing(); }, 60000);
+window.addEventListener('pagehide', () => {
+  if (!adminSession || currentTab !== 'admin' || !navigator.sendBeacon) return;
+  try { navigator.sendBeacon(CFG.backendUrl, JSON.stringify({ action: 'adminPresence', key: CFG.key, keyEnc: encodeURIComponent(CFG.key), adminPin: adminSession.pin, sid: adminSid, where: '' })); } catch (e) {}
+});
 document.getElementById('adminPinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockAdmin(); });
 async function unlockAdmin() {
   const pin = document.getElementById('adminPinInput').value.trim();
