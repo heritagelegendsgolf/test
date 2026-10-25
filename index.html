@@ -204,6 +204,9 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
   .limit-banner { background:#fdecea; border:1px solid #f0b4ae; color:var(--error); border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
+  .adm-pages { margin-top:6px; display:flex; flex-direction:column; gap:3px; font-size:.85rem; }
+  .adm-pages label { display:flex; align-items:center; gap:6px; font-weight:normal; white-space:nowrap; }
+  .adm-pages input { width:auto; margin:0; }
   .other-admins-banner { background:#fdecea; border:1px solid #e6a59e; color:#7a1f15; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
   .view-only-banner { background:#fff6dd; border:1px solid #e8cf86; color:#6b5200; border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
   /* Admin > Emails: one button per email that opens to its settings */
@@ -471,7 +474,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-25e';
+const APP_VERSION = '2026-10-25f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1234,8 +1237,12 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && bo
 
 function rosterById(id) { return (board.roster || []).find((r) => String(r.PlayerID) === String(id)); }
 function myId() { return session ? String(session.member.PlayerID) : null; }
-// amAdmin(): can make admin changes. View-only admins can open the Admin tab but not change anything.
-function amAdmin() { return !!adminSession && adminSession.role !== 'View'; }
+// amAdmin(): full admin, can make any admin change. View-only admins can open the Admin tab but not
+// change anything. Limited admins (role "Pages:days,events") see and save only those Admin pages.
+function amAdmin() { return !!adminSession && adminSession.role !== 'View' && !amLimited(); }
+function amLimited() { return !!adminSession && /^Pages:/.test(adminSession.role || ''); }
+function limitedPages() { return amLimited() ? adminSession.role.slice(6).split(',') : []; }
+const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau' };
 function amViewOnly() { return !!adminSession && adminSession.role === 'View'; }
 
 // ====================== SIGN-UPS TAB ======================
@@ -2354,12 +2361,20 @@ function renderNewsAdmin(el) {
 // Admin has two groups: Setup (Tee Time Duty, First Tee Time) and Info (everything else).
 let adminSub = 'duty';
 function showAdminSub(sub) {
+  if (amLimited() && limitedPages().indexOf(sub) === -1) {
+    const btn0 = document.querySelector(`#adminSubtabs [data-asub="${sub}"]`);
+    const inGroup = limitedPages().find((k) => { const x = document.querySelector(`#adminSubtabs [data-asub="${k}"]`); return x && btn0 && x.dataset.group === btn0.dataset.group; });
+    sub = inGroup || limitedPages()[0];
+  }
   adminSub = sub;
   setTimeout(() => adminPresencePing(), 0);
   const btn = document.querySelector(`#adminSubtabs [data-asub="${sub}"]`);
   const group = btn ? btn.dataset.group : 'setup';
   document.querySelectorAll('#adminGroups [data-agroup]').forEach((x) => x.classList.toggle('active', x.dataset.agroup === group));
-  document.querySelectorAll('#adminSubtabs [data-asub]').forEach((x) => { x.hidden = x.dataset.group !== group; x.classList.toggle('active', x.dataset.asub === sub); });
+  document.querySelectorAll('#adminSubtabs [data-asub]').forEach((x) => { x.hidden = x.dataset.group !== group || (amLimited() && limitedPages().indexOf(x.dataset.asub) === -1); x.classList.toggle('active', x.dataset.asub === sub); });
+  document.querySelectorAll('#adminGroups [data-agroup]').forEach((x) => {
+    x.hidden = amLimited() && !limitedPages().some((k) => { const b = document.querySelector(`#adminSubtabs [data-asub="${k}"]`); return b && b.dataset.group === x.dataset.agroup; });
+  });
   renderAdminSub();
 }
 function leaveAdminPageOk() {
@@ -2403,7 +2418,7 @@ function renderAdminGate() {
   const vb = document.getElementById('viewOnlyBanner'); if (vb) vb.hidden = !amViewOnly();
   document.getElementById('adminLocked').hidden = unlocked;
   document.getElementById('adminBody').hidden = !unlocked;
-  if (unlocked) { renderAdminSub(); adminPresencePing(); }
+  if (unlocked) showAdminSub(adminSub); // also checks in for the two-admins warning
 }
 // ---- Two admins at once (Tom 2026-10-25): each open Admin page checks in about once
 // a minute, and shows a warning while another admin who can make changes is in Admin
@@ -2427,7 +2442,7 @@ async function adminPresencePing(leaving) {
 function renderOtherAdminsBanner() {
   const el = document.getElementById('otherAdminsBanner');
   if (!el) return;
-  const others = currentTab === 'admin' && amAdmin() ? otherAdmins.filter((o) => o.role !== 'View') : [];
+  const others = currentTab === 'admin' && (amAdmin() || amLimited()) ? otherAdmins.filter((o) => o.role !== 'View') : [];
   el.hidden = !others.length;
   if (!others.length) { el.innerHTML = ''; return; }
   const here = adminWhereLabel();
@@ -3981,6 +3996,16 @@ function adminPickHtml(i) {
     .sort((a, b) => a.Name.localeCompare(b.Name)).map((r) => `<option value="${escapeHtml(displayName(r.Name))}">${escapeHtml(displayName(r.Name))}</option>`).join('');
   return `<select data-apick="${i}"><option value="">Choose a Legend…</option><option value="__other__">✏️ Type a name (e.g. Guests)</option>${opts}</select>`;
 }
+// Rights: Full, View only, or Limited with a tick box for each page they may use.
+function adminRolePages(role) { return /^Pages:/.test(role || '') ? role.slice(6).split(',').filter((k) => LIMITED_PAGE_NAMES[k]) : []; }
+function adminRightsCell(a, i) {
+  const kind = a.Role === 'View' ? 'View' : /^Pages:/.test(a.Role || '') ? 'Pages' : 'Full';
+  const owner = a.Owner === 'TRUE' ? 'disabled' : '';
+  const sel = `<select data-arole="${i}" ${owner}>${[['Full', 'Full'], ['Pages', 'Limited'], ['View', 'View only']].map(([v, t]) => `<option value="${v}" ${v === kind ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+  if (kind !== 'Pages') return sel;
+  const on = adminRolePages(a.Role);
+  return sel + `<div class="adm-pages">${Object.keys(LIMITED_PAGE_NAMES).map((k) => `<label><input type="checkbox" data-apage="${i}" value="${k}" ${on.indexOf(k) !== -1 ? 'checked' : ''}> ${LIMITED_PAGE_NAMES[k]}</label>`).join('')}</div>`;
+}
 async function renderAdminsAdmin(el) {
   if (!adminUsers) {
     el.innerHTML = '<div class="card hint">Loading admins…</div>';
@@ -4008,13 +4033,13 @@ async function renderAdminsAdmin(el) {
   };
   el.innerHTML = `<div class="card">
       <h2>Admins</h2>
-      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, pick their name from the list (or choose <b>Type a name</b> — e.g. one shared “Guests” admin with View only rights), enter a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
+      <p class="hint">Everyone listed here can open the Admin pages — in this app and on the Annual Tournament admin page (it's the same list). Choose <b>Full</b> rights to let them make changes, <b>Limited</b> to let them see and change only the pages you tick (for example just First Tee Time), or <b>View only</b> for guests who should be able to look around without changing anything. Each admin has their own PIN of 4 to 8 digits; every change they make is recorded under their name on the Activity page. To add someone: <b>+ Add admin</b>, pick their name from the list (or choose <b>Type a name</b> — e.g. one shared “Guests” admin with View only rights), enter a PIN, click <b>Save admins</b>, and give them the PIN. They sign in as themselves with their email and member PIN as usual, then open the <b>Admin</b> tab and enter their admin PIN. Untick <em>Active</em> to take admin rights away (their history is kept).</p>
       <p class="hint"><b>PINs are private:</b> you only see your own PIN and can only change your own (the owner, ${escapeHtml(adminUsers.filter((a) => a.Owner === 'TRUE').map((a) => a.Name).join(', ') || 'Admin-Tom')}, can set a new PIN for someone who forgot theirs, but can't see it either). <b>Removing an admin with full rights takes two admins:</b> the first one's Remove (or untick <em>Active</em>, or change to View only) just asks; it happens when a different admin clicks <b>Agree to remove</b> and saves. Requests lapse after 7 days. The owner can't be removed.</p>
-      <div class="tbl-wrap"><table class="ad" style="min-width:720px;"><thead><tr><th>Name</th><th style="width:180px;">Admin PIN</th><th style="width:150px;">Rights</th><th style="width:70px;">Active</th><th style="width:180px;"></th></tr></thead><tbody>
+      <div class="tbl-wrap"><table class="ad" style="min-width:720px;"><thead><tr><th>Name</th><th style="width:180px;">Admin PIN</th><th style="width:230px;">Rights</th><th style="width:70px;">Active</th><th style="width:180px;"></th></tr></thead><tbody>
       ${adminUsers.map((a, i) => `<tr>
         <td>${a._pick ? adminPickHtml(i) : `<input type="text" data-ai="${i}" data-f="Name" value="${escapeHtml(a.Name || '')}" placeholder="e.g. Ray Schipani" ${a.Owner === 'TRUE' ? 'disabled' : ''}>`}</td>
         <td>${pinCell(a, i)}</td>
-        <td><select data-ai="${i}" data-f="Role" ${a.Owner === 'TRUE' ? 'disabled' : ''}><option value="Full" ${a.Role !== 'View' ? 'selected' : ''}>Full</option><option value="View" ${a.Role === 'View' ? 'selected' : ''}>View only</option></select></td>
+        <td>${adminRightsCell(a, i)}</td>
         <td style="text-align:center;"><input type="checkbox" data-ai="${i}" data-f="Active" ${a.Active !== 'FALSE' ? 'checked' : ''} ${a.Owner === 'TRUE' ? 'disabled' : ''}></td>
         <td>${removeCell(a, i)}</td></tr>`).join('')}
       </tbody></table></div>
@@ -4025,6 +4050,17 @@ async function renderAdminsAdmin(el) {
     adminUsers[Number(i.dataset.ai)][i.dataset.f] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : 'FALSE') : i.value.trim();
     markDirty();
   }));
+  el.querySelectorAll('[data-arole]').forEach((s) => s.onchange = () => {
+    const a = adminUsers[Number(s.dataset.arole)];
+    a.Role = s.value === 'Pages' ? 'Pages:' + adminRolePages(a.Role).join(',') : s.value;
+    markDirty(); renderAdminsAdmin(el);
+  });
+  el.querySelectorAll('[data-apage]').forEach((c) => c.onchange = () => {
+    const a = adminUsers[Number(c.dataset.apage)];
+    const pages = Object.keys(LIMITED_PAGE_NAMES).filter((k) => k === c.value ? c.checked : adminRolePages(a.Role).indexOf(k) !== -1);
+    a.Role = 'Pages:' + pages.join(',');
+    markDirty();
+  });
   el.querySelectorAll('[data-arm]').forEach((b) => b.onclick = () => { adminUsers.splice(Number(b.dataset.arm), 1); markDirty(); renderAdminsAdmin(el); });
   el.querySelectorAll('[data-akeep]').forEach((b) => b.onclick = () => { const a = adminUsers[Number(b.dataset.akeep)]; a.CancelRemoval = !a.CancelRemoval; markDirty(); renderAdminsAdmin(el); });
   document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE', Role: 'Full', _pick: true }); markDirty(); renderAdminsAdmin(el); };
@@ -4039,6 +4075,8 @@ async function renderAdminsAdmin(el) {
   document.getElementById('admSave').onclick = async () => {
     const bad = adminUsers.find((a) => (a.Name || a.PIN) && !(a.OrigName && !a.PIN) && !/^\d{4,8}$/.test(String(a.PIN || '')));
     if (bad) { showStatus('admStatus', false, `${bad.Name || 'An admin'}: the PIN must be 4 to 8 digits.`); return; }
+    const noPages = adminUsers.find((a) => /^Pages:/.test(a.Role || '') && !adminRolePages(a.Role).length && (a.Name || a.PIN));
+    if (noPages) { showStatus('admStatus', false, `${noPages.Name || 'An admin'}: tick at least one page for Limited rights.`); return; }
     showStatus('admStatus', true, 'Saving…');
     try {
       const res = await apiPost('saveAdmins', { admins: JSON.stringify(adminUsers.filter((a) => !a._pick || a.Name || a.PIN).map(({ _pick, ...a }) => a)) });
@@ -4046,7 +4084,7 @@ async function renderAdminsAdmin(el) {
       const sent = new Map(adminUsers.filter((a) => a.OrigName).map((a) => [a.OrigName, a]));
       adminUsers = res.data.map((a) => ({ ...a, OrigName: a.Name }));
       // admins you removed (or switched off / made view-only) who come back unchanged are waiting for a second admin
-      const waiting = adminUsers.filter((a) => { const x = sent.get(a.Name); return a.RemovalRequestedBy && (!x || x.Active === 'FALSE' || x.Role === 'View') && a.Active === 'TRUE'; }).map((a) => a.Name);
+      const waiting = adminUsers.filter((a) => { const x = sent.get(a.Name); return a.RemovalRequestedBy && (!x || x.Active === 'FALSE' || (x.Role || 'Full') !== 'Full') && a.Active === 'TRUE'; }).map((a) => a.Name);
       adminDirty = false;
       // If you changed your own PIN, keep you signed in with the new one.
       const meAdmin = adminUsers.find((a) => adminSession && a.Name === adminSession.name && a.Active !== 'FALSE');
