@@ -211,7 +211,14 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .em-btn:hover { background:#fbfaf5; }
   .em-chev { display:inline-block; transition:transform .15s; color:var(--muted); } .em-btn[aria-expanded="true"] .em-chev { transform:rotate(90deg); }
   .em-title { flex:1; }
-  .em-state { font-size:.75rem; font-weight:600; padding:2px 9px; border-radius:10px; } .em-state.on { background:#e4efe1; color:#2e5a2a; } .em-state.off { background:#f0eee3; color:#8b8a7c; }
+  .em-head { display:flex; align-items:center; gap:8px; padding-right:15px; } .em-head .em-btn { flex:1; }
+  .em-state { font:inherit; font-size:.8rem; font-weight:600; padding:4px 10px 4px 6px; border-radius:14px; border:1px solid; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .em-state::before { content:''; width:26px; height:14px; border-radius:8px; background:currentColor; opacity:.35; box-shadow:inset 0 0 0 2px transparent; }
+  .em-state.on { background:#e4efe1; color:#2e5a2a; border-color:#9cc495; } .em-state.off { background:#f0eee3; color:#8b8a7c; border-color:#d6d3c2; }
+  .em-state.on::before { opacity:1; background:radial-gradient(circle at 19px 7px, #fff 5px, #2e5a2a 6px); } .em-state.off::before { opacity:1; background:radial-gradient(circle at 7px 7px, #fff 5px, #b9b6a6 6px); }
+  .em-state:hover { filter:brightness(.97); } .em-state:disabled { opacity:.6; cursor:wait; }
+  .em-unsaved { font-size:.8rem; font-weight:600; color:#a15c00; background:#fff3dc; border-radius:10px; padding:2px 9px; white-space:nowrap; }
+  .em-sw-status { margin:0 15px 10px; } .em-sw-status:empty { display:none; }
   .em-panel { padding:4px 15px 15px; border-top:1px dashed #e7dfc9; }
   .em-panel h3 { margin:16px 0 6px; font-size:.95rem; color:var(--green-dark); }
   .em-panel p { margin:4px 0; }
@@ -462,7 +469,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-25b';
+const APP_VERSION = '2026-10-25d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -971,7 +978,7 @@ async function renderHandicaps() {
       <h3 class="hc-h">Player handicaps</h3>
       <div class="hint">Handicaps effective as of ${escapeHtml(asOfText(hcpData.asOf))}. Indexes are updated from GHIN every Sunday for the week ahead.</div>
       <div class="tbl-wrap"><table class="ad hc-tbl"><colgroup><col style="width:36%"><col style="width:20%"><col style="width:22%"><col style="width:22%"></colgroup><thead><tr><th>Player</th><th class="num">Handicap index</th><th>Tees</th><th class="num">Course handicap</th></tr></thead>
-        <tbody>${hcpData.players.map((p) => `<tr><td>${escapeHtml(firstLast(p.Name))}</td><td class="num mono">${escapeHtml(p.HandicapIndex || '–')}</td><td>${escapeHtml(p.Tee)}</td><td class="num mono">${chText(p.HandicapIndex, p.Tee)}</td></tr>`).join('')
+        <tbody>${hcpData.players.map((p) => `<tr><td>${escapeHtml(firstLast(p.Name))}${p.Inactive ? ' <span class="hint">(inactive)</span>' : ''}</td><td class="num mono">${escapeHtml(p.HandicapIndex || '–')}</td><td>${escapeHtml(p.Tee)}</td><td class="num mono">${chText(p.HandicapIndex, p.Tee)}</td></tr>`).join('')
           || '<tr><td colspan="4" class="hint">No handicaps yet.</td></tr>'}</tbody></table></div>
     </div>`;
   wireHcpCalc('hcp');
@@ -1029,7 +1036,7 @@ function drawHcpRows() {
   const q = document.getElementById('hcFilter').value.trim().toLowerCase();
   const tb = document.getElementById('hcRows');
   tb.innerHTML = hcpAdmin.players.map((p, i) => ({ p, i })).filter(({ p }) => !q || String(p.Name).toLowerCase().includes(q)).map(({ p, i }) => `
-    <tr class="${p._new ? 'hc-new' : ''}"><td>${escapeHtml(firstLast(p.Name))}</td>
+    <tr class="${p._new ? 'hc-new' : ''}"><td>${escapeHtml(firstLast(p.Name))}${p.Inactive ? ' <span class="hint">(inactive)</span>' : ''}</td>
       <td><input type="text" inputmode="numeric" data-hi="${i}" data-f="GHIN" value="${escapeHtml(p.GHIN || '')}" placeholder="GHIN #" style="width:110px;"></td>
       <td><input type="text" inputmode="decimal" data-hi="${i}" data-f="HandicapIndex" value="${escapeHtml(p.HandicapIndex || '')}" placeholder="–" class="mono" style="width:80px;"></td>
       <td><select data-hi="${i}" data-f="Tee" style="width:auto;">${HCP_TEES.map((t) => `<option ${t.tee === p.Tee ? 'selected' : ''}>${t.tee}</option>`).join('')}</select>
@@ -3682,7 +3689,7 @@ function emWhenHtml(t, key) {
   const hourSel = (k, def) => `<select data-emset="${k}" style="width:auto;">${emHourOpts(st[k] || def)}</select>`;
   const next = (daysBefore, hourKey, def) => emIsOn(t)
     ? `<p class="hint">Next: for <b>${escapeHtml(dateShort(key))}</b> — goes out ${escapeHtml(dateShort(addDays(key, -daysBefore)))} after ${fmtClock((Number(st[hourKey]) || def) * 60)}.</p>`
-    : '<p class="hint">Off — nothing goes out until <b>Send automatically</b> is ticked and saved.</p>';
+    : '<p class="hint">Off — nothing goes out until it\'s switched <b>On</b> (the switch at the top right).</p>';
   if (t.type === 'proshop') {
     const d = (board.dates || []).find((x) => x.DateKey === key);
     return `<p>When a round's sign-ups close — 11:59 PM, ${n} day${n === 1 ? '' : 's'} before play.</p>` +
@@ -3738,10 +3745,9 @@ function emSentHtml(type, key) {
 function emPanelHtml(t) {
   const st = board.settings, key = emNextKey(t.type), isOn = emIsOn(t);
   return `<div class="em-item">
-    <button type="button" class="em-btn" data-em-toggle="${t.type}" aria-expanded="${emOpen[t.type] ? 'true' : 'false'}"><span class="em-chev">▸</span><span class="em-title">${escapeHtml(t.title)}</span><span class="em-state ${isOn ? 'on' : 'off'}">${isOn ? 'On' : 'Off'}</span></button>
+    ${emHeadHtml(t.type, t.title, t.on, isOn)}
     <div class="em-panel" data-em-panel="${t.type}" ${emOpen[t.type] ? '' : 'hidden'}>
       <p class="hint">${escapeHtml(t.desc)}</p>
-      <label class="em-aud"><input type="checkbox" data-emset-bool="${t.on}" ${isOn ? 'checked' : ''}> <b>Send automatically</b></label>
       <h3>When</h3>${emWhenHtml(t, key)}
       <h3>Who gets it</h3>${emWhoHtml(t, key)}
       <h3>Wording</h3>${t.wording.map(([k, label, rows]) => `<label class="hint em-field">${escapeHtml(label)}</label><textarea data-emset="${k}" rows="${rows}">${escapeHtml(st[k] || '')}</textarea>`).join('')}
@@ -3754,10 +3760,18 @@ function emPanelHtml(t) {
       ${t.type === 'proshop' ? '' : `<p class="hint" data-em-sent="${t.type}">${emSentHtml(t.type, key)}</p>`}
       <p class="hint">The preview uses the wording and recipients above, even before you save.${t.type === 'proshop' ? '' : ' <b>Send now</b> sends it for the date shown, with the saved wording and recipients.'}</p>
       <div data-em-preview="${t.type}"></div>
-      <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="${t.type}">Save</button></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="${t.type}">Save</button><span class="em-unsaved" data-em-unsaved hidden>Unsaved changes — click Save</span></div>
       <div id="emStatus-${t.type}" class="status"></div>
     </div>
   </div>`;
+}
+// Each email's heading: click the title to open it; the On/Off switch saves straight away.
+function emHeadHtml(type, title, onKey, isOn) {
+  return `<div class="em-head">
+      <button type="button" class="em-btn" data-em-toggle="${type}" aria-expanded="${emOpen[type] ? 'true' : 'false'}"><span class="em-chev">▸</span><span class="em-title">${escapeHtml(title)}</span><span class="em-unsaved" data-em-unsaved hidden>Unsaved</span></button>
+      <button type="button" class="em-state ${isOn ? 'on' : 'off'}" role="switch" aria-checked="${isOn}" data-em-switch="${onKey}" data-em-type="${type}" data-em-title="${escapeHtml(title)}" title="Click to turn ${isOn ? 'off' : 'on'} (saves right away)">${isOn ? 'On' : 'Off'}</button>
+    </div>
+    <div id="emSw-${type}" class="status em-sw-status"></div>`;
 }
 // "Moved up from standby": sent right away when a standby player gets a spot, so it
 // has no schedule; the admin picks who gets a copy and can change the wording.
@@ -3767,10 +3781,9 @@ function emStandbyHtml() {
   const copy = String(st.StandbyCopyTo || '').split(/[,\s]+/);
   const box = (id, label) => `<label class="em-aud"><input type="checkbox" data-emto="standby" value="${id}" ${copy.includes(id) ? 'checked' : ''}> ${label}</label>`;
   return `<div class="em-item">
-    <button type="button" class="em-btn" data-em-toggle="standby" aria-expanded="${emOpen.standby ? 'true' : 'false'}"><span class="em-chev">▸</span><span class="em-title">Moved up from standby</span><span class="em-state ${on ? 'on' : 'off'}">${on ? 'On' : 'Off'}</span></button>
+    ${emHeadHtml('standby', 'Moved up from standby', 'StandbyEmailOn', on)}
     <div class="em-panel" data-em-panel="standby" ${emOpen.standby ? '' : 'hidden'}>
       <p class="hint">When someone drops out of a full group (or an admin removes them), the first person on standby takes the spot and gets this email right away.</p>
-      <label class="em-aud"><input type="checkbox" data-emset-bool="StandbyEmailOn" ${on ? 'checked' : ''}> <b>Send automatically</b></label>
       <h3>Who gets it</h3>
       <p>The player who moved up.</p>
       <p class="hint">Also send a copy (Cc) to:</p>
@@ -3787,7 +3800,7 @@ function emStandbyHtml() {
       <h3>Preview</h3>
       <div class="row"><button class="secondary" data-sb-preview>Preview</button><span class="hint">Shows the email with the wording and copies above, even before you save, using Michael Roane as an example.</span></div>
       <div data-sb-preview-box></div>
-      <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="standby">Save</button></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="standby">Save</button><span class="em-unsaved" data-em-unsaved hidden>Unsaved changes — click Save</span></div>
       <div id="emStatus-standby" class="status"></div>
     </div>
   </div>`;
@@ -3801,9 +3814,9 @@ function emStandbyPreview(el) {
   if (copy.includes('proshop')) cc.push(...String(v('ProShopEmails') || board.settings.ProShopEmails || '').split(/[,\s]+/).filter(Boolean));
   if (copy.includes('extra')) cc.push(...v('StandbyExtraEmails').split(/[,\s]+/).filter(Boolean));
   const link = el.querySelector('[data-emset-bool="StandbyAppLink"]').checked && board.settings.SiteUrl ? `\n\nOpen the Legends app: ${board.settings.SiteUrl}` : '';
-  const off = !el.querySelector('[data-emset-bool="StandbyEmailOn"]').checked;
+  const off = !el.querySelector('[data-em-switch="StandbyEmailOn"]').classList.contains('on');
   const body = fill(v('StandbyText') || 'Good news, {first} — a spot opened up and you have moved off the standby list. You are now in the {group}.') + link + '\n\nHeritage Legends Golf';
-  el.querySelector('[data-sb-preview-box]').innerHTML = `<div class="preview-box">${off ? '<p class="status error">Send automatically is off, so this email would not go out.</p>' : ''}<div class="hint"><b>To:</b> Michael Roane's email${cc.length ? `<br><b>Cc:</b> ${escapeHtml([...new Set(cc)].join(', '))}` : ''}<br><b>Subject:</b> ${escapeHtml(fill(v('StandbySubject') || "You're in: {group}"))}</div><hr><div style="white-space:pre-wrap;">${escapeHtml(body)}</div></div>`;
+  el.querySelector('[data-sb-preview-box]').innerHTML = `<div class="preview-box">${off ? '<p class="status error">This email is switched Off, so it would not go out.</p>' : ''}<div class="hint"><b>To:</b> Michael Roane's email${cc.length ? `<br><b>Cc:</b> ${escapeHtml([...new Set(cc)].join(', '))}` : ''}<br><b>Subject:</b> ${escapeHtml(fill(v('StandbySubject') || "You're in: {group}"))}</div><hr><div style="white-space:pre-wrap;">${escapeHtml(body)}</div></div>`;
 }
 // Every setting on the page, ready for legendsSaveAppSettings (or a preview).
 function emCollect(el) {
@@ -3877,7 +3890,16 @@ function renderEmailsAdmin(el) {
     // The evening reminder time shows under both Tee Time Duty and Playing tomorrow — keep them the same.
     if (i.dataset.emset) el.querySelectorAll(`[data-emset="${i.dataset.emset}"]`).forEach((x) => { if (x !== i) x.value = i.value; });
     markDirty();
+    const item = i.closest('.em-item'); if (item) item.querySelectorAll('[data-em-unsaved]').forEach((n) => { n.hidden = false; });
   }));
+  el.querySelectorAll('[data-em-switch]').forEach((b) => b.onclick = async () => {
+    const key = b.dataset.emSwitch, turnOn = !b.classList.contains('on'), title = b.dataset.emTitle;
+    if (adminDirty && !confirm('You have unsaved changes on this page. Turning this email ' + (turnOn ? 'on' : 'off') + ' saves right away, and the other unsaved changes will be lost. Go ahead?')) return;
+    b.disabled = true;
+    const ok = await adminSave('legendsSaveAppSettings', { settings: JSON.stringify({ [key]: turnOn ? 'TRUE' : 'FALSE' }) }, 'emSw-' + b.dataset.emType,
+      `Saved: “${title}” is now ${turnOn ? 'On' : 'Off — it won\'t be sent'}.`);
+    if (!ok) b.disabled = false;
+  });
   el.querySelectorAll('[data-em-save]').forEach((b) => b.onclick = () => adminSave('legendsSaveAppSettings', { settings: JSON.stringify(emCollect(el)) }, 'emStatus-' + b.dataset.emSave));
   const sbp = el.querySelector('[data-sb-preview]'); if (sbp) sbp.onclick = () => emStandbyPreview(el);
   el.querySelectorAll('[data-rem-preview]').forEach((b) => b.onclick = () => emPreview(el, b.dataset.remPreview, el.querySelector(`[data-rem-date="${b.dataset.remPreview}"]`).value));
