@@ -135,6 +135,7 @@
   @media (max-width:640px) { .file-row { flex-wrap:wrap; } .file-actions { width:100%; justify-content:flex-end; } }
   .pr-chip { white-space:nowrap; } .pr-chip.blind { font-style:italic; color:var(--muted); } .pr-chip.nib { color:var(--muted); } .pr-chip + .pr-chip { margin-top:6px; } .pr-chip.gone b { text-decoration:line-through; }
   table.pr-swap .ctr, table.pr-swap th.ctr { text-align:center; } table.pr-tbl .num, table.pr-swap .num { text-align:right; }
+  .pr-mvs { display:inline-flex; flex-direction:column; margin-right:6px; vertical-align:middle; } .pr-mv { font-size:11px; line-height:1; padding:1px 4px; text-decoration:none; } .pr-mv:disabled { opacity:.25; cursor:default; }
   table.pr-tbl .mono, table.pr-swap .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
   .hc-h { margin:0 0 2px; font-size:1rem; color:var(--green); }
   .hc-calc { margin-top:8px; align-items:center; gap:10px; }
@@ -204,6 +205,8 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
   .limit-banner { background:#fdecea; border:1px solid #f0b4ae; color:var(--error); border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
+  .at-list { display:flex; flex-wrap:wrap; gap:6px 18px; } .at-list label { display:flex; align-items:center; gap:6px; font-weight:normal; } .at-list input { width:auto; margin:0; }
+  .fp-chip + .fp-chip { margin-top:4px; }
   .adm-pages { margin-top:6px; display:flex; flex-direction:column; gap:3px; font-size:.85rem; }
   .adm-pages label { display:flex; align-items:center; gap:6px; font-weight:normal; white-space:nowrap; }
   .adm-pages input { width:auto; margin:0; }
@@ -441,6 +444,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
           <button type="button" class="subtab-btn" data-group="pairings" data-asub="pairnassau" hidden>Nassau</button>
           <button type="button" class="subtab-btn" data-group="pairings" data-asub="pairfun" hidden>Fun Group</button>
+          <button type="button" class="subtab-btn" data-group="pairings" data-asub="noshows" hidden>No-shows</button>
         </div>
         <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
         <div id="otherAdminsBanner" class="other-admins-banner" role="status" hidden></div>
@@ -475,7 +479,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-26c';
+const APP_VERSION = '2026-10-26d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -500,7 +504,7 @@ async function apiGet(action, extra) {
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
 const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'getHandicaps', 'legendsGetBoard', 'legendsFileGet',
-  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet'];
+  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet', 'legendsAttendanceGet'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
   if (/Import/.test(action)) return 'Importing…';
@@ -1243,7 +1247,7 @@ function myId() { return session ? String(session.member.PlayerID) : null; }
 function amAdmin() { return !!adminSession && adminSession.role !== 'View' && !amLimited(); }
 function amLimited() { return !!adminSession && /^Pages:/.test(adminSession.role || ''); }
 function limitedPages() { return amLimited() ? adminSession.role.slice(6).split(',') : []; }
-const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group' };
+const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group', noshows: 'Pairings › No-shows' };
 function amViewOnly() { return !!adminSession && adminSession.role === 'View'; }
 
 // ====================== SIGN-UPS TAB ======================
@@ -2402,7 +2406,7 @@ window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefa
 // For view-only admins: after any admin page draws, hide the buttons that change
 // things and lock the fields (previews, date ranges and filters still work).
 const VIEW_OK = '[data-ps-preview],[data-rem-preview],[data-em-toggle],#dLoad,[data-memtab],[data-asub],[data-agroup],#prPreview';
-const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly,#hcACalcIdx,#hcACalcTee,#hcFilter,#prDate';
+const VIEW_OK_FIELDS = '[data-rem-date],#dFrom,#dTo,#memFilter,#memMissingOnly,#hcACalcIdx,#hcACalcTee,#hcFilter,#prDate,#fpDate,#atDate,#atDays';
 function lockForViewOnly() {
   if (!amViewOnly()) return;
   const root = document.getElementById('adminContent');
@@ -2511,6 +2515,7 @@ function renderAdminSub() {
   if (adminSub === 'handicaps') return renderHandicapsAdmin(el);
   if (adminSub === 'pairnassau') return renderPairingsAdmin(el);
   if (adminSub === 'pairfun') return renderFunPairAdmin(el);
+  if (adminSub === 'noshows') return renderNoShowsAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 // Top of every admin page: a warning when the automatic emails due on a day would go
@@ -2584,13 +2589,14 @@ function renderPairingsAdmin(el) {
       <h2>Pairings for ${escapeHtml(dateShort(pair.key))}</h2>
       <div class="row" style="align-items:center;gap:8px;margin-bottom:8px;"><label for="prGame"><b>Larry's Game:</b></label><input type="text" id="prGame" maxlength="80" value="${escapeHtml(e.game)}" placeholder="e.g. Minimum Best 22 net per 9" style="max-width:340px;"></div>
       <div id="prWarn"></div>
+      <p class="hint" style="margin:0 0 6px;">Use ▲ ▼ to change the tee order. Each pairing keeps its players and blind, and takes the name of its new place (Aces tee off first). Then click <b>Save changes</b> below.</p>
       <div class="tbl-wrap"><table class="ad pr-tbl" style="min-width:760px;"><thead><tr><th>Pairing</th><th>A</th><th>B</th><th>C</th><th>D</th><th class="num">Avg index</th></tr></thead><tbody id="prTeams"></tbody></table></div>
     </div>
     <div class="card">
       <h2>Swap players between pairings</h2>
       <p class="hint">Click where each player belongs. <b>Not in bet</b> is for someone who plays but isn't part of the bet: he plays with a pairing that's short (or the one you pick), and that pairing needs a blind. <b>Redo pairings</b> keeps him out of the bet and balances the pairings for the betting players only. Pick a <b>Blind for</b> pairing to have someone's score also count for a pairing that's a man short. <b>Extra strokes</b> are added to that player's course handicap (for example after a medical layoff) and stay until you clear them. Click <b>Save changes</b> when done. <b>Redo pairings</b> undoes any changes made here.</p>
       <div class="tbl-wrap"><table class="ad pr-swap" style="min-width:760px;"><thead><tr><th>Player</th><th>Tees</th><th class="num">Index</th>${e.teams.map((t, i) => `<th class="ctr">${escapeHtml(v.names[i])}</th>`).join('')}<th class="ctr">Not in bet</th><th>Blind for / plays with</th><th>Extra strokes</th></tr></thead><tbody id="prSwap"></tbody></table></div>
-      <div class="row" style="margin-top:12px;"><button class="primary" id="prSave">Save changes</button>${dirtyNote}</div>
+      <div class="row" style="margin-top:12px;"><button class="primary" id="prSave">Save changes</button><button class="secondary" id="prIgnore">Ignore changes</button>${dirtyNote}</div>
       <div id="prSaveStatus" class="status"></div>
     </div>
     <div class="card">
@@ -2609,48 +2615,241 @@ function renderPairingsAdmin(el) {
   drawPairings();
   document.getElementById('prGame').oninput = (ev) => { e.game = ev.target.value; markDirty(); };
   document.getElementById('prSave').onclick = savePairings;
+  document.getElementById('prIgnore').onclick = () => {
+    if (adminDirty && !confirm('Ignore the changes you made here and go back to the saved pairings?')) return;
+    pair.edit = pairEditFrom(pair.view); adminDirty = false; renderPairingsAdmin(el);
+    showStatus('prSaveStatus', true, 'Changes ignored — showing the saved pairings.');
+  };
   document.getElementById('prPreview').onclick = previewPairEmail;
   document.getElementById('prSend').onclick = sendPairEmail;
 }
 // ---------------- Pairings > Fun Group ----------------
-// For now: who is signed up for the Fun group on the chosen day (Tom 2026-10-26).
-// How the Fun group pairings are made is still to come.
-let funPair = { key: '', view: null };
-async function loadFunPair(key) {
+// Made on the server (laFunMake_ in LegendsApp.gs) when the round's sign-ups close, or
+// with "Make pairings"; they update themselves when someone drops out or joins. Here
+// admins check them, move players between groups and change the tee order.
+let funPair = { key: '', view: null, edit: null };
+const FUN_HOLES = { F9: 'Front 9', B9: 'Back 9' };
+async function loadFunPair(key, action) {
   funPair.key = key;
+  showStatus('fpStatus', true, action === 'legendsFunMake' ? 'Making pairings…' : 'Loading…');
   try {
-    const res = await apiPost('legendsFunGet', { dateKey: key });
+    const res = await apiPost(action || 'legendsFunGet', { dateKey: key });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('fpStatus', false, cleanError(res.error)); return; }
-    funPair.view = res.data;
-    if (adminSub === 'pairfun') renderFunPairAdmin(document.getElementById('adminContent'));
+    funAdopt(res.data);
+    if (action === 'legendsFunMake') showStatus('fpStatus', true, 'New pairings made.');
   } catch (e) { showStatus('fpStatus', false, 'Could not reach the server — try again.'); }
+}
+function funAdopt(view) {
+  funPair.view = view;
+  funPair.edit = view.pairings ? { teams: (view.pairings.teams || []).map((t) => t.map(String)) } : null;
+  adminDirty = false;
+  if (adminSub === 'pairfun') renderFunPairAdmin(document.getElementById('adminContent'));
+}
+function funNine(p) { return p && (p.Holes === 'F9' || p.Holes === 'B9') ? p.Holes : '18'; }
+function funById() { const m = {}; const v = funPair.view; v.players.concat(v.standby).forEach((p) => { m[p.PlayerID] = p; }); return m; }
+// Problems with one group, in words: someone alone on a nine, and pairs who played together lately.
+function funGroupNotes(t) {
+  const byId = funById(), ps = t.map((id) => byId[id]).filter(Boolean), out = [];
+  if (ps.length > 4) out.push({ bad: true, text: `${ps.length} players — at most 4.` });
+  const n18 = ps.filter((p) => funNine(p) === '18');
+  const f9 = ps.filter((p) => funNine(p) === 'F9'), b9 = ps.filter((p) => funNine(p) === 'B9');
+  if (ps.length > 1) {
+    if (n18.length + f9.length === 1) out.push({ bad: true, text: `${firstLast((n18[0] || f9[0]).Name)} would be alone on the front nine.` });
+    if (n18.length + b9.length === 1) out.push({ bad: true, text: `${firstLast((n18[0] || b9[0]).Name)} would be alone on the back nine.` });
+  }
+  const recent = funPair.view.recent || {};
+  for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++) {
+    const k = t[i] < t[j] ? `${t[i]}|${t[j]}` : `${t[j]}|${t[i]}`;
+    if (recent[k] && byId[t[i]] && byId[t[j]]) out.push({ text: `${firstLast(byId[t[i]].Name)} and ${firstLast(byId[t[j]].Name)} played together ${dateShort(recent[k].last)}.` });
+  }
+  return out;
 }
 function renderFunPairAdmin(el) {
   const days = (board.dates || []).filter((d) => !d.closed);
   if (!funPair.key || !days.some((d) => d.DateKey === funPair.key)) funPair.key = days.length ? days[0].DateKey : '';
   if (!funPair.key) { el.innerHTML = '<div class="card hint">No upcoming Legends days.</div>'; return; }
-  const dateSel = `<select id="fpDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === funPair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>`;
   const v = funPair.view && funPair.view.dateKey === funPair.key ? funPair.view : null;
-  const holes = (h) => h === 'F9' ? 'Front 9' : h === 'B9' ? 'Back 9' : '18';
-  const row = (p, i) => {
-    const ch = p.CH === null || p.CH === undefined ? '–' : p.CH < 0 ? '+' + (-p.CH) : p.CH;
-    return `<tr><td class="num">${i + 1}</td><td>${escapeHtml(firstLast(p.Name))}</td><td>${escapeHtml(p.Tee || '')}</td><td class="num mono">${escapeHtml(p.HI || '–')}</td><td class="num mono">${ch}</td><td>${holes(p.Holes)}</td><td>${p.Riding === 'TRUE' ? 'Riding' : ''}</td><td class="hint">${escapeHtml(p.Comment || '')}</td></tr>`;
-  };
-  const head = '<thead><tr><th class="num">#</th><th>Player</th><th>Tees</th><th class="num">Index</th><th class="num">Course hcp</th><th>Holes</th><th>Cart</th><th>Comment</th></tr></thead>';
-  el.innerHTML = `<div class="card">
+  const dateSel = `<select id="fpDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === funPair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>`;
+  if (!v) {
+    el.innerHTML = `<div class="card"><h2>Fun Group pairings</h2><div class="row">${dateSel}</div><div class="hint">Loading…</div><div id="fpStatus" class="status"></div></div>`;
+    document.getElementById('fpDate').onchange = (ev) => { funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
+    loadFunPair(funPair.key); return;
+  }
+  const rec = v.pairings, e = funPair.edit;
+  const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+  const ps = v.proShop;
+  const shopLine = ps ? `<div class="row" style="align-items:center;gap:8px;margin-top:8px;"><span class="hint">Pro shop list sent ${escapeHtml(when(ps.sentAt))}${ps.sentBy ? ` (${escapeHtml(ps.sentBy)})` : ''}.</span>
+      ${ps.changed ? '<span class="status error" style="margin:0;">⚠️ The players or groups have changed since.</span><button class="secondary" id="fpResend">Send updated list</button>' : '<span class="hint">✓ It still matches.</span>'}</div>` : '';
+  el.innerHTML = `
+    <div class="card">
       <h2>Fun Group pairings</h2>
       <div class="row" style="align-items:center;gap:10px;">${dateSel}
-        ${v ? `<span class="hint">${v.players.length} signed up${v.slots ? ` of ${v.slots} spots` : ''}${v.standby.length ? ` · ${v.standby.length} on standby` : ''}${v.times ? ` · ${escapeHtml(v.times)}` : ''}</span>` : ''}</div>
-      <p class="hint">Making the Fun Group pairings is coming soon. For now this shows who is signed up for the Fun group on the day you pick.</p>
+        <span class="hint">${v.players.length} playing${v.slots ? ` of ${v.slots} spots` : ''}${v.standby.length ? ` · ${v.standby.length} on standby` : ''}${v.times ? ` · ${escapeHtml(v.times)}` : ''}</span></div>
+      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They don't use handicaps. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put people on the same tees together where they can, and split up people who have played together in the last few rounds. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
+      <div class="row"><button class="primary" id="fpMake" ${v.players.length < 2 ? 'disabled' : ''}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
+        ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.edited ? ' · changed by hand' : ''}</span>` : ''}</div>
+      ${shopLine}
       <div id="fpStatus" class="status"></div>
     </div>
-    ${v ? `<div class="card">
-      <h2>Signed up for ${escapeHtml(dateShort(funPair.key))}</h2>
-      <div class="tbl-wrap"><table class="ad" style="min-width:640px;">${head}<tbody>${v.players.map(row).join('') || '<tr><td colspan="8" class="hint">No one has signed up for the Fun group yet.</td></tr>'}</tbody></table></div>
-      ${v.standby.length ? `<h3 style="margin-top:14px;">Standby</h3><div class="tbl-wrap"><table class="ad" style="min-width:640px;">${head}<tbody>${v.standby.map(row).join('')}</tbody></table></div>` : ''}
-    </div>` : '<div class="card hint">Loading…</div>'}`;
-  document.getElementById('fpDate').onchange = (ev) => { funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
-  if (!v) loadFunPair(funPair.key);
+    ${e ? `<div class="card">
+      <h2>Groups for ${escapeHtml(dateShort(funPair.key))}</h2>
+      <p class="hint" style="margin:0 0 6px;">Use ▲ ▼ to change the tee order. Then click <b>Save changes</b> below.</p>
+      <div id="fpWarn"></div>
+      <div class="tbl-wrap"><table class="ad pr-tbl" style="min-width:700px;"><thead><tr><th>Tee time</th><th>Players</th><th>Notes</th></tr></thead><tbody id="fpTeams"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>Move players between groups</h2>
+      <p class="hint">Click the group each player belongs in, or <i>New group</i>. Click <b>Save changes</b> when done, or <b>Ignore changes</b> to go back to the saved groups. <b>Redo pairings</b> undoes any changes made here.</p>
+      <div class="tbl-wrap"><table class="ad pr-swap" style="min-width:640px;"><thead><tr><th>Player</th><th>Tees</th><th>Holes</th><th>Cart</th>${e.teams.map((t, i) => `<th class="ctr">${escapeHtml(funTeeLabel(i))}</th>`).join('')}<th class="ctr">New group</th></tr></thead><tbody id="fpSwap"></tbody></table></div>
+      <div class="row" style="margin-top:12px;"><button class="primary" id="fpSave">Save changes</button><button class="secondary" id="fpIgnore">Ignore changes</button>${dirtyNote}</div>
+      <div id="fpSaveStatus" class="status"></div>
+    </div>` : ''}
+    ${v.standby.length ? `<div class="card"><h2>Standby</h2><p class="hint">Not playing unless a spot opens; they move up in this order and are added to a group then.</p><ol>${v.standby.map((p) => `<li>${escapeHtml(firstLast(p.Name))} <span class="hint">— ${escapeHtml([p.Tee, FUN_HOLES[p.Holes] || '18', p.Riding === 'TRUE' ? 'Riding' : 'Walking'].filter(Boolean).join(', '))}</span></li>`).join('')}</ol></div>` : ''}`;
+  document.getElementById('fpDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = funPair.key; return; } funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
+  document.getElementById('fpMake').onclick = () => {
+    if (rec && !confirm('Redo the Fun group pairings from the current sign-ups? This replaces the groups and any changes made here.')) return;
+    adminDirty = false; loadFunPair(funPair.key, 'legendsFunMake');
+  };
+  const rs = document.getElementById('fpResend');
+  if (rs) rs.onclick = async () => {
+    showStatus('fpStatus', true, 'Sending…');
+    try {
+      const res = await apiPost('legendsProShopSend', { dateKey: funPair.key });
+      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('fpStatus', false, cleanError(res.error)); return; }
+      board = res.data; await loadFunPair(funPair.key); showStatus('fpStatus', true, 'Updated list sent to the pro shop.');
+    } catch (err) { showStatus('fpStatus', false, 'Could not reach the server — try again.'); }
+  };
+  if (!e) return;
+  drawFunPairs();
+  document.getElementById('fpSave').onclick = saveFunPairs;
+  document.getElementById('fpIgnore').onclick = () => {
+    if (adminDirty && !confirm('Ignore the changes you made here and go back to the saved groups?')) return;
+    funAdopt(funPair.view);
+    showStatus('fpSaveStatus', true, 'Changes ignored — showing the saved groups.');
+  };
+}
+function funTeeLabel(i) { const v = funPair.view; return (v.teeList || [])[i] || `Group ${i + 1}`; }
+function drawFunPairs() {
+  const v = funPair.view, e = funPair.edit, byId = funById();
+  const chip = (id) => {
+    const p = byId[id]; if (!p) return '';
+    const det = [p.Tee, FUN_HOLES[p.Holes] || '18', p.Riding === 'TRUE' ? 'Riding' : 'Walking'].filter(Boolean).join(' · ');
+    return `<div class="pr-chip fp-chip"><b>${escapeHtml(firstLast(p.Name))}</b> <span class="hint">${escapeHtml(det)}${p.Comment ? ` — <i>${escapeHtml(p.Comment)}</i>` : ''}</span></div>`;
+  };
+  document.getElementById('fpTeams').innerHTML = e.teams.map((t, i) => {
+    const mv = (d, sym, lbl) => `<button type="button" class="link pr-mv" data-fpmove="${i}" data-fpdir="${d}" title="${lbl}" ${i + d < 0 || i + d >= e.teams.length ? 'disabled' : ''}>${sym}</button>`;
+    const notes = funGroupNotes(t);
+    return `<tr><td style="white-space:nowrap;"><span class="pr-mvs">${mv(-1, '▲', 'Tee off earlier')}${mv(1, '▼', 'Tee off later')}</span><b>${escapeHtml(funTeeLabel(i))}</b></td>
+      <td>${t.map(chip).join('') || '<span class="hint">(empty)</span>'}</td>
+      <td>${notes.map((n) => `<div class="${n.bad ? 'status error' : 'hint'}" style="margin:0 0 3px;">${n.bad ? '⚠️ ' : ''}${escapeHtml(n.text)}</div>`).join('')}</td></tr>`;
+  }).join('');
+  const placed = new Set([].concat(...e.teams));
+  const loose = v.players.filter((p) => !placed.has(p.PlayerID));
+  const warn = [];
+  if (loose.length) warn.push(`Playing but not in a group: <b>${loose.map((p) => escapeHtml(firstLast(p.Name))).join(', ')}</b> — place them below.`);
+  const gone = [...placed].filter((id) => !v.players.some((p) => p.PlayerID === id));
+  if (gone.length) warn.push(`No longer playing: <b>${gone.map((id) => escapeHtml(byId[id] ? firstLast(byId[id].Name) : id)).join(', ')}</b> — Redo pairings, or move someone in their place and save.`);
+  if (e.teams.length > (v.teeList || []).length && (v.teeList || []).length) warn.push(`${e.teams.length} groups but only ${v.teeList.length} Fun group tee times that day.`);
+  document.getElementById('fpWarn').innerHTML = warn.map((w) => `<div class="status error" style="margin-bottom:6px;">⚠️ ${w}</div>`).join('');
+  const rows = [...new Set(v.players.map((p) => p.PlayerID).concat([...placed]))].map((id) => byId[id]).filter(Boolean)
+    .sort((a, b) => lastFirst(a.Name).last.localeCompare(lastFirst(b.Name).last) || String(a.Name).localeCompare(String(b.Name)));
+  document.getElementById('fpSwap').innerHTML = rows.map((p) => {
+    const at = e.teams.findIndex((t) => t.includes(p.PlayerID));
+    const radio = (val) => `<td class="ctr"><input type="radio" name="fp_${p.PlayerID}" data-fp="${p.PlayerID}" value="${val}" ${String(at) === String(val) ? 'checked' : ''}></td>`;
+    return `<tr><td><b>${escapeHtml(firstLast(p.Name))}</b></td><td>${escapeHtml(p.Tee || '')}</td><td>${escapeHtml(FUN_HOLES[p.Holes] || '18')}</td><td>${p.Riding === 'TRUE' ? 'Riding' : 'Walking'}</td>
+      ${e.teams.map((t, i) => radio(i)).join('')}${radio('new')}</tr>`;
+  }).join('');
+  document.querySelectorAll('[data-fp]').forEach((r) => r.onchange = () => {
+    const id = r.dataset.fp;
+    e.teams.forEach((t) => { const k = t.indexOf(id); if (k !== -1) t.splice(k, 1); });
+    if (r.value === 'new') e.teams.push([id]); else e.teams[Number(r.value)].push(id);
+    e.teams = e.teams.filter((t) => t.length);
+    markDirty(); renderFunPairAdmin(document.getElementById('adminContent'));
+  });
+  document.querySelectorAll('[data-fpmove]').forEach((b) => b.onclick = () => {
+    const i = Number(b.dataset.fpmove), j = i + Number(b.dataset.fpdir);
+    if (j < 0 || j >= e.teams.length) return;
+    [e.teams[i], e.teams[j]] = [e.teams[j], e.teams[i]];
+    markDirty(); drawFunPairs();
+  });
+}
+async function saveFunPairs() {
+  const e = funPair.edit;
+  if (e.teams.some((t) => t.length > 4)) { showStatus('fpSaveStatus', false, 'A group can have at most 4 players.'); return; }
+  showStatus('fpSaveStatus', true, 'Saving…');
+  try {
+    const res = await apiPost('legendsFunSave', { dateKey: funPair.key, teams: JSON.stringify(e.teams) });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('fpSaveStatus', false, cleanError(res.error)); return; }
+    funAdopt(res.data);
+    showStatus('fpSaveStatus', true, res.data.proShop && res.data.proShop.sentBy === 'Automatic (update)' ? 'Saved. An updated list went to the pro shop.' : 'Saved.');
+  } catch (err) { showStatus('fpSaveStatus', false, 'Could not reach the server — try again.'); }
+}
+
+// ---------------- Pairings > No-shows ----------------
+// Late drop-outs (leaving a spot after sign-ups closed) are recorded automatically; admins
+// tick no-shows here after the round. The report counts both for each player.
+let att = { view: null, key: '', days: 90 };
+async function loadAttendance(body, statusId, okMsg) {
+  showStatus(statusId || 'atStatus', true, body ? 'Saving…' : 'Loading…');
+  try {
+    const res = await apiPost(body ? 'legendsAttendanceSave' : 'legendsAttendanceGet', body || {});
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus(statusId || 'atStatus', false, cleanError(res.error)); return; }
+    att.view = res.data; adminDirty = false;
+    if (adminSub === 'noshows') renderNoShowsAdmin(document.getElementById('adminContent'));
+    if (okMsg) showStatus(statusId || 'atStatus', true, okMsg);
+  } catch (e) { showStatus(statusId || 'atStatus', false, 'Could not reach the server — try again.'); }
+}
+function renderNoShowsAdmin(el) {
+  if (!att.view) { el.innerHTML = '<div class="card"><h2>No-shows</h2><div class="hint">Loading…</div><div id="atStatus" class="status"></div></div>'; loadAttendance(); return; }
+  const v = att.view;
+  if (!v.dates.some((d) => d.dateKey === att.key)) att.key = v.dates.length ? v.dates[0].dateKey : '';
+  const day = v.dates.find((d) => d.dateKey === att.key);
+  const marked = new Set(v.records.filter((r) => r.DateKey === att.key && r.Kind === 'noshow').map((r) => String(r.PlayerID)));
+  const lateThatDay = new Set(v.records.filter((r) => r.DateKey === att.key && r.Kind === 'late').map((r) => String(r.PlayerID)));
+  const from = (() => { const d = new Date(board.today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - att.days); return d.toISOString().slice(0, 10); })();
+  const recs = v.records.filter((r) => r.DateKey >= from);
+  const per = {};
+  recs.forEach((r) => {
+    const o = per[r.PlayerID] || (per[r.PlayerID] = { name: r.Name, late: 0, noshow: 0, last: '' });
+    o[r.Kind === 'noshow' ? 'noshow' : 'late']++;
+    if (r.DateKey > o.last) o.last = r.DateKey;
+  });
+  const people = Object.values(per).sort((a, b) => (b.late + b.noshow) - (a.late + a.noshow) || lastFirst(a.name).last.localeCompare(lastFirst(b.name).last));
+  const grp = (g) => (g === 'fun' ? 'Fun group' : g === 'nassau' ? 'Nassau' : g);
+  el.innerHTML = `
+    <div class="card">
+      <h2>Mark no-shows</h2>
+      ${day ? `<div class="row" style="align-items:center;gap:10px;"><select id="atDate" style="width:auto;">${v.dates.map((d) => `<option value="${d.dateKey}" ${d.dateKey === att.key ? 'selected' : ''}>${escapeHtml(dateShort(d.dateKey))}${d.dateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>
+        <span class="hint">Tick anyone who had a spot but didn't turn up.</span></div>
+      ${['fun', 'nassau'].map((g) => { const ps = day.players.filter((p) => p.Group === g); return ps.length ? `<h3 style="margin:12px 0 4px;">${grp(g)}</h3><div class="at-list">${ps.map((p) => `<label><input type="checkbox" data-atns="${p.PlayerID}" ${marked.has(p.PlayerID) ? 'checked' : ''}> ${escapeHtml(firstLast(p.Name))}</label>`).join('')}</div>` : ''; }).join('')}
+      ${lateThatDay.size ? `<p class="hint">Late drop-outs that day (recorded automatically): ${[...lateThatDay].map((id) => escapeHtml(firstLast((v.records.find((r) => String(r.PlayerID) === id && r.DateKey === att.key) || {}).Name || ''))).join(', ')}.</p>` : ''}
+      <div class="row" style="margin-top:12px;"><button class="primary" id="atSave">Save no-shows</button>${dirtyNote}</div>`
+        : '<p class="hint">No Legends rounds in the last four weeks.</p>'}
+      <div id="atStatus" class="status"></div>
+    </div>
+    <div class="card">
+      <h2>Late drop-outs and no-shows</h2>
+      <p class="hint">A <b>late drop-out</b> is someone who gave up their spot after sign-ups closed for that round; the app records it when they (or an admin) take them off. Moving up from standby or switching groups automatically doesn't count. Use <b>Remove</b> for one that shouldn't count (for example, an illness you were told about in good time).</p>
+      <div class="row" style="align-items:center;gap:8px;"><label for="atDays">Show the last</label><select id="atDays" style="width:auto;">${[30, 90, 180, 365].map((n) => `<option value="${n}" ${n === att.days ? 'selected' : ''}>${n} days</option>`).join('')}</select></div>
+      ${people.length ? `<div class="tbl-wrap"><table class="ad" style="min-width:460px;"><thead><tr><th>Player</th><th class="num">Late drop-outs</th><th class="num">No-shows</th><th>Most recent</th></tr></thead><tbody>
+        ${people.map((o) => `<tr><td>${escapeHtml(firstLast(o.name))}</td><td class="num">${o.late || ''}</td><td class="num">${o.noshow || ''}</td><td>${escapeHtml(dateShort(o.last))}</td></tr>`).join('')}</tbody></table></div>
+      <h3 style="margin:14px 0 4px;">Each one</h3>
+      <div class="tbl-wrap"><table class="ad" style="min-width:560px;"><thead><tr><th>Date</th><th>Player</th><th>Group</th><th>What</th><th>Recorded by</th><th></th></tr></thead><tbody>
+        ${recs.map((r) => `<tr><td>${escapeHtml(dateShort(r.DateKey))}</td><td>${escapeHtml(firstLast(r.Name))}</td><td>${escapeHtml(grp(r.Group))}</td><td>${r.Kind === 'noshow' ? 'No-show' : 'Late drop-out'}</td><td class="hint">${escapeHtml(r.RecordedBy || '')}</td><td><button class="link danger" data-atrm="${escapeHtml(r.RecordID)}">Remove</button></td></tr>`).join('')}</tbody></table></div>`
+      : `<p class="hint">None in the last ${att.days} days.</p>`}
+      <div id="atRmStatus" class="status"></div>
+    </div>`;
+  const ds = document.getElementById('atDate');
+  if (ds) ds.onchange = () => { if (!leaveAdminPageOk()) { ds.value = att.key; return; } att.key = ds.value; renderNoShowsAdmin(el); };
+  el.querySelectorAll('[data-atns]').forEach((c) => c.onchange = markDirty);
+  const sv = document.getElementById('atSave');
+  if (sv) sv.onclick = () => loadAttendance({ dateKey: att.key, noShows: JSON.stringify([...el.querySelectorAll('[data-atns]:checked')].map((c) => c.dataset.atns)) }, 'atStatus', `Saved the no-shows for ${dateShort(att.key)}.`);
+  document.getElementById('atDays').onchange = (ev) => { att.days = Number(ev.target.value); renderNoShowsAdmin(el); };
+  el.querySelectorAll('[data-atrm]').forEach((b) => b.onclick = () => {
+    if (!confirm('Remove this record?')) return;
+    loadAttendance({ remove: JSON.stringify([b.dataset.atrm]) }, 'atRmStatus', 'Removed.');
+  });
+  if (adminDirty) { const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 }
 // Which pairing each Not-in-bet player plays with (same rule as laPairPlaceNib_ in LegendsApp.gs):
 // their pick, else the pairing with the fewest on the course (earliest if tied), if under four.
@@ -2666,6 +2865,19 @@ function pairPlaceNib() {
     if (i !== -1) { out[id] = i; size[i]++; }
   });
   return out;
+}
+// ▲ ▼ on a pairing: swap it with its neighbour in the tee order. Blinds and the players
+// not in the bet go with their pairing.
+function pairMoveTeam(i, d) {
+  const e = pair.edit, j = i + d;
+  if (j < 0 || j >= e.teams.length) return;
+  const place = pairPlaceNib();
+  Object.keys(place).forEach((id) => { e.playsWith[id] = place[id]; });
+  const map = (t) => (t === i ? j : t === j ? i : t);
+  [e.teams[i], e.teams[j]] = [e.teams[j], e.teams[i]];
+  e.blinds.forEach((b) => { b.team = map(b.team); });
+  Object.keys(e.playsWith).forEach((id) => { e.playsWith[id] = map(Number(e.playsWith[id])); });
+  markDirty(); drawPairings();
 }
 function pairTeamOf(id) { const e = pair.edit; const t = e.teams.findIndex((x) => x.includes(id)); return t !== -1 ? t : e.notInBet.includes(id) ? 'out' : null; }
 function pairHi(p) { const h = cleanHi(p && p.HI); return h ? (h[0] === '+' ? -Number(h.slice(1)) : Number(h)) : null; }
@@ -2686,8 +2898,10 @@ function drawPairings() {
     while (cells.length < 4) cells.push('');
     const his = ids.concat(bl).map((id) => pairHi(byId[id])).filter((x) => x !== null);
     const avg = his.length ? (his.reduce((a, b) => a + b, 0) / his.length).toFixed(1) : '–';
-    return `<tr><td><b>${escapeHtml(v.names[i])}</b> <span class="hint">(${v.order[i]})</span></td>${cells.slice(0, 4).map((c) => `<td>${c}</td>`).join('')}${cells.length > 4 ? '' : ''}<td class="num mono">${avg}</td></tr>`;
+    const mv = (d, sym, lbl) => `<button type="button" class="link pr-mv" data-prmove="${i}" data-prdir="${d}" title="${lbl}" ${i + d < 0 || i + d >= e.teams.length ? 'disabled' : ''}>${sym}</button>`;
+    return `<tr><td><span class="pr-mvs">${mv(-1, '▲', 'Tee off earlier')}${mv(1, '▼', 'Tee off later')}</span><b>${escapeHtml(v.names[i])}</b> <span class="hint">(${v.order[i]})</span></td>${cells.slice(0, 4).map((c) => `<td>${c}</td>`).join('')}${cells.length > 4 ? '' : ''}<td class="num mono">${avg}</td></tr>`;
   }).join('');
+  document.querySelectorAll('[data-prmove]').forEach((b) => b.onclick = () => pairMoveTeam(Number(b.dataset.prmove), Number(b.dataset.prdir)));
   // problems worth a look
   const warn = [];
   const placed = new Set([].concat(...e.teams, e.notInBet));
@@ -3753,7 +3967,7 @@ async function doSugImport() {
 // the changes on the page even before they're saved.
 const EMAIL_TYPES = [
   { type: 'proshop', prefix: 'ProShop', on: 'ProShopAutoSend', title: 'List of players for pro shop',
-    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. Changes after it goes are still phoned in to the pro shop. You can preview any day, or send it yourself at any time.',
+    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. If the players or the Fun group groups change after it has gone, an updated list marked UPDATED goes out (you can turn that off below). You can preview any day, or send it yourself at any time.',
     wording: [['ProShopMessage', 'Message added after “Hello — here are the Heritage Legends players…” (optional)', 2], ['ProShopFooterText', 'Closing line', 2]] },
   { type: 'duty', prefix: 'Duty', on: 'RemindDuty', title: 'Tee Time Duty reminder', personal: true,
     desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
@@ -3878,6 +4092,7 @@ function emPanelHtml(t) {
       <h3>Wording</h3>${t.wording.map(([k, label, rows]) => `<label class="hint em-field">${escapeHtml(label)}</label><textarea data-emset="${k}" rows="${rows}">${escapeHtml(st[k] || '')}</textarea>`).join('')}
       <h3>App link</h3>
       <label class="em-aud"><input type="checkbox" data-emset-bool="${t.prefix}AppLink" ${String(st[t.prefix + 'AppLink']).toUpperCase() === 'TRUE' ? 'checked' : ''}> Include an “Open the Legends app” link</label>
+      ${t.type === 'proshop' ? `<label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list automatically if someone drops out or joins (or the Fun groups change) after it has gone</label>` : ''}
       <p class="hint em-sub">${st.SiteUrl ? `It goes to <a href="${escapeHtml(st.SiteUrl)}" target="_blank" rel="noopener">${escapeHtml(st.SiteUrl)}</a>` : 'No app link is set'} — change it under <b>All emails</b> below.</p>
       <h3>Preview</h3>
       ${t.type === 'proshop' ? emProShopTable() : ''}
