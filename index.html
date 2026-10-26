@@ -440,6 +440,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
           <button type="button" class="subtab-btn" data-group="info" data-asub="sugimport" hidden>SignUp Genius import</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="activity" hidden>Activity</button>
           <button type="button" class="subtab-btn" data-group="pairings" data-asub="pairnassau" hidden>Nassau</button>
+          <button type="button" class="subtab-btn" data-group="pairings" data-asub="pairfun" hidden>Fun Group</button>
         </div>
         <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
         <div id="otherAdminsBanner" class="other-admins-banner" role="status" hidden></div>
@@ -474,7 +475,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-25f';
+const APP_VERSION = '2026-10-26a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -499,7 +500,7 @@ async function apiGet(action, extra) {
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
 const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'getHandicaps', 'legendsGetBoard', 'legendsFileGet',
-  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence'];
+  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
   if (/Import/.test(action)) return 'Importing…';
@@ -1242,7 +1243,7 @@ function myId() { return session ? String(session.member.PlayerID) : null; }
 function amAdmin() { return !!adminSession && adminSession.role !== 'View' && !amLimited(); }
 function amLimited() { return !!adminSession && /^Pages:/.test(adminSession.role || ''); }
 function limitedPages() { return amLimited() ? adminSession.role.slice(6).split(',') : []; }
-const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau' };
+const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group' };
 function amViewOnly() { return !!adminSession && adminSession.role === 'View'; }
 
 // ====================== SIGN-UPS TAB ======================
@@ -2509,6 +2510,7 @@ function renderAdminSub() {
   if (adminSub === 'news') return renderNewsAdmin(el);
   if (adminSub === 'handicaps') return renderHandicapsAdmin(el);
   if (adminSub === 'pairnassau') return renderPairingsAdmin(el);
+  if (adminSub === 'pairfun') return renderFunPairAdmin(el);
 }
 const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes</span>';
 // Top of every admin page: a warning when the automatic emails due on a day would go
@@ -2608,6 +2610,46 @@ function renderPairingsAdmin(el) {
   document.getElementById('prSave').onclick = savePairings;
   document.getElementById('prPreview').onclick = previewPairEmail;
   document.getElementById('prSend').onclick = sendPairEmail;
+}
+// ---------------- Pairings > Fun Group ----------------
+// For now: who is signed up for the Fun group on the chosen day (Tom 2026-10-26).
+// How the Fun group pairings are made is still to come.
+let funPair = { key: '', view: null };
+async function loadFunPair(key) {
+  funPair.key = key;
+  try {
+    const res = await apiPost('legendsFunGet', { dateKey: key });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('fpStatus', false, cleanError(res.error)); return; }
+    funPair.view = res.data;
+    if (adminSub === 'pairfun') renderFunPairAdmin(document.getElementById('adminContent'));
+  } catch (e) { showStatus('fpStatus', false, 'Could not reach the server — try again.'); }
+}
+function renderFunPairAdmin(el) {
+  const days = (board.dates || []).filter((d) => !d.closed);
+  if (!funPair.key || !days.some((d) => d.DateKey === funPair.key)) funPair.key = days.length ? days[0].DateKey : '';
+  if (!funPair.key) { el.innerHTML = '<div class="card hint">No upcoming Legends days.</div>'; return; }
+  const dateSel = `<select id="fpDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === funPair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>`;
+  const v = funPair.view && funPair.view.dateKey === funPair.key ? funPair.view : null;
+  const holes = (h) => h === 'F9' ? 'Front 9' : h === 'B9' ? 'Back 9' : '18';
+  const row = (p, i) => {
+    const ch = p.CH === null || p.CH === undefined ? '–' : p.CH < 0 ? '+' + (-p.CH) : p.CH;
+    return `<tr><td class="num">${i + 1}</td><td>${escapeHtml(firstLast(p.Name))}</td><td>${escapeHtml(p.Tee || '')}</td><td class="num mono">${escapeHtml(p.HI || '–')}</td><td class="num mono">${ch}</td><td>${holes(p.Holes)}</td><td>${p.Riding === 'TRUE' ? 'Riding' : ''}</td><td class="hint">${escapeHtml(p.Comment || '')}</td></tr>`;
+  };
+  const head = '<thead><tr><th class="num">#</th><th>Player</th><th>Tees</th><th class="num">Index</th><th class="num">Course hcp</th><th>Holes</th><th>Cart</th><th>Comment</th></tr></thead>';
+  el.innerHTML = `<div class="card">
+      <h2>Fun Group pairings</h2>
+      <div class="row" style="align-items:center;gap:10px;">${dateSel}
+        ${v ? `<span class="hint">${v.players.length} signed up${v.slots ? ` of ${v.slots} spots` : ''}${v.standby.length ? ` · ${v.standby.length} on standby` : ''}${v.times ? ` · ${escapeHtml(v.times)}` : ''}</span>` : ''}</div>
+      <p class="hint">Making the Fun Group pairings is coming soon. For now this shows who is signed up for the Fun group on the day you pick.</p>
+      <div id="fpStatus" class="status"></div>
+    </div>
+    ${v ? `<div class="card">
+      <h2>Signed up for ${escapeHtml(dateShort(funPair.key))}</h2>
+      <div class="tbl-wrap"><table class="ad" style="min-width:640px;">${head}<tbody>${v.players.map(row).join('') || '<tr><td colspan="8" class="hint">No one has signed up for the Fun group yet.</td></tr>'}</tbody></table></div>
+      ${v.standby.length ? `<h3 style="margin-top:14px;">Standby</h3><div class="tbl-wrap"><table class="ad" style="min-width:640px;">${head}<tbody>${v.standby.map(row).join('')}</tbody></table></div>` : ''}
+    </div>` : '<div class="card hint">Loading…</div>'}`;
+  document.getElementById('fpDate').onchange = (ev) => { funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
+  if (!v) loadFunPair(funPair.key);
 }
 function pairTeamOf(id) { const e = pair.edit; const t = e.teams.findIndex((x) => x.includes(id)); return t !== -1 ? t : e.notInBet.includes(id) ? 'out' : null; }
 function pairHi(p) { const h = cleanHi(p && p.HI); return h ? (h[0] === '+' ? -Number(h.slice(1)) : Number(h)) : null; }
