@@ -475,7 +475,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-26b';
+const APP_VERSION = '2026-10-26c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2653,13 +2653,18 @@ function renderFunPairAdmin(el) {
   if (!v) loadFunPair(funPair.key);
 }
 // Which pairing each Not-in-bet player plays with (same rule as laPairPlaceNib_ in LegendsApp.gs):
-// their pick, else the first pairing with fewer than four on the course.
+// their pick, else the pairing with the fewest on the course (earliest if tied), if under four.
 function pairPlaceNib() {
   const e = pair.edit, size = e.teams.map((t) => t.length), out = {};
   const ok = (i) => e.teams[i] && e.teams[i].length;
   const live = e.notInBet.filter((id) => pair.view.players.some((p) => p.PlayerID === id));
   live.forEach((id) => { const w = e.playsWith[id]; if (w !== undefined && w !== '' && ok(Number(w))) { out[id] = Number(w); size[Number(w)]++; } });
-  live.forEach((id) => { if (out[id] !== undefined) return; const i = size.findIndex((n, k) => ok(k) && n < 4); if (i !== -1) { out[id] = i; size[i]++; } });
+  live.forEach((id) => {
+    if (out[id] !== undefined) return;
+    let i = -1;
+    size.forEach((n, k) => { if (ok(k) && n < 4 && (i === -1 || n < size[i])) i = k; });
+    if (i !== -1) { out[id] = i; size[i]++; }
+  });
   return out;
 }
 function pairTeamOf(id) { const e = pair.edit; const t = e.teams.findIndex((x) => x.includes(id)); return t !== -1 ? t : e.notInBet.includes(id) ? 'out' : null; }
@@ -2692,7 +2697,8 @@ function drawPairings() {
   const nibLoose = e.notInBet.filter((id) => place[id] === undefined && v.players.some((p) => p.PlayerID === id));
   if (nibLoose.length) warn.push(`Not in bet, but every pairing already has four on the course: <b>${nibLoose.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')}</b>. They're listed separately in the email.`);
   if (gone.length) warn.push(`No longer in the playing list: <b>${gone.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')}</b> — move them to Not in bet, or Redo pairings.`);
-  e.teams.forEach((t, i) => { const n = t.length + e.blinds.filter((b) => b.team === i).length; if (t.length > 4) warn.push(`${v.names[i]} has ${t.length} players — at most 4.`); else if (t.length && n < 4 && !(v.layout && v.layout.stableford)) warn.push(`${v.names[i]} has ${t.length} player${t.length === 1 ? '' : 's'}${n > t.length ? ' and a blind' : ''} — pick a blind for them below.`); });
+  const fullSize = Math.max(0, ...e.teams.map((t, i) => t.length + e.blinds.filter((b) => b.team === i).length)); // equal threesomes need no blind
+  e.teams.forEach((t, i) => { const n = t.length + e.blinds.filter((b) => b.team === i).length; if (t.length > 4) warn.push(`${v.names[i]} has ${t.length} players — at most 4.`); else if (t.length && n < fullSize && !(v.layout && v.layout.stableford)) warn.push(`${v.names[i]} has ${t.length} player${t.length === 1 ? '' : 's'}${n > t.length ? ' and a blind' : ''} — pick a blind for them below.`); });
   const noIdx = [...placed].filter((id) => byId[id] && !byId[id].gone && !cleanHi(byId[id].HI));
   if (noIdx.length) warn.push(`No Handicap Index for ${noIdx.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')} (ranked last) — add it on Info &gt; Handicaps.`);
   document.getElementById('prWarn').innerHTML = warn.map((w) => `<div class="status error" style="margin-bottom:6px;">⚠️ ${w}</div>`).join('');
