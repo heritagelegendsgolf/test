@@ -479,7 +479,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-27a';
+const APP_VERSION = '2026-10-27c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2601,11 +2601,12 @@ function renderPairingsAdmin(el) {
     </div>
     <div class="card">
       <h2>Legends Signups Email</h2>
-      <p class="hint">The "Larry's Game" email goes to every Legend (the group address on Admin &gt; Setup &gt; Emails, if one is set). Preview it, then send. Save any changes first.</p>
-      <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send to the Legends'}</button></div>
+      <p class="hint">The "Larry's Game" email with these pairings. Preview it, then send. Save any changes first. Who gets it, and whether it goes automatically, is under <b>Email settings</b> below.${rec && rec.EmailSentAt ? ` <b>Sent ${escapeHtml(when(rec.EmailSentAt))}.</b>` : ''}</p>
+      <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send now'}</button></div>
       <div id="prMailStatus" class="status"></div>
       <div id="prMail"></div>
     </div>` : ''}`;
+  emEmbed(el, 'pairings');
   document.getElementById('prDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = pair.key; return; } pair.view = null; pair.key = ev.target.value; renderPairingsAdmin(el); };
   document.getElementById('prMake').onclick = () => {
     if (rec && !confirm('Redo the pairings from the current sign-ups? This replaces the pairings and any swaps made here.')) return;
@@ -2719,6 +2720,7 @@ function renderFunPairAdmin(el) {
       <div id="fpSaveStatus" class="status"></div>
     </div>` : ''}
     ${v.standby.length ? `<div class="card"><h2>Standby</h2><p class="hint">Not playing unless a spot opens; they move up in this order and are added to a group then.</p><ol>${v.standby.map((p) => `<li>${escapeHtml(firstLast(p.Name))} <span class="hint">— ${escapeHtml([p.Tee, FUN_HOLES[p.Holes] || '18', p.Riding === 'TRUE' ? 'Riding' : 'Walking'].filter(Boolean).join(', '))}</span></li>`).join('')}</ol></div>` : ''}`;
+  emEmbed(el, 'proshop');
   document.getElementById('fpDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = funPair.key; return; } funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
   document.getElementById('fpMake').onclick = () => {
     if (rec && !confirm('Redo the Fun group pairings from the current sign-ups? This replaces the groups and any changes made here.')) return;
@@ -2995,20 +2997,20 @@ async function previewPairEmail() {
     const res = await apiPost('legendsPairingsPreview', { dateKey: pair.key });
     if (!res.success) { if (!handleAdminRejected(res.error)) box.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
     const m = res.data;
-    box.innerHTML = `<div class="preview-box"><div class="hint"><b>${m.total} recipient${m.total === 1 ? '' : 's'}</b><br><b>To:</b> ${escapeHtml(m.to)}${m.cc ? `<br><b>Cc:</b> ${escapeHtml(m.cc)}` : ''}${m.bccCount ? `<br><b>Bcc:</b> ${m.bccCount} Legends` : ''}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div><hr>${m.html}</div>`;
+    box.innerHTML = `<div class="preview-box"><div class="hint"><b>${m.total} recipient${m.total === 1 ? '' : 's'}</b><br><b>To:</b> ${escapeHtml(m.to)}${m.cc ? `<br><b>Cc:</b> ${escapeHtml(m.cc)}` : ''}${m.bccCount ? `<br><b>Bcc:</b> ${m.bccCount} address${m.bccCount === 1 ? '' : 'es'}` : ''}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div><hr>${m.html}</div>`;
   } catch (er) { box.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
 }
 async function sendPairEmail() {
   if (adminDirty) { showStatus('prMailStatus', false, 'Save your changes first.'); return; }
   const v = pair.view;
-  if (!confirm(`Send the Nassau pairings for ${dateShort(pair.key)} to all the Legends${v.pairings && v.pairings.EmailSentAt ? ' again' : ''}?`)) return;
+  if (!confirm(`Send the Nassau pairings email for ${dateShort(pair.key)}${v.pairings && v.pairings.EmailSentAt ? ' again' : ''}? Use Preview first to check who gets it.`)) return;
   showStatus('prMailStatus', true, 'Sending…');
   try {
     const res = await apiPost('legendsPairingsSend', { dateKey: pair.key });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('prMailStatus', false, cleanError(res.error)); return; }
     pair.view = res.data; pair.edit = pairEditFrom(res.data);
     renderPairingsAdmin(document.getElementById('adminContent'));
-    showStatus('prMailStatus', true, 'Sent to the Legends.');
+    showStatus('prMailStatus', true, 'Sent.');
   } catch (er) { showStatus('prMailStatus', false, 'Could not reach the server — try again.'); }
 }
 
@@ -3390,6 +3392,7 @@ function renderDutyAdmin(el) {
   document.getElementById('dSave').onclick = saveDutyEdit;
   document.getElementById('dRead').onclick = readDutyPaste;
   document.getElementById('dApply').onclick = applyDutyPaste;
+  emEmbed(el, 'duty');
   if (adminDirty) document.getElementById('adDirty').hidden = false;
 }
 function dutyRowsFromEdit() {
@@ -4000,12 +4003,15 @@ const EMAIL_TYPES = [
   { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Playing tomorrow',
     desc: 'One email to everyone signed up for the day, listing all their names by group (Fun, then Nassau, with each group\'s tee times and anyone on standby).',
     wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Line right under “Golf tomorrow, …” (the “Can\'t make it?” reminder)', 2]] },
-  { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: '“Legends Signups” summary',
+  { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: 'Sign-up summary (day before)',
     desc: 'The same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list.',
     wording: [['DailyMessage', 'Message added under the heading (optional)', 2], ['DailyFunText', 'Fun group — who to text about a last-minute drop out', 2], ['DailyNassauText', 'Nassau group — how to grab an open slot', 2], ['DailyCancelText', 'Tee time cancellations', 2]] },
   { type: 'closing', prefix: 'Closing', on: 'RemindClosing', title: 'Last day to sign up',
     desc: 'On the last sign-up day, a reminder of how many spots are left, for Legends who haven\'t signed up yet for that round.',
     wording: [['ClosingMessage', 'Message added at the top (optional)', 2], ['ClosingFooterText', 'Closing line', 2]] },
+  { type: 'pairings', prefix: 'Pairings', on: 'PairingsAutoSend', title: 'Legends Signups Email (Nassau pairings)',
+    desc: 'The "Larry\'s Game" email on the day of play: the Nassau pairings with each player\'s tees and handicap, blinds, the game, and everyone\'s index. Made and sent from Admin › Pairings › Nassau.',
+    wording: [['PairingsMessage', 'Message added at the top (optional)', 2]] },
 ];
 // The recipient choices each email offers (the server has the same list).
 const EMAIL_AUDIENCES = {
@@ -4014,6 +4020,7 @@ const EMAIL_AUDIENCES = {
   playing: ['players', 'admin', 'extra'],
   daily: ['legends', 'players', 'proshop', 'extra', 'admin'],
   closing: ['notsigned', 'legends', 'admin', 'extra'],
+  pairings: ['legends', 'players', 'proshop', 'admin', 'extra'],
 };
 const emOpen = {}; // which email buttons are open (kept when the page redraws after a save)
 
@@ -4031,6 +4038,7 @@ function emNextKey(type) {
     if (d) return d.DateKey;
   }
   if (type === 'duty') { const d = (board.duty || []).map((x) => x.DateKey).filter((x) => x > board.today).sort()[0]; if (d) return d; }
+  if (type === 'pairings') { const d = (board.dates || []).find((x) => x.DateKey >= board.today && !x.closed); if (d) return d.DateKey; }
   let k = addDays(board.today, type === 'closing' ? Number(st.SignupCloseDaysBefore) || 2 : 1);
   for (let i = 0; i < 10 && !isPlayDay(k); i++) k = addDays(k, 1);
   return k;
@@ -4038,7 +4046,7 @@ function emNextKey(type) {
 function emAudienceLabel(id, type, key, short) {
   const st = board.settings, d = dateShort(key);
   return {
-    legends: type === 'daily' && st.DailyGroupEmail && !short ? `All Legends (sent to the group address ${st.DailyGroupEmail})` : 'All Legends',
+    legends: (type === 'daily' || type === 'pairings') && st.DailyGroupEmail && !short ? `All Legends (sent to the group address ${st.DailyGroupEmail})` : 'All Legends',
     players: `Players for ${d}`,
     notsigned: `Legends not signed up for ${d}`,
     duty: `Legends on Tee Time Duty ${d}`,
@@ -4060,6 +4068,9 @@ function emWhenHtml(t, key) {
       (!emIsOn(t) ? '<p class="hint">Off — it only goes when you click <b>Send now</b> below.</p>'
         : d ? `<p class="hint">Next: the list for <b>${escapeHtml(dateShort(key))}</b> — ${escapeHtml(whenLabel(d.closesAt - clockSkew))}.</p>` : '');
   }
+  if (t.type === 'pairings') return `<div class="row"><span>On the day of play, once the pairings are made (6 AM), after</span>${hourSel('PairingsHour', 7)}</div>` +
+    (emIsOn(t) ? `<p class="hint">Goes automatically unless someone has already sent it that day, so check the pairings before then. Next: <b>${escapeHtml(dateShort(key))}</b>.</p>`
+      : '<p class="hint">Off — it only goes when someone clicks <b>Send</b> on Admin › Pairings › Nassau.</p>');
   if (t.type === 'duty' || t.type === 'playing') return `<div class="row"><span>The evening before, after</span>${hourSel('ReminderHour', 17)}<span class="hint">(one time for both Tee Time Duty and Playing tomorrow)</span></div>` + next(1, 'ReminderHour', 17);
   if (t.type === 'daily') return `<div class="row"><span>The day before each round, after</span>${hourSel('DailyHour', 8)}</div>` + next(1, 'DailyHour', 8);
   return `<div class="row"><span>On the last sign-up day (${n} day${n === 1 ? '' : 's'} before play), after</span>${hourSel('ClosingReminderHour', 9)}</div>` + next(n, 'ClosingReminderHour', 9);
@@ -4076,6 +4087,7 @@ function emWhoHtml(t, key) {
     : t.type === 'daily' ? 'Everyone is listed openly (not Bcc), so reply-all reaches the group.'
     : t.type === 'playing' ? 'The players are listed openly in To (not Bcc); the admin and additional addresses are copied (Cc).'
     : t.type === 'proshop' ? 'The Pro Shop is in To, the admin and additional addresses are copied (Cc), and any Legends are Bcc\'d.'
+    : t.type === 'pairings' ? (st.DailyGroupEmail ? `All Legends goes To the group address ${st.DailyGroupEmail} (set under Sign-up summary on Admin › Emails); players are Bcc'd and the admin and additional addresses copied (Cc).` : 'The Legends and players are Bcc\'d, so they don\'t see each other\'s addresses; the admin and additional addresses are copied (Cc).')
     : 'The Legends are Bcc\'d, so they don\'t see each other\'s addresses.';
   let more = '';
   if (t.type === 'daily') {
@@ -4106,7 +4118,7 @@ function emSentHtml(type, key) {
   const r = key && emSentFor(type, key);
   return r ? `<span class="imp-ok">✓ Sent for ${escapeHtml(dateShort(key))}</span> — ${escapeHtml(whenLabel(Date.parse(r.SentAt)))} · ${escapeHtml(r.Recipients)} recipients` : '';
 }
-function emPanelHtml(t) {
+function emPanelHtml(t, embedded) {
   const st = board.settings, key = emNextKey(t.type), isOn = emIsOn(t);
   return `<div class="em-item">
     ${emHeadHtml(t.type, t.title, t.on, isOn)}
@@ -4118,17 +4130,87 @@ function emPanelHtml(t) {
       <h3>App link</h3>
       <label class="em-aud"><input type="checkbox" data-emset-bool="${t.prefix}AppLink" ${String(st[t.prefix + 'AppLink']).toUpperCase() === 'TRUE' ? 'checked' : ''}> Include an “Open the Legends app” link</label>
       ${t.type === 'proshop' ? `<label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list automatically if someone drops out or joins (or the Fun groups change) after it has gone</label>` : ''}
-      <p class="hint em-sub">${st.SiteUrl ? `It goes to <a href="${escapeHtml(st.SiteUrl)}" target="_blank" rel="noopener">${escapeHtml(st.SiteUrl)}</a>` : 'No app link is set'} — change it under <b>All emails</b> below.</p>
+      <p class="hint em-sub">${st.SiteUrl ? `It goes to <a href="${escapeHtml(st.SiteUrl)}" target="_blank" rel="noopener">${escapeHtml(st.SiteUrl)}</a>` : 'No app link is set'} — change it under <b>All emails</b> ${embedded ? 'on Admin › Setup › Emails' : 'below'}.</p>
       <h3>Preview</h3>
       ${t.type === 'proshop' ? emProShopTable() : ''}
-      <div class="row" style="margin-top:6px;"><span class="hint">Preview for</span><input type="date" data-rem-date="${t.type}" value="${key}" style="width:auto;"><button class="secondary" data-rem-preview="${t.type}">Preview</button>${t.type === 'proshop' ? '' : `<button class="primary" data-em-send="${t.type}">Send now</button>`}</div>
-      ${t.type === 'proshop' ? '' : `<p class="hint" data-em-sent="${t.type}">${emSentHtml(t.type, key)}</p>`}
-      <p class="hint">The preview uses the wording and recipients above, even before you save.${t.type === 'proshop' ? '' : ' <b>Send now</b> sends it for the date shown, with the saved wording and recipients.'}</p>
+      <div class="row" style="margin-top:6px;"><span class="hint">Preview for</span><input type="date" data-rem-date="${t.type}" value="${key}" style="width:auto;"><button class="secondary" data-rem-preview="${t.type}">Preview</button>${t.type === 'proshop' || t.type === 'pairings' ? '' : `<button class="primary" data-em-send="${t.type}">Send now</button>`}</div>
+      ${t.type === 'proshop' || t.type === 'pairings' ? '' : `<p class="hint" data-em-sent="${t.type}">${emSentHtml(t.type, key)}</p>`}
+      <p class="hint">The preview uses the wording and recipients above, even before you save.${t.type === 'proshop' || t.type === 'pairings' ? '' : ' <b>Send now</b> sends it for the date shown, with the saved wording and recipients.'}</p>
       <div data-em-preview="${t.type}"></div>
       <div class="row" style="margin-top:12px;"><button class="primary" data-em-save="${t.type}">Save</button><span class="em-unsaved" data-em-unsaved hidden>Unsaved changes — click Save</span></div>
       <div id="emStatus-${t.type}" class="status"></div>
     </div>
   </div>`;
+}
+// One email's settings on the page it belongs to (Tom 2026-10-27): the Nassau pairings
+// email on Pairings › Nassau, the pro shop list on Fun Group, the duty reminder on Tee
+// Time Duty. The same panel as on Admin › Emails, but Save (legendsSaveEmailSettings)
+// keeps only this email's settings, so limited admins with the page can use it, and
+// it redraws only this card, so other unsaved changes on the page are kept.
+function emEmbed(el, type) {
+  const t = EMAIL_TYPES.find((x) => x.type === type);
+  if (!t || !board.settings) return;
+  if (emOpen[type] === undefined) emOpen[type] = false;
+  const card = document.createElement('div');
+  card.className = 'card em-embed';
+  el.appendChild(card);
+  let cleanBefore = null; // whether the page had no other unsaved changes before this card's
+  const draw = () => {
+    card.innerHTML = `<h2>Email settings</h2><p class="hint" style="margin-top:0;">Who gets the email, when it goes and what it says. ${amAdmin() ? 'All the emails are also on Admin › Setup › Emails.' : ''}</p>${emPanelHtml(t, true)}`;
+    card.querySelector('[data-em-toggle]').onclick = (ev) => {
+      emOpen[type] = !emOpen[type];
+      ev.currentTarget.setAttribute('aria-expanded', emOpen[type] ? 'true' : 'false');
+      card.querySelector('[data-em-panel]').hidden = !emOpen[type];
+    };
+    card.querySelectorAll('[data-emset], [data-emset-bool], [data-emto]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'checkbox' ? 'change' : 'input', () => {
+      if (cleanBefore === null) cleanBefore = !adminDirty;
+      markDirty();
+      card.querySelectorAll('[data-em-unsaved]').forEach((n) => { n.hidden = false; });
+    }));
+    const save = async (settings, statusId, okMsg) => {
+      showStatus(statusId, true, 'Saving…');
+      try {
+        const res = await apiPost('legendsSaveEmailSettings', { type, settings: JSON.stringify(settings) });
+        if (!res.success) { if (!handleAdminRejected(res.error)) showStatus(statusId, false, cleanError(res.error)); return; }
+        board = res.data;
+        if (cleanBefore) { adminDirty = false; const n = document.getElementById('adDirty'); if (n) n.hidden = true; }
+        cleanBefore = null;
+        draw();
+        showStatus(statusId, true, okMsg || 'Saved.');
+      } catch (e) { showStatus(statusId, false, 'Could not reach the server — try again.'); }
+    };
+    card.querySelector('[data-em-save]').onclick = () => save(emCollect(card), 'emStatus-' + type);
+    const sw = card.querySelector('[data-em-switch]');
+    sw.onclick = () => {
+      const turnOn = !sw.classList.contains('on');
+      if (card.querySelector('[data-em-unsaved]:not([hidden])') && !confirm('Turning this email ' + (turnOn ? 'on' : 'off') + ' saves right away, and your other changes to its settings will be lost. Go ahead?')) return;
+      save({ [t.on]: turnOn ? 'TRUE' : 'FALSE' }, 'emSw-' + type, `Saved: “${t.title}” is now ${turnOn ? 'On' : 'Off — it won\'t be sent automatically'}.`);
+    };
+    card.querySelector('[data-rem-preview]').onclick = () => emPreview(card, type, card.querySelector('[data-rem-date]').value);
+    card.querySelectorAll('[data-ps-preview]').forEach((b) => b.onclick = () => { const i = card.querySelector('[data-rem-date]'); i.value = b.dataset.psPreview; emPreview(card, 'proshop', i.value); });
+    card.querySelectorAll('[data-em-send]').forEach((b) => b.onclick = async () => {
+      const k = card.querySelector('[data-rem-date]').value;
+      if (!k) { showStatus('emStatus-' + type, false, 'Choose a date first.'); return; }
+      if (!confirm(`${emSentFor(type, k) ? 'This was already sent for that date. Send it again' : 'Send it now'}: “${t.title}” for ${dateShort(k)}?\n\nIt goes with the SAVED wording and recipients.`)) return;
+      try {
+        const res = await apiPost('legendsEmailSendNow', { type, dateKey: k });
+        if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('emStatus-' + type, false, cleanError(res.error)); return; }
+        board = res.data; draw(); showStatus('emStatus-' + type, true, `Sent “${t.title}” for ${dateShort(k)}.`);
+      } catch (e) { showStatus('emStatus-' + type, false, 'Could not reach the server — try again.'); }
+    });
+    card.querySelectorAll('[data-ps-send]').forEach((b) => b.onclick = async () => {
+      const k = b.dataset.psSend;
+      if (!confirm(`${proShopSentFor(k) ? 'Send the list again' : 'Send the players list now'} for ${dateShort(k)}?`)) return;
+      try {
+        const res = await apiPost('legendsProShopSend', { dateKey: k });
+        if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('psStatus', false, cleanError(res.error)); return; }
+        board = res.data; draw(); showStatus('psStatus', true, `Sent the ${dateShort(k)} list.`);
+      } catch (e) { showStatus('psStatus', false, 'Could not reach the server — try again.'); }
+    });
+    if (amLimited()) card.querySelectorAll('[data-em-send]').forEach((b) => b.remove()); // Send now is for full admins
+    if (typeof lockForViewOnly === 'function') lockForViewOnly();
+  };
+  draw();
 }
 // Each email's heading: click the title to open it; the On/Off switch saves straight away.
 function emHeadHtml(type, title, onKey, isOn) {
