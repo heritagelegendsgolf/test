@@ -479,7 +479,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-27d';
+const APP_VERSION = '2026-10-27e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2667,7 +2667,7 @@ function funGroupNotes(t, i) {
   if (ps.length === 4 && ps.filter((p) => p.Riding === 'TRUE').length === 3) out.push({ text: 'Three riders and one walker.' });
   const nines = ps.filter((p) => funNine(p) !== '18').length;
   if (ps.length === 4 && nines > 1) out.push({ bad: true, text: `${nines} nine-hole players — at most one in a foursome.` });
-  if (ps.length === 3 && nines > 0 && nines < 3) out.push({ text: 'Nine-hole player in a threesome.' });
+  if (ps.length === 3 && nines > 0 && nines < 3) out.push({ bad: true, text: 'Nine-hole player in a threesome: the others would finish as a twosome. Swap the nine-hole player with an 18-hole player from a foursome.' });
   if (ps.length > 4) out.push({ bad: true, text: `${ps.length} players — at most 4.` });
   const n18 = ps.filter((p) => funNine(p) === '18');
   const f9 = ps.filter((p) => funNine(p) === 'F9'), b9 = ps.filter((p) => funNine(p) === 'B9');
