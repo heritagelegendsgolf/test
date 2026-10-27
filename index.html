@@ -479,7 +479,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-26d';
+const APP_VERSION = '2026-10-27a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2580,7 +2580,7 @@ function renderPairingsAdmin(el) {
         <select id="prDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === pair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>
         <span class="hint">${escapeHtml(pairLayoutText(v.betting ?? v.players.length, v.layout, v.players.length))}${v.standby.length ? ` · ${v.standby.length} on standby` : ''} · first tee ${escapeHtml(v.teeTime)}</span>
       </div>
-      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short play with a blind and tee off first.</p>
+      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short tee off first and play with a blind: the player right below the open slot, in the next pairing. No column or pairing has more than one blind, and with three short pairings there are no blinds (Stableford).</p>
       <div class="row"><button class="primary" id="prMake" ${v.layout ? '' : 'disabled'}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.EmailSentAt ? ` · <b>email sent ${escapeHtml(when(rec.EmailSentAt))}</b>` : ''}</span>` : ''}</div>
       <div id="prStatus" class="status"></div>
@@ -2600,7 +2600,7 @@ function renderPairingsAdmin(el) {
       <div id="prSaveStatus" class="status"></div>
     </div>
     <div class="card">
-      <h2>Email to the Legends</h2>
+      <h2>Legends Signups Email</h2>
       <p class="hint">The "Larry's Game" email goes to every Legend (the group address on Admin &gt; Setup &gt; Emails, if one is set). Preview it, then send. Save any changes first.</p>
       <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send to the Legends'}</button></div>
       <div id="prMailStatus" class="status"></div>
@@ -2648,8 +2648,22 @@ function funAdopt(view) {
 function funNine(p) { return p && (p.Holes === 'F9' || p.Holes === 'B9') ? p.Holes : '18'; }
 function funById() { const m = {}; const v = funPair.view; v.players.concat(v.standby).forEach((p) => { m[p.PlayerID] = p; }); return m; }
 // Problems with one group, in words: someone alone on a nine, and pairs who played together lately.
-function funGroupNotes(t) {
+// 'first', 'last' or '' from the sign-up note (same test as laFunWish_ in LegendsApp.gs).
+function funWish(p) {
+  const t = String((p && p.Comment) || '').toLowerCase();
+  if (/\b(last|latest|later|late)\b[\w\s]{0,15}\b(group|tee|time|off|foursome)\b|\bgo(ing)? (out )?last\b/.test(t)) return 'last';
+  if (/\b(first|earliest|earlier|early)\b[\w\s]{0,15}\b(group|tee|time|off|foursome)\b|\bgo(ing)? (out )?first\b/.test(t)) return 'first';
+  return '';
+}
+function funGroupNotes(t, i) {
   const byId = funById(), ps = t.map((id) => byId[id]).filter(Boolean), out = [];
+  const last = funPair.edit ? funPair.edit.teams.length - 1 : 0;
+  ps.forEach((p) => {
+    const w = funWish(p);
+    if (w === 'first' && i !== 0) out.push({ text: `${firstLast(p.Name)} asked for the first group.` });
+    if (w === 'last' && i !== last) out.push({ text: `${firstLast(p.Name)} asked for the last group.` });
+  });
+  if (ps.length === 4 && ps.filter((p) => p.Riding === 'TRUE').length === 3) out.push({ text: 'Three riders and one walker.' });
   if (ps.length > 4) out.push({ bad: true, text: `${ps.length} players — at most 4.` });
   const n18 = ps.filter((p) => funNine(p) === '18');
   const f9 = ps.filter((p) => funNine(p) === 'F9'), b9 = ps.filter((p) => funNine(p) === 'B9');
@@ -2685,7 +2699,7 @@ function renderFunPairAdmin(el) {
       <h2>Fun Group pairings</h2>
       <div class="row" style="align-items:center;gap:10px;">${dateSel}
         <span class="hint">${v.players.length} playing${v.slots ? ` of ${v.slots} spots` : ''}${v.standby.length ? ` · ${v.standby.length} on standby` : ''}${v.times ? ` · ${escapeHtml(v.times)}` : ''}</span></div>
-      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They don't use handicaps. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put people on the same tees together where they can, and split up people who have played together in the last few rounds. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
+      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They don't use handicaps. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put people on the same tees together where they can, avoid three riders with one walker, and split up people who have played together in the last few rounds. Groups with nine-hole players go out first, and anyone whose sign-up note asks for the first or last group (e.g. "last group please") gets it where possible. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
       <div class="row"><button class="primary" id="fpMake" ${v.players.length < 2 ? 'disabled' : ''}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.edited ? ' · changed by hand' : ''}</span>` : ''}</div>
       ${shopLine}
@@ -2738,7 +2752,7 @@ function drawFunPairs() {
   };
   document.getElementById('fpTeams').innerHTML = e.teams.map((t, i) => {
     const mv = (d, sym, lbl) => `<button type="button" class="link pr-mv" data-fpmove="${i}" data-fpdir="${d}" title="${lbl}" ${i + d < 0 || i + d >= e.teams.length ? 'disabled' : ''}>${sym}</button>`;
-    const notes = funGroupNotes(t);
+    const notes = funGroupNotes(t, i);
     return `<tr><td style="white-space:nowrap;"><span class="pr-mvs">${mv(-1, '▲', 'Tee off earlier')}${mv(1, '▼', 'Tee off later')}</span><b>${escapeHtml(funTeeLabel(i))}</b></td>
       <td>${t.map(chip).join('') || '<span class="hint">(empty)</span>'}</td>
       <td>${notes.map((n) => `<div class="${n.bad ? 'status error' : 'hint'}" style="margin:0 0 3px;">${n.bad ? '⚠️ ' : ''}${escapeHtml(n.text)}</div>`).join('')}</td></tr>`;
@@ -2889,11 +2903,14 @@ function drawPairings() {
     const ch = p.CH === null || p.CH === undefined ? '–' : p.CH < 0 ? '+' + (-p.CH) : p.CH;
     return `<div class="pr-chip${blind ? ' blind' : ''}${nib ? ' nib' : ''}${p.gone ? ' gone' : ''}">${blind ? 'Blind: ' : nib ? 'Not in bet: ' : ''}<b>${escapeHtml(firstLast(p.Name))}</b><br><span class="hint">${escapeHtml(p.Tee || '')} · ${escapeHtml(p.HI || '–')} → ${ch}${p.Extra ? ` (+${p.Extra})` : ''}</span></div>`;
   };
+  const blindCol = {};
   document.getElementById('prTeams').innerHTML = e.teams.map((t, i) => {
-    const ids = t.slice().sort((a, b) => (pairHi(byId[a]) ?? 99) - (pairHi(byId[b]) ?? 99));
+    // the blind sorts in with the players by index, so he sits in the open column
     const bl = e.blinds.filter((b) => b.team === i).map((b) => b.playerId);
+    const ids = t.concat(bl).sort((a, b) => (pairHi(byId[a]) ?? 99) - (pairHi(byId[b]) ?? 99));
+    bl.forEach((id) => { blindCol[id] = ids.indexOf(id); });
     const nibs = Object.keys(place).filter((id) => place[id] === i);
-    const cells = ids.map((id) => chip(id)).concat(nibs.map((id) => chip(id, false, true)), bl.map((id) => chip(id, true)));
+    const cells = ids.map((id) => chip(id, bl.includes(id))).concat(nibs.map((id) => chip(id, false, true)));
     while (cells.length > 4) { const x = cells.pop(); cells[3] += x; } // a 5th entry shares the last column
     while (cells.length < 4) cells.push('');
     const his = ids.concat(bl).map((id) => pairHi(byId[id])).filter((x) => x !== null);
@@ -2913,6 +2930,14 @@ function drawPairings() {
   if (gone.length) warn.push(`No longer in the playing list: <b>${gone.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')}</b> — move them to Not in bet, or Redo pairings.`);
   const fullSize = Math.max(0, ...e.teams.map((t, i) => t.length + e.blinds.filter((b) => b.team === i).length)); // equal threesomes need no blind
   e.teams.forEach((t, i) => { const n = t.length + e.blinds.filter((b) => b.team === i).length; if (t.length > 4) warn.push(`${v.names[i]} has ${t.length} players — at most 4.`); else if (t.length && n < fullSize && !(v.layout && v.layout.stableford)) warn.push(`${v.names[i]} has ${t.length} player${t.length === 1 ? '' : 's'}${n > t.length ? ' and a blind' : ''} — pick a blind for them below.`); });
+  // at most one blind in a column, and one per pairing (Tom 2026-10-27)
+  const cols = {}; e.blinds.forEach((b) => { const c = blindCol[b.playerId]; if (c !== undefined) (cols[c] = cols[c] || []).push(b.playerId); });
+  Object.keys(cols).filter((c) => cols[c].length > 1).forEach((c) => warn.push(`Two blinds in column ${'ABCD'[c] || 'D'}: <b>${cols[c].map((id) => escapeHtml(firstLast(byId[id] ? byId[id].Name : id))).join(', ')}</b> — pick a different blind for one of them.`));
+  e.teams.forEach((t, i) => {
+    const got = e.blinds.filter((b) => b.team === i).length, gave = e.blinds.filter((b) => t.includes(b.playerId)).length;
+    if (got > 1) warn.push(`${v.names[i]} has ${got} blinds — at most one.`);
+    if (gave > 1) warn.push(`${gave} blinds come from ${v.names[i]} — at most one from each pairing.`);
+  });
   const noIdx = [...placed].filter((id) => byId[id] && !byId[id].gone && !cleanHi(byId[id].HI));
   if (noIdx.length) warn.push(`No Handicap Index for ${noIdx.map((id) => escapeHtml(firstLast(byId[id].Name))).join(', ')} (ranked last) — add it on Info &gt; Handicaps.`);
   document.getElementById('prWarn').innerHTML = warn.map((w) => `<div class="status error" style="margin-bottom:6px;">⚠️ ${w}</div>`).join('');
