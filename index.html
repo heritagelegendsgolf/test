@@ -479,7 +479,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-27c';
+const APP_VERSION = '2026-10-27d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2665,6 +2665,9 @@ function funGroupNotes(t, i) {
     if (w === 'last' && i !== last) out.push({ text: `${firstLast(p.Name)} asked for the last group.` });
   });
   if (ps.length === 4 && ps.filter((p) => p.Riding === 'TRUE').length === 3) out.push({ text: 'Three riders and one walker.' });
+  const nines = ps.filter((p) => funNine(p) !== '18').length;
+  if (ps.length === 4 && nines > 1) out.push({ bad: true, text: `${nines} nine-hole players — at most one in a foursome.` });
+  if (ps.length === 3 && nines > 0 && nines < 3) out.push({ text: 'Nine-hole player in a threesome.' });
   if (ps.length > 4) out.push({ bad: true, text: `${ps.length} players — at most 4.` });
   const n18 = ps.filter((p) => funNine(p) === '18');
   const f9 = ps.filter((p) => funNine(p) === 'F9'), b9 = ps.filter((p) => funNine(p) === 'B9');
@@ -2700,7 +2703,7 @@ function renderFunPairAdmin(el) {
       <h2>Fun Group pairings</h2>
       <div class="row" style="align-items:center;gap:10px;">${dateSel}
         <span class="hint">${v.players.length} playing${v.slots ? ` of ${v.slots} spots` : ''}${v.standby.length ? ` · ${v.standby.length} on standby` : ''}${v.times ? ` · ${escapeHtml(v.times)}` : ''}</span></div>
-      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They don't use handicaps. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put people on the same tees together where they can, avoid three riders with one walker, and split up people who have played together in the last few rounds. Groups with nine-hole players go out first, and anyone whose sign-up note asks for the first or last group (e.g. "last group please") gets it where possible. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
+      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They don't use handicaps. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put at most one nine-hole player in a foursome and none in a threesome (unless all three are), put people on the same tees together where they can, avoid three riders with one walker, and split up people who have played together in the last few rounds. Groups with nine-hole players go out first, and anyone whose sign-up note asks for the first or last group (e.g. "last group please") gets it where possible. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
       <div class="row"><button class="primary" id="fpMake" ${v.players.length < 2 ? 'disabled' : ''}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.edited ? ' · changed by hand' : ''}</span>` : ''}</div>
       ${shopLine}
@@ -2719,6 +2722,7 @@ function renderFunPairAdmin(el) {
       <div class="row" style="margin-top:12px;"><button class="primary" id="fpSave">Save changes</button><button class="secondary" id="fpIgnore">Ignore changes</button>${dirtyNote}</div>
       <div id="fpSaveStatus" class="status"></div>
     </div>` : ''}
+    ${funAddRemoveHtml(v, e)}
     ${v.standby.length ? `<div class="card"><h2>Standby</h2><p class="hint">Not playing unless a spot opens; they move up in this order and are added to a group then.</p><ol>${v.standby.map((p) => `<li>${escapeHtml(firstLast(p.Name))} <span class="hint">— ${escapeHtml([p.Tee, FUN_HOLES[p.Holes] || '18', p.Riding === 'TRUE' ? 'Riding' : 'Walking'].filter(Boolean).join(', '))}</span></li>`).join('')}</ol></div>` : ''}`;
   emEmbed(el, 'proshop');
   document.getElementById('fpDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = funPair.key; return; } funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
@@ -2735,6 +2739,22 @@ function renderFunPairAdmin(el) {
       board = res.data; await loadFunPair(funPair.key); showStatus('fpStatus', true, 'Updated list sent to the pro shop.');
     } catch (err) { showStatus('fpStatus', false, 'Could not reach the server — try again.'); }
   };
+  const fa = document.getElementById('faAdd');
+  if (fa) fa.onclick = () => {
+    const id = document.getElementById('faWho').value;
+    if (!id) { showStatus('farStatus', false, 'Choose who to add.'); return; }
+    const t = document.getElementById('faTeam');
+    const r = (board.roster || []).find((x) => String(x.PlayerID) === id);
+    funAddRemove('legendsFunAdd', { playerId: id, tee: document.getElementById('faTee').value, holes: document.getElementById('faHoles').value,
+      riding: document.getElementById('faRide').checked, team: t ? t.value : '' }, `Added ${r ? displayName(r.Name) : ''}.`);
+  };
+  document.getElementById('frRemove').onclick = () => {
+    const sel = document.getElementById('frWho'), id = sel.value, rec = document.getElementById('frRec').value;
+    if (!id) { showStatus('farStatus', false, 'Choose who to take off.'); return; }
+    const name = sel.options[sel.selectedIndex].textContent;
+    if (!confirm(`Take ${name} off the Fun group for ${dateShort(funPair.key)}?`)) return;
+    funAddRemove('legendsFunRemove', { playerId: id, record: rec }, `Took ${name} off${rec === 'noshow' ? ' (recorded as a no-show)' : ''}.`);
+  };
   if (!e) return;
   drawFunPairs();
   document.getElementById('fpSave').onclick = saveFunPairs;
@@ -2743,6 +2763,45 @@ function renderFunPairAdmin(el) {
     funAdopt(funPair.view);
     showStatus('fpSaveStatus', true, 'Changes ignored — showing the saved groups.');
   };
+}
+// Add a Legend who didn't sign up (while there's a free spot), or take a player off (Tom 2026-10-27).
+function funAddRemoveHtml(v, e) {
+  const inFun = new Set(v.players.concat(v.standby).map((p) => String(p.PlayerID)));
+  const pick = (board.roster || []).filter((r) => r.Active !== 'FALSE' && !inFun.has(String(r.PlayerID))).sort((a, b) => a.Name.localeCompare(b.Name));
+  const room = !v.slots || v.players.length < v.slots;
+  const groups = e ? e.teams.map((t, i) => (t.length < 4 ? `<option value="${i}">${escapeHtml(funTeeLabel(i))} (${t.length})</option>` : '')).join('') : '';
+  const tees = TEE_LIST();
+  return `<div class="card">
+    <h2>Add or remove a player</h2>
+    <h3 style="margin:4px 0;">Add someone who didn't sign up</h3>
+    ${room ? `<p class="hint" style="margin-top:0;">For example, someone at the range deciding at the last minute. They're signed up for the Fun group and put in the group you pick.</p>
+    <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;">
+      <select id="faWho" style="width:auto;"><option value="">Choose a Legend…</option>${pick.map((r) => `<option value="${escapeHtml(r.PlayerID)}">${escapeHtml(displayName(r.Name))}</option>`).join('')}</select>
+      <select id="faTee" style="width:auto;"><option value="">Usual tees</option>${tees.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+      <select id="faHoles" style="width:auto;"><option value="18">18 holes</option><option value="F9">Front 9</option><option value="B9">Back 9</option></select>
+      <label style="font-weight:normal;display:flex;gap:4px;align-items:center;"><input type="checkbox" id="faRide" style="width:auto;margin:0;"> Riding</label>
+      ${e ? `<select id="faTeam" style="width:auto;"><option value="">Best group</option>${groups}<option value="new">New group</option></select>` : ''}
+      <button class="primary" id="faAdd">Add</button>
+    </div>` : `<p class="hint" style="margin-top:0;">The Fun group is full (${v.slots} spots). Remove someone first, and the first on standby moves up.</p>`}
+    <h3 style="margin:14px 0 4px;">Take a player off</h3>
+    <p class="hint" style="margin-top:0;">Even after sign-ups close (a no-show, a medical emergency…). The first on standby moves up, gets an email and goes in a group.</p>
+    <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;">
+      <select id="frWho" style="width:auto;"><option value="">Choose a player…</option>${v.players.concat(v.standby).map((p, i) => `<option value="${escapeHtml(p.PlayerID)}">${escapeHtml(firstLast(p.Name))}${i >= v.players.length ? ' (standby)' : ''}</option>`).join('')}</select>
+      <select id="frRec" style="width:auto;"><option value="late">Record as a late drop-out (if sign-ups have closed)</option><option value="noshow">Record as a no-show</option><option value="none">Don't record it (e.g. medical)</option></select>
+      <button class="secondary" id="frRemove">Remove</button>
+    </div>
+    <div id="farStatus" class="status"></div>
+  </div>`;
+}
+async function funAddRemove(action, body, msg) {
+  if (adminDirty && !confirm('You have unsaved changes to the groups. They will be lost. Go ahead?')) return;
+  showStatus('farStatus', true, 'Saving…');
+  try {
+    const res = await apiPost(action, Object.assign({ dateKey: funPair.key }, body));
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('farStatus', false, cleanError(res.error)); return; }
+    funAdopt(res.data);
+    showStatus('farStatus', true, msg);
+  } catch (err) { showStatus('farStatus', false, 'Could not reach the server — try again.'); }
 }
 function funTeeLabel(i) { const v = funPair.view; return (v.teeList || [])[i] || `Group ${i + 1}`; }
 function drawFunPairs() {
@@ -2769,12 +2828,15 @@ function drawFunPairs() {
   document.getElementById('fpWarn').innerHTML = warn.map((w) => `<div class="status error" style="margin-bottom:6px;">⚠️ ${w}</div>`).join('');
   const rows = [...new Set(v.players.map((p) => p.PlayerID).concat([...placed]))].map((id) => byId[id]).filter(Boolean)
     .sort((a, b) => lastFirst(a.Name).last.localeCompare(lastFirst(b.Name).last) || String(a.Name).localeCompare(String(b.Name)));
+  // standby players are listed too, in standby order, but can't be put in a group until they move up
+  const sbRows = v.standby.filter((p) => !placed.has(p.PlayerID)).map((p, i) => `<tr class="hint"><td><b>${escapeHtml(firstLast(p.Name))}</b> <span class="hint">(standby #${i + 1})</span></td><td>${escapeHtml(p.Tee || '')}</td><td>${escapeHtml(FUN_HOLES[p.Holes] || '18')}</td><td>${p.Riding === 'TRUE' ? 'Riding' : 'Walking'}</td>
+      ${e.teams.map(() => '<td class="ctr"><input type="radio" disabled></td>').join('')}<td class="ctr"><input type="radio" disabled></td></tr>`).join('');
   document.getElementById('fpSwap').innerHTML = rows.map((p) => {
     const at = e.teams.findIndex((t) => t.includes(p.PlayerID));
     const radio = (val) => `<td class="ctr"><input type="radio" name="fp_${p.PlayerID}" data-fp="${p.PlayerID}" value="${val}" ${String(at) === String(val) ? 'checked' : ''}></td>`;
     return `<tr><td><b>${escapeHtml(firstLast(p.Name))}</b></td><td>${escapeHtml(p.Tee || '')}</td><td>${escapeHtml(FUN_HOLES[p.Holes] || '18')}</td><td>${p.Riding === 'TRUE' ? 'Riding' : 'Walking'}</td>
       ${e.teams.map((t, i) => radio(i)).join('')}${radio('new')}</tr>`;
-  }).join('');
+  }).join('') + sbRows;
   document.querySelectorAll('[data-fp]').forEach((r) => r.onchange = () => {
     const id = r.dataset.fp;
     e.teams.forEach((t) => { const k = t.indexOf(id); if (k !== -1) t.splice(k, 1); });
@@ -4025,6 +4087,8 @@ const EMAIL_AUDIENCES = {
 const emOpen = {}; // which email buttons are open (kept when the page redraws after a save)
 
 function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.DateKey === key).sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1))[0] || null; }
+// When the pro shop list for day d goes (see laProShopDue_ in LegendsApp.gs).
+function proShopDue(d) { const h = String(board.settings.ProShopHour || ''); return h === '' ? d.closesAt : d.closesAt + 60000 + Number(h) * 3600000; }
 function emIsOn(t) {
   const v = String(board.settings[t.on]).toUpperCase();
   return t.type === 'proshop' ? v !== 'FALSE' : v === 'TRUE';
@@ -4064,9 +4128,13 @@ function emWhenHtml(t, key) {
     : '<p class="hint">Off — nothing goes out until it\'s switched <b>On</b> (the switch at the top right).</p>';
   if (t.type === 'proshop') {
     const d = (board.dates || []).find((x) => x.DateKey === key);
-    return `<p>When a round's sign-ups close — 11:59 PM, ${n} day${n === 1 ? '' : 's'} before play.</p>` +
+    const h = String(st.ProShopHour || '');
+    const opts = `<option value="" ${h === '' ? 'selected' : ''}>as soon as sign-ups close (11:59 PM, ${n} day${n === 1 ? '' : 's'} before play)</option>` +
+      Array.from({ length: 13 }, (_, i) => i + 5).map((x) => `<option value="${x}" ${h === String(x) ? 'selected' : ''}>the next morning at ${fmtClock(x * 60)}</option>`).join('');
+    return `<div class="row"><span>The list goes</span><select data-emset="ProShopHour" style="width:auto;">${opts}</select></div>
+      <p class="hint">The Fun group's groups are made when sign-ups close, so the list shows them. Sign-ups closing is set on Admin › Setup › Sign-up rules.</p>` +
       (!emIsOn(t) ? '<p class="hint">Off — it only goes when you click <b>Send now</b> below.</p>'
-        : d ? `<p class="hint">Next: the list for <b>${escapeHtml(dateShort(key))}</b> — ${escapeHtml(whenLabel(d.closesAt - clockSkew))}.</p>` : '');
+        : d ? `<p class="hint">Next: the list for <b>${escapeHtml(dateShort(key))}</b> — ${escapeHtml(whenLabel(proShopDue(d) - clockSkew))}.</p>` : '');
   }
   if (t.type === 'pairings') return `<div class="row"><span>On the day of play, once the pairings are made (6 AM), after</span>${hourSel('PairingsHour', 7)}</div>` +
     (emIsOn(t) ? `<p class="hint">Goes automatically unless someone has already sent it that day, so check the pairings before then. Next: <b>${escapeHtml(dateShort(key))}</b>.</p>`
@@ -4104,8 +4172,8 @@ function emProShopTable() {
     let status;
     if (d.closed) status = `<span class="hint">No Legends tee times — ${escapeHtml(d.closed)}</span>`;
     else if (sent) status = `<span class="imp-ok">✓ Sent ${escapeHtml(whenLabel(Date.parse(sent.SentAt)))}</span> <span class="hint">${sent.SentBy === 'Automatic' ? 'automatically' : 'by ' + escapeHtml(sent.SentBy)} · ${escapeHtml(sent.Players)} players</span>`;
-    else if (serverNow() > d.closesAt) status = auto ? '<span class="hint">Sign-ups closed — sending within the hour</span>' : '<span class="imp-bad">Sign-ups closed — not sent yet</span>';
-    else status = `<span class="hint">${auto ? 'Sends automatically' : 'Ready to send'} after sign-ups close ${escapeHtml(whenLabel(d.closesAt - clockSkew))}</span>`;
+    else if (serverNow() > proShopDue(d)) status = auto ? '<span class="hint">Due — sending within the hour</span>' : '<span class="imp-bad">Sign-ups closed — not sent yet</span>';
+    else status = `<span class="hint">${auto ? `Sends automatically ${escapeHtml(whenLabel(proShopDue(d) - clockSkew))}` : `Ready to send after sign-ups close ${escapeHtml(whenLabel(d.closesAt - clockSkew))}`}</span>`;
     return `<tr><td><b>${escapeHtml(dateShort(d.DateKey))}</b></td><td>${d.closed ? '' : nIn}</td><td>${status}</td>
       <td style="white-space:nowrap;">${d.closed ? '' : `<button class="secondary" data-ps-preview="${d.DateKey}">Preview</button> <button class="${sent ? 'secondary' : 'primary'}" data-ps-send="${d.DateKey}">${sent ? 'Send again' : 'Send now'}</button>`}</td></tr>`;
   }).join('');
@@ -4156,7 +4224,13 @@ function emEmbed(el, type) {
   el.appendChild(card);
   let cleanBefore = null; // whether the page had no other unsaved changes before this card's
   const draw = () => {
-    card.innerHTML = `<h2>Email settings</h2><p class="hint" style="margin-top:0;">Who gets the email, when it goes and what it says. ${amAdmin() ? 'All the emails are also on Admin › Setup › Emails.' : ''}</p>${emPanelHtml(t, true)}`;
+    const st = board.settings, key = emNextKey(type);
+    const who = String(st[t.prefix + 'SendTo'] || '').split(/[,\s]+/).filter((a) => EMAIL_AUDIENCES[type].includes(a)).map((a) => emAudienceLabel(a, type, key, true));
+    const summary = `<b>${emIsOn(t) ? 'On' : 'Off'}</b> · goes to ${who.length ? escapeHtml(who.join(', ')) : '<b>nobody</b>'}` +
+      (type === 'proshop' ? ` · ${emIsOn(t) ? (String(st.ProShopHour || '') === '' ? 'when sign-ups close' : `the morning after sign-ups close, at ${fmtClock(Number(st.ProShopHour) * 60)}`) : 'only when sent by hand'}${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? ', and again if the players change' : ''}`
+        : type === 'pairings' ? ` · ${emIsOn(t) ? `on the day of play at ${fmtClock((Number(st.PairingsHour) || 7) * 60)}` : 'only when sent by hand'}`
+        : type === 'duty' ? ` · ${emIsOn(t) ? `the evening before, at ${fmtClock((Number(st.ReminderHour) || 17) * 60)}` : 'off'}` : '');
+    card.innerHTML = `<h2>Email settings</h2><p class="hint" style="margin-top:0;">${t.title}: ${summary}. Click the title to change who gets it, when it goes and what it says. ${amAdmin() ? 'All the emails are also on Admin › Setup › Emails.' : ''}</p>${emPanelHtml(t, true)}`;
     card.querySelector('[data-em-toggle]').onclick = (ev) => {
       emOpen[type] = !emOpen[type];
       ev.currentTarget.setAttribute('aria-expanded', emOpen[type] ? 'true' : 'false');
