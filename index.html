@@ -205,6 +205,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .ts-cal-cell .grp-cols { grid-template-columns:1fr; }
   @media (max-width:640px) { .grp-cols { grid-template-columns:1fr; } }
   .limit-banner { background:#fdecea; border:1px solid #f0b4ae; color:var(--error); border-radius:8px; padding:8px 12px; margin:0 0 10px; font-size:.9rem; }
+  .em-boiler { margin:8px 0; padding:8px 10px; border-left:3px solid var(--line, #ccc); background:rgba(0,0,0,.03); }
   .at-list { display:flex; flex-wrap:wrap; gap:6px 18px; } .at-list label { display:flex; align-items:center; gap:6px; font-weight:normal; } .at-list input { width:auto; margin:0; }
   .fp-chip + .fp-chip { margin-top:4px; }
   .adm-pages { margin-top:6px; display:flex; flex-direction:column; gap:3px; font-size:.85rem; }
@@ -479,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-27e';
+const APP_VERSION = '2026-10-28e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2583,6 +2584,7 @@ function renderPairingsAdmin(el) {
       <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short tee off first and play with a blind: the player right below the open slot, in the next pairing. No column or pairing has more than one blind, and with three short pairings there are no blinds (Stableford).</p>
       <div class="row"><button class="primary" id="prMake" ${v.layout ? '' : 'disabled'}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.EmailSentAt ? ` · <b>email sent ${escapeHtml(when(rec.EmailSentAt))}</b>` : ''}</span>` : ''}</div>
+      ${emChangeLine(v.nassauEmail ? Object.assign({ listAt: (proShopSentFor(pair.key) || {}).SentAt }, v.nassauEmail) : null, 'prChanges', 'Nassau players or pairings')}
       <div id="prStatus" class="status"></div>
     </div>
     ${e ? `<div class="card">
@@ -2600,13 +2602,14 @@ function renderPairingsAdmin(el) {
       <div id="prSaveStatus" class="status"></div>
     </div>
     <div class="card">
-      <h2>Legends Signups Email</h2>
+      <h2>Larry's Game email</h2>
       <p class="hint">The "Larry's Game" email with these pairings. Preview it, then send. Save any changes first. Who gets it, and whether it goes automatically, is under <b>Email settings</b> below.${rec && rec.EmailSentAt ? ` <b>Sent ${escapeHtml(when(rec.EmailSentAt))}.</b>` : ''}</p>
       <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send now'}</button></div>
       <div id="prMailStatus" class="status"></div>
       <div id="prMail"></div>
     </div>` : ''}`;
-  emEmbed(el, 'pairings');
+  emEmbed(el, ['nassautomorrow', 'pairings', 'nassauchanges']);
+  emChangeButton('prChanges', 'nassauchanges', pair.key);
   document.getElementById('prDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = pair.key; return; } pair.view = null; pair.key = ev.target.value; renderPairingsAdmin(el); };
   document.getElementById('prMake').onclick = () => {
     if (rec && !confirm('Redo the pairings from the current sign-ups? This replaces the pairings and any swaps made here.')) return;
@@ -2696,8 +2699,8 @@ function renderFunPairAdmin(el) {
   const rec = v.pairings, e = funPair.edit;
   const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
   const ps = v.proShop;
-  const shopLine = ps ? `<div class="row" style="align-items:center;gap:8px;margin-top:8px;"><span class="hint">Pro shop list sent ${escapeHtml(when(ps.sentAt))}${ps.sentBy ? ` (${escapeHtml(ps.sentBy)})` : ''}.</span>
-      ${ps.changed ? '<span class="status error" style="margin:0;">⚠️ The players or groups have changed since.</span><button class="secondary" id="fpResend">Send updated list</button>' : '<span class="hint">✓ It still matches.</span>'}</div>` : '';
+  // the combined pro shop list, then "Changes in Fun Group Pairings" for anything after it
+  const shopLine = ps ? emChangeLine(Object.assign({ listAt: ps.sentAt, listBy: ps.sentBy }, v.funEmail || {}, String(board.settings.FunPairingsResend).toUpperCase() === 'FALSE' || !(v.funEmail || {}).tracked ? { changed: ps.changed, viaList: true } : {}), 'fpResend', 'players or groups') : '';
   el.innerHTML = `
     <div class="card">
       <h2>Fun Group pairings</h2>
@@ -2724,21 +2727,13 @@ function renderFunPairAdmin(el) {
     </div>` : ''}
     ${funAddRemoveHtml(v, e)}
     ${v.standby.length ? `<div class="card"><h2>Standby</h2><p class="hint">Not playing unless a spot opens; they move up in this order and are added to a group then.</p><ol>${v.standby.map((p) => `<li>${escapeHtml(firstLast(p.Name))} <span class="hint">— ${escapeHtml([p.Tee, FUN_HOLES[p.Holes] || '18', p.Riding === 'TRUE' ? 'Riding' : 'Walking'].filter(Boolean).join(', '))}</span></li>`).join('')}</ol></div>` : ''}`;
-  emEmbed(el, 'proshop');
+  emEmbed(el, 'funpairings');
   document.getElementById('fpDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = funPair.key; return; } funPair.view = null; funPair.key = ev.target.value; renderFunPairAdmin(el); };
   document.getElementById('fpMake').onclick = () => {
     if (rec && !confirm('Redo the Fun group pairings from the current sign-ups? This replaces the groups and any changes made here.')) return;
     adminDirty = false; loadFunPair(funPair.key, 'legendsFunMake');
   };
-  const rs = document.getElementById('fpResend');
-  if (rs) rs.onclick = async () => {
-    showStatus('fpStatus', true, 'Sending…');
-    try {
-      const res = await apiPost('legendsProShopSend', { dateKey: funPair.key });
-      if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('fpStatus', false, cleanError(res.error)); return; }
-      board = res.data; await loadFunPair(funPair.key); showStatus('fpStatus', true, 'Updated list sent to the pro shop.');
-    } catch (err) { showStatus('fpStatus', false, 'Could not reach the server — try again.'); }
-  };
+  emChangeButton('fpResend', 'funpairings', funPair.key);
   const fa = document.getElementById('faAdd');
   if (fa) fa.onclick = () => {
     const id = document.getElementById('faWho').value;
@@ -4056,22 +4051,35 @@ async function doSugImport() {
 // when it goes, who gets it, its wording and app link, and a preview that uses
 // the changes on the page even before they're saved.
 const EMAIL_TYPES = [
-  { type: 'proshop', prefix: 'ProShop', on: 'ProShopAutoSend', title: 'List of players for pro shop',
-    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. If the players or the Fun group groups change after it has gone, an updated list marked UPDATED goes out (you can turn that off below). You can preview any day, or send it yourself at any time.',
-    wording: [['ProShopMessage', 'Message added after “Hello — here are the Heritage Legends players…” (optional)', 2], ['ProShopFooterText', 'Closing line', 2]] },
-  { type: 'duty', prefix: 'Duty', on: 'RemindDuty', title: 'Tee Time Duty reminder', personal: true,
-    desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
-    wording: [['DutyMessage', 'Message added after “Hi …,” (optional)', 2], ['DutyInPersonText', 'Instructions for whoever goes in person — {arrive} becomes the arrive-by time', 3], ['DutyPhoneText', 'Instructions for whoever phones in — {call} becomes the call-in time', 3], ['DutyFooterText', 'Closing line', 2]] },
-  { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Playing tomorrow',
-    desc: 'One email to everyone signed up for the day, listing all their names by group (Fun, then Nassau, with each group\'s tee times and anyone on standby).',
-    wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Line right under “Golf tomorrow, …” (the “Can\'t make it?” reminder)', 2]] },
-  { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: 'Sign-up summary (day before)',
-    desc: 'The same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list.',
-    wording: [['DailyMessage', 'Message added under the heading (optional)', 2], ['DailyFunText', 'Fun group — who to text about a last-minute drop out', 2], ['DailyNassauText', 'Nassau group — how to grab an open slot', 2], ['DailyCancelText', 'Tee time cancellations', 2]] },
   { type: 'closing', prefix: 'Closing', on: 'RemindClosing', title: 'Last day to sign up',
     desc: 'On the last sign-up day, a reminder of how many spots are left, for Legends who haven\'t signed up yet for that round.',
     wording: [['ClosingMessage', 'Message added at the top (optional)', 2], ['ClosingFooterText', 'Closing line', 2]] },
-  { type: 'pairings', prefix: 'Pairings', on: 'PairingsAutoSend', title: 'Legends Signups Email (Nassau pairings)',
+  { type: 'proshop', prefix: 'ProShop', on: 'ProShopAutoSend', title: 'List of players for pro shop',
+    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. If the players or the Fun group groups change after it has gone, an updated list marked UPDATED goes out (you can turn that off below). You can preview any day, or send it yourself at any time.',
+    boiler: 'Filled in automatically: the Fun group (in its groups by tee time once they are made, with each player\'s tees, holes, riding and note) and then the Nassau group, each with its tee times, the number playing and the standby list; then the total playing. An updated list starts with “UPDATED LIST — this replaces the one sent earlier” and who is out and who is in.',
+    wording: [['ProShopMessage', 'Message added after “Hello — here are the Heritage Legends players…” (optional)', 2], ['ProShopFooterText', 'Closing line', 2]] },
+  { type: 'funpairings', prefix: 'FunPairings', on: 'FunPairingsResend', title: 'Changes in Fun Group Pairings',
+    desc: 'The combined list goes to the pro shop first, when sign-ups close. After that, if someone in the Fun group drops out or joins, or the groups change, this goes instead of an updated combined list: just the Fun group, to the pro shop and the Fun players, so the Nassau group isn\'t emailed about Fun group changes.',
+    boiler: 'Filled in automatically: what changed (who is out and who is in), then each group under its tee time, with every player\'s tees, holes (18 / Front 9 / Back 9), riding or walking and sign-up note; anyone not in a group yet; how many are playing, riding and walking; and the standby list in order.',
+    wording: [['FunPairingsMessage', 'Message added after “Hello — the Heritage Legends Fun group pairings… have changed” (optional)', 2], ['FunPairingsFooterText', 'Closing line', 2]] },
+  { type: 'nassauchanges', prefix: 'NassauChanges', on: 'NassauChangesResend', title: 'Changes to Nassau Pairings',
+    desc: 'The combined list goes to the pro shop first, when sign-ups close. After that, if someone in the Nassau group drops out or joins, or the pairings change after Larry\'s Game has gone, this goes instead of an updated combined list: just the Nassau group, to the pro shop and the Nassau players, so the Fun group isn\'t emailed about Nassau changes.',
+    boiler: 'Filled in automatically: what changed (who is out and who is in, or that the pairings changed), then the Nassau players with their sign-up notes, the standby list in order, and, once Larry\'s Game has gone, the pairings with their blinds and the game.',
+    wording: [['NassauChangesMessage', 'Message added after “Hello — the Heritage Legends Nassau group… has changed” (optional)', 2], ['NassauChangesFooterText', 'Closing line', 2]] },
+  { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: 'Sign-up summary (day before)',
+    desc: 'The same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list.',
+    wording: [['DailyMessage', 'Message added under the heading (optional)', 2], ['DailyFunText', 'Fun group — who to text about a last-minute drop out', 2], ['DailyNassauText', 'Nassau group — how to grab an open slot', 2], ['DailyCancelText', 'Tee time cancellations', 2]] },
+  { type: 'duty', prefix: 'Duty', on: 'RemindDuty', title: 'Tee Time Duty reminder', personal: true,
+    desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
+    wording: [['DutyMessage', 'Message added after “Hi …,” (optional)', 2], ['DutyInPersonText', 'Instructions for whoever goes in person — {arrive} becomes the arrive-by time', 3], ['DutyPhoneText', 'Instructions for whoever phones in — {call} becomes the call-in time', 3], ['DutyFooterText', 'Closing line', 2]] },
+  { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Fun Group players for tomorrow',
+    desc: 'One email to the Fun group players for the day, listing their names with tees, holes and riding, the Fun tee times, and anyone on standby. The Nassau players get “Nassau players for tomorrow” instead.',
+    wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Line right under “Golf tomorrow, …” (the “Can\'t make it?” reminder)', 2]] },
+  { type: 'nassautomorrow', prefix: 'NassauTomorrow', on: 'NassauTomorrowOn', title: 'Nassau players for tomorrow',
+    desc: 'The evening before, to the Nassau players: the tee time, how many are signed up and who is on standby, the tee key, and everyone by Handicap Index with his course handicap, marked by tees (* red, ** white, *** blue, + white/gold, ++ blue/white, +++ red/gold, no mark gold). The same as the one sent by hand today.',
+    boiler: 'Filled in automatically: “TEE TIME IS …” at the top; after the message, the tee key with the STANDBY box, then the players by index (1, 2, 3 …) in two columns with Index and Handicap.',
+    wording: [['NassauTomorrowMessage', 'Message under “TEE TIME IS …” — {count} becomes how many are signed up, {standby} becomes “ with … on standby” (or nothing), {pairings} becomes the Larry\'s Game time', 3], ['NassauTomorrowFooterText', 'Closing line (optional)', 2]] },
+  { type: 'pairings', prefix: 'Pairings', on: 'PairingsAutoSend', title: 'Larry\'s Game email',
     desc: 'The "Larry\'s Game" email on the day of play: the Nassau pairings with each player\'s tees and handicap, blinds, the game, and everyone\'s index. Made and sent from Admin › Pairings › Nassau.',
     wording: [['PairingsMessage', 'Message added at the top (optional)', 2]] },
 ];
@@ -4083,7 +4091,11 @@ const EMAIL_AUDIENCES = {
   daily: ['legends', 'players', 'proshop', 'extra', 'admin'],
   closing: ['notsigned', 'legends', 'admin', 'extra'],
   pairings: ['legends', 'players', 'proshop', 'admin', 'extra'],
+  funpairings: ['proshop', 'players', 'admin', 'extra', 'legends'],
+  nassauchanges: ['proshop', 'players', 'admin', 'extra', 'legends'],
+  nassautomorrow: ['players', 'admin', 'proshop', 'extra'],
 };
+const EM_CHANGE_TYPES = ['funpairings', 'nassauchanges']; // only after the combined list (Tom 2026-10-28)
 const emOpen = {}; // which email buttons are open (kept when the page redraws after a save)
 
 function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.DateKey === key).sort((a, b) => (a.SentAt < b.SentAt ? 1 : -1))[0] || null; }
@@ -4091,7 +4103,7 @@ function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.D
 function proShopDue(d) { const h = String(board.settings.ProShopHour || ''); return h === '' ? d.closesAt : d.closesAt + 60000 + Number(h) * 3600000; }
 function emIsOn(t) {
   const v = String(board.settings[t.on]).toUpperCase();
-  return t.type === 'proshop' ? v !== 'FALSE' : v === 'TRUE';
+  return t.type === 'proshop' || EM_CHANGE_TYPES.includes(t.type) ? v !== 'FALSE' : v === 'TRUE';
 }
 // The date each email would next be about (the round, or the duty day).
 function emNextKey(type) {
@@ -4103,6 +4115,12 @@ function emNextKey(type) {
   }
   if (type === 'duty') { const d = (board.duty || []).map((x) => x.DateKey).filter((x) => x > board.today).sort()[0]; if (d) return d; }
   if (type === 'pairings') { const d = (board.dates || []).find((x) => x.DateKey >= board.today && !x.closed); if (d) return d.DateKey; }
+  if (EM_CHANGE_TYPES.includes(type)) {
+    // the round whose combined list has gone (the one changes are about), else the next one
+    const days = (board.dates || []).filter((d) => d.DateKey >= board.today && !d.closed);
+    const d = days.filter((x) => proShopSentFor(x.DateKey)).pop() || days[0];
+    if (d) return d.DateKey;
+  }
   let k = addDays(board.today, type === 'closing' ? Number(st.SignupCloseDaysBefore) || 2 : 1);
   for (let i = 0; i < 10 && !isPlayDay(k); i++) k = addDays(k, 1);
   return k;
@@ -4111,7 +4129,7 @@ function emAudienceLabel(id, type, key, short) {
   const st = board.settings, d = dateShort(key);
   return {
     legends: (type === 'daily' || type === 'pairings') && st.DailyGroupEmail && !short ? `All Legends (sent to the group address ${st.DailyGroupEmail})` : 'All Legends',
-    players: `Players for ${d}`,
+    players: type === 'funpairings' ? `Fun group players for ${d} (and standby)` : type === 'nassauchanges' || type === 'nassautomorrow' ? `Nassau group players for ${d} (and standby)` : type === 'playing' ? `Fun group players for ${d} (and standby)` : `Players for ${d}`,
     notsigned: `Legends not signed up for ${d}`,
     duty: `Legends on Tee Time Duty ${d}`,
     proshop: 'Pro Shop',
@@ -4126,12 +4144,20 @@ function emWhenHtml(t, key) {
   const next = (daysBefore, hourKey, def) => emIsOn(t)
     ? `<p class="hint">Next: for <b>${escapeHtml(dateShort(key))}</b> — goes out ${escapeHtml(dateShort(addDays(key, -daysBefore)))} after ${fmtClock((Number(st[hourKey]) || def) * 60)}.</p>`
     : '<p class="hint">Off — nothing goes out until it\'s switched <b>On</b> (the switch at the top right).</p>';
+  if (EM_CHANGE_TYPES.includes(t.type)) {
+    const fun = t.type === 'funpairings', sent = proShopSentFor(key);
+    return `<p>Only after the combined list has gone to the pro shop when sign-ups close. From then on, it goes automatically each time ${fun ? 'someone in the Fun group drops out or joins, or the groups change' : 'someone in the Nassau group drops out or joins, or the pairings change after Larry\'s Game has gone'}.</p>` +
+      (!emIsOn(t) ? `<p class="hint">Off — ${fun ? 'Fun group' : 'Nassau group'} changes go out on an updated combined list instead (if that list's “Send an updated list automatically” box is ticked on Admin › Setup › Emails), or when you click <b>Send now</b> below.</p>`
+        : `<p class="hint">${sent ? `The combined list for <b>${escapeHtml(dateShort(key))}</b> went ${escapeHtml(whenLabel(Date.parse(sent.SentAt)))}, so changes for that round go in this email.` : `The combined list for <b>${escapeHtml(dateShort(key))}</b> hasn't gone yet, so there's nothing to send.`} Turn it <b>Off</b> (the switch at the top right) to send changes on the combined list instead.</p>`);
+  }
   if (t.type === 'proshop') {
     const d = (board.dates || []).find((x) => x.DateKey === key);
     const h = String(st.ProShopHour || '');
     const opts = `<option value="" ${h === '' ? 'selected' : ''}>as soon as sign-ups close (11:59 PM, ${n} day${n === 1 ? '' : 's'} before play)</option>` +
       Array.from({ length: 13 }, (_, i) => i + 5).map((x) => `<option value="${x}" ${h === String(x) ? 'selected' : ''}>the next morning at ${fmtClock(x * 60)}</option>`).join('');
     return `<div class="row"><span>The list goes</span><select data-emset="ProShopHour" style="width:auto;">${opts}</select></div>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list automatically if someone drops out or joins after it has gone</label>
+      <p class="hint em-sub">Only for a group whose own change email is Off: with <b>Changes in Fun Group Pairings</b> or <b>Changes to Nassau Pairings</b> On, that group's changes go in that email instead.</p>
       <p class="hint">The Fun group's groups are made when sign-ups close, so the list shows them. Sign-ups closing is set on Admin › Setup › Sign-up rules.</p>` +
       (!emIsOn(t) ? '<p class="hint">Off — it only goes when you click <b>Send now</b> below.</p>'
         : d ? `<p class="hint">Next: the list for <b>${escapeHtml(dateShort(key))}</b> — ${escapeHtml(whenLabel(proShopDue(d) - clockSkew))}.</p>` : '');
@@ -4139,7 +4165,8 @@ function emWhenHtml(t, key) {
   if (t.type === 'pairings') return `<div class="row"><span>On the day of play, once the pairings are made (6 AM), after</span>${hourSel('PairingsHour', 7)}</div>` +
     (emIsOn(t) ? `<p class="hint">Goes automatically unless someone has already sent it that day, so check the pairings before then. Next: <b>${escapeHtml(dateShort(key))}</b>.</p>`
       : '<p class="hint">Off — it only goes when someone clicks <b>Send</b> on Admin › Pairings › Nassau.</p>');
-  if (t.type === 'duty' || t.type === 'playing') return `<div class="row"><span>The evening before, after</span>${hourSel('ReminderHour', 17)}<span class="hint">(one time for both Tee Time Duty and Playing tomorrow)</span></div>` + next(1, 'ReminderHour', 17);
+  if (t.type === 'duty' || t.type === 'playing') return `<div class="row"><span>The evening before, after</span>${hourSel('ReminderHour', 17)}<span class="hint">(one time for both Tee Time Duty and Fun Group players for tomorrow)</span></div>` + next(1, 'ReminderHour', 17);
+  if (t.type === 'nassautomorrow') return `<div class="row"><span>The evening before each round, after</span>${hourSel('NassauTomorrowHour', 17)}</div>` + next(1, 'NassauTomorrowHour', 17);
   if (t.type === 'daily') return `<div class="row"><span>The day before each round, after</span>${hourSel('DailyHour', 8)}</div>` + next(1, 'DailyHour', 8);
   return `<div class="row"><span>On the last sign-up day (${n} day${n === 1 ? '' : 's'} before play), after</span>${hourSel('ClosingReminderHour', 9)}</div>` + next(n, 'ClosingReminderHour', 9);
 }
@@ -4153,19 +4180,21 @@ function emWhoHtml(t, key) {
     (id === 'extra' ? `<textarea data-emset="${t.prefix}ExtraEmails" rows="2" class="em-sub" placeholder="e.g. dsykes@theheritageclub.net">${escapeHtml(st[t.prefix + 'ExtraEmails'] || '')}</textarea>` : '')).join('');
   const how = t.personal ? 'Each person on the first line gets their own email. Anyone else ticked gets one copy of all of them, for their records.'
     : t.type === 'daily' ? 'Everyone is listed openly (not Bcc), so reply-all reaches the group.'
+    : t.type === 'nassautomorrow' ? 'The Nassau players are listed openly in To (so reply-all works); the admin, pro shop and additional addresses are copied (Cc).'
     : t.type === 'playing' ? 'The players are listed openly in To (not Bcc); the admin and additional addresses are copied (Cc).'
     : t.type === 'proshop' ? 'The Pro Shop is in To, the admin and additional addresses are copied (Cc), and any Legends are Bcc\'d.'
+    : EM_CHANGE_TYPES.includes(t.type) ? `The pro shop and the ${t.type === 'funpairings' ? 'Fun' : 'Nassau'} players are in To (so reply-all works); the admin and additional addresses are copied (Cc); any other Legends are Bcc'd.`
     : t.type === 'pairings' ? (st.DailyGroupEmail ? `All Legends goes To the group address ${st.DailyGroupEmail} (set under Sign-up summary on Admin › Emails); players are Bcc'd and the admin and additional addresses copied (Cc).` : 'The Legends and players are Bcc\'d, so they don\'t see each other\'s addresses; the admin and additional addresses are copied (Cc).')
     : 'The Legends are Bcc\'d, so they don\'t see each other\'s addresses.';
   let more = '';
   if (t.type === 'daily') {
     more = `<label class="hint em-field">Legends group address (optional — see note below)</label><input type="text" data-emset="DailyGroupEmail" value="${escapeHtml(st.DailyGroupEmail || '')}" placeholder="e.g. heritage-legends@googlegroups.com">
-      <p class="hint"><b>Email limits:</b> an app email can carry at most 50 addresses, and Gmail allows about 100 recipients a day in total. Listed one by one, the Legends are about ${(board.roster || []).filter((r) => r.Active !== 'FALSE').length + 5} people — so the email has to go out in two parts (reply-all then only reaches your own part) and uses most of the day's allowance. <b>The fix is a Google Group</b> containing every Legend: put its address above and <b>All Legends</b> becomes that one address — reply-all reaches everyone, and it counts as a single recipient. Without a group, turn <b>Playing tomorrow</b> off when this is on.</p>`;
+      <p class="hint"><b>Email limits:</b> an app email can carry at most 50 addresses, and Gmail allows about 100 recipients a day in total. Listed one by one, the Legends are about ${(board.roster || []).filter((r) => r.Active !== 'FALSE').length + 5} people — so the email has to go out in two parts (reply-all then only reaches your own part) and uses most of the day's allowance. <b>The fix is a Google Group</b> containing every Legend: put its address above and <b>All Legends</b> becomes that one address — reply-all reaches everyone, and it counts as a single recipient. Without a group, turn <b>Fun Group players for tomorrow</b> off when this is on.</p>`;
   }
   return boxes + `<p class="hint">${how}</p>` + more;
 }
 function emProShopTable() {
-  const auto = emIsOn(EMAIL_TYPES[0]);
+  const auto = emIsOn(EMAIL_TYPES.find((t) => t.type === 'proshop'));
   const rows = (board.dates || []).filter((d) => d.DateKey >= board.today).map((d) => {
     const sent = proShopSentFor(d.DateKey);
     const nIn = Math.min(groupList(d.DateKey, 'fun').length, d.funSlots) + Math.min(groupList(d.DateKey, 'nassau').length, d.nassauSlots);
@@ -4194,10 +4223,10 @@ function emPanelHtml(t, embedded) {
       <p class="hint">${escapeHtml(t.desc)}</p>
       <h3>When</h3>${emWhenHtml(t, key)}
       <h3>Who gets it</h3>${emWhoHtml(t, key)}
-      <h3>Wording</h3>${t.wording.map(([k, label, rows]) => `<label class="hint em-field">${escapeHtml(label)}</label><textarea data-emset="${k}" rows="${rows}">${escapeHtml(st[k] || '')}</textarea>`).join('')}
+      <h3>Wording</h3>${t.wording.map(([k, label, rows], i) => `<label class="hint em-field">${escapeHtml(label)}</label><textarea data-emset="${k}" rows="${rows}">${escapeHtml(st[k] || '')}</textarea>` +
+        (i === 0 && t.boiler ? `<div class="em-boiler hint">${escapeHtml(t.boiler)}</div>` : '')).join('')}
       <h3>App link</h3>
       <label class="em-aud"><input type="checkbox" data-emset-bool="${t.prefix}AppLink" ${String(st[t.prefix + 'AppLink']).toUpperCase() === 'TRUE' ? 'checked' : ''}> Include an “Open the Legends app” link</label>
-      ${t.type === 'proshop' ? `<label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list automatically if someone drops out or joins (or the Fun groups change) after it has gone</label>` : ''}
       <p class="hint em-sub">${st.SiteUrl ? `It goes to <a href="${escapeHtml(st.SiteUrl)}" target="_blank" rel="noopener">${escapeHtml(st.SiteUrl)}</a>` : 'No app link is set'} — change it under <b>All emails</b> ${embedded ? 'on Admin › Setup › Emails' : 'below'}.</p>
       <h3>Preview</h3>
       ${t.type === 'proshop' ? emProShopTable() : ''}
@@ -4210,27 +4239,64 @@ function emPanelHtml(t, embedded) {
     </div>
   </div>`;
 }
+// The status line on the Fun and Nassau pages: when the combined list went, any change
+// email since, and whether the players have changed since the last one.
+function emChangeLine(info, btnId, what) {
+  if (!info) return '';
+  const when = (iso) => new Date(iso).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const parts = [];
+  if (info.listAt) parts.push(`Combined list sent ${escapeHtml(when(info.listAt))}${info.listBy ? ` (${escapeHtml(info.listBy)})` : ''}`);
+  if (info.sentAt) parts.push(`changes email sent ${escapeHtml(when(info.sentAt))}`);
+  return `<div class="row" style="align-items:center;gap:8px;margin-top:8px;">${parts.length ? `<span class="hint">${parts.join(' · ')}.</span>` : ''}
+    ${info.changed ? `<span class="status error" style="margin:0;">⚠️ The ${escapeHtml(what)} have changed since the last email.</span>${info.viaList ? '<span class="hint">Send an updated combined list from Admin › Setup › Emails.</span>' : `<button class="secondary" id="${btnId}">See below to send the changes</button>`}` : '<span class="hint">✓ It still matches.</span>'}</div>`;
+}
+// Its button opens that change email below, on this date, and goes to it.
+function emChangeButton(btnId, type, key) {
+  const rs = document.getElementById(btnId);
+  if (!rs) return;
+  rs.onclick = () => {
+    const card = document.getElementById('emEmbed-' + type);
+    if (!card) return;
+    const panel = card.querySelector('[data-em-panel]');
+    if (panel.hidden) card.querySelector('[data-em-toggle]').click();
+    const d = card.querySelector('[data-rem-date]'); if (d) d.value = key;
+    const sent = card.querySelector('[data-em-sent]'); if (sent) sent.innerHTML = emSentHtml(type, key);
+    (card.querySelector('[data-em-send]') || card).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+}
 // One email's settings on the page it belongs to (Tom 2026-10-27): the Nassau pairings
 // email on Pairings › Nassau, the pro shop list on Fun Group, the duty reminder on Tee
 // Time Duty. The same panel as on Admin › Emails, but Save (legendsSaveEmailSettings)
 // keeps only this email's settings, so limited admins with the page can use it, and
 // it redraws only this card, so other unsaved changes on the page are kept.
-function emEmbed(el, type) {
+function emEmbed(el, types) {
+  if (!board.settings) return;
+  types = [].concat(types).filter((type) => EMAIL_TYPES.some((x) => x.type === type));
+  if (!types.length) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'card em-embed';
+  wrap.innerHTML = `<h2>Email settings</h2><p class="hint" style="margin-top:0;">Click a title to change who gets it, when it goes and what it says.${amAdmin() ? ' All the emails are also on Admin › Setup › Emails.' : ''}</p>`;
+  el.appendChild(wrap);
+  types.forEach((type) => emEmbedOne(wrap, type));
+}
+function emEmbedOne(wrap, type) {
   const t = EMAIL_TYPES.find((x) => x.type === type);
-  if (!t || !board.settings) return;
   if (emOpen[type] === undefined) emOpen[type] = false;
   const card = document.createElement('div');
-  card.className = 'card em-embed';
-  el.appendChild(card);
+  card.id = 'emEmbed-' + type;
+  card.style.marginTop = '10px';
+  wrap.appendChild(card);
   let cleanBefore = null; // whether the page had no other unsaved changes before this card's
   const draw = () => {
     const st = board.settings, key = emNextKey(type);
     const who = String(st[t.prefix + 'SendTo'] || '').split(/[,\s]+/).filter((a) => EMAIL_AUDIENCES[type].includes(a)).map((a) => emAudienceLabel(a, type, key, true));
     const summary = `<b>${emIsOn(t) ? 'On' : 'Off'}</b> · goes to ${who.length ? escapeHtml(who.join(', ')) : '<b>nobody</b>'}` +
-      (type === 'proshop' ? ` · ${emIsOn(t) ? (String(st.ProShopHour || '') === '' ? 'when sign-ups close' : `the morning after sign-ups close, at ${fmtClock(Number(st.ProShopHour) * 60)}`) : 'only when sent by hand'}${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? ', and again if the players change' : ''}`
+      (EM_CHANGE_TYPES.includes(type) ? ` · ${emIsOn(t) ? `after the combined list, whenever the ${type === 'funpairings' ? 'Fun players or groups' : 'Nassau players or pairings'} change` : 'off — changes go on the combined list'}`
+        : type === 'proshop' ? ` · ${emIsOn(t) ? (String(st.ProShopHour || '') === '' ? 'when sign-ups close' : `the morning after sign-ups close, at ${fmtClock(Number(st.ProShopHour) * 60)}`) : 'only when sent by hand'}${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? ', and again if the players change' : ''}`
         : type === 'pairings' ? ` · ${emIsOn(t) ? `on the day of play at ${fmtClock((Number(st.PairingsHour) || 7) * 60)}` : 'only when sent by hand'}`
+        : type === 'nassautomorrow' ? ` · ${emIsOn(t) ? `the evening before, at ${fmtClock((Number(st.NassauTomorrowHour) || 17) * 60)}` : 'off'}`
         : type === 'duty' ? ` · ${emIsOn(t) ? `the evening before, at ${fmtClock((Number(st.ReminderHour) || 17) * 60)}` : 'off'}` : '');
-    card.innerHTML = `<h2>Email settings</h2><p class="hint" style="margin-top:0;">${t.title}: ${summary}. Click the title to change who gets it, when it goes and what it says. ${amAdmin() ? 'All the emails are also on Admin › Setup › Emails.' : ''}</p>${emPanelHtml(t, true)}`;
+    card.innerHTML = `${emPanelHtml(t, true)}<p class="hint" style="margin:2px 0 0;">${summary}.</p>`;
     card.querySelector('[data-em-toggle]').onclick = (ev) => {
       emOpen[type] = !emOpen[type];
       ev.currentTarget.setAttribute('aria-expanded', emOpen[type] ? 'true' : 'false');
@@ -4269,7 +4335,12 @@ function emEmbed(el, type) {
       try {
         const res = await apiPost('legendsEmailSendNow', { type, dateKey: k });
         if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('emStatus-' + type, false, cleanError(res.error)); return; }
-        board = res.data; draw(); showStatus('emStatus-' + type, true, `Sent “${t.title}” for ${dateShort(k)}.`);
+        board = res.data; draw();
+        const done = () => showStatus('emStatus-' + type, true, `Sent “${t.title}” for ${dateShort(k)}.`);
+        done();
+        // the page's own status line changes too, so redraw it (and say so again on the new card)
+        if (type === 'funpairings' && adminSub === 'pairfun' && k === funPair.key && !adminDirty) loadFunPair(k).then(done);
+        if (type === 'nassauchanges' && adminSub === 'pairnassau' && k === pair.key && !adminDirty) loadPairings(k).then(done);
       } catch (e) { showStatus('emStatus-' + type, false, 'Could not reach the server — try again.'); }
     });
     card.querySelectorAll('[data-ps-send]').forEach((b) => b.onclick = async () => {
@@ -4281,7 +4352,7 @@ function emEmbed(el, type) {
         board = res.data; draw(); showStatus('psStatus', true, `Sent the ${dateShort(k)} list.`);
       } catch (e) { showStatus('psStatus', false, 'Could not reach the server — try again.'); }
     });
-    if (amLimited()) card.querySelectorAll('[data-em-send]').forEach((b) => b.remove()); // Send now is for full admins
+    if (amLimited() && !EM_CHANGE_TYPES.includes(type)) card.querySelectorAll('[data-em-send]').forEach((b) => b.remove()); // Send now is for full admins (and Fun Group admins for their email)
     if (typeof lockForViewOnly === 'function') lockForViewOnly();
   };
   draw();
@@ -4390,7 +4461,7 @@ function renderEmailsAdmin(el) {
     ${emStandbyHtml()}
     <div class="card"><h2>All emails</h2>
       <label>App link in emails</label><input type="text" data-emset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}">
-      <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Playing tomorrow” uses one per player.</p>
+      <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Fun Group players for tomorrow” uses one per player.</p>
       <label>Daily email limit (recipients)</label><input type="number" min="1" data-emset="EmailDailyLimit" value="${escapeHtml(st.EmailDailyLimit || '100')}" style="max-width:120px;">
       <p class="hint">100 for a free Gmail account, 1500 for Google Workspace. Every To, Cc and Bcc address counts, so splitting an email into parts doesn't help.</p>
       ${emForecastHtml(typeTitle)}
@@ -4408,7 +4479,7 @@ function renderEmailsAdmin(el) {
     el.querySelector(`[data-em-panel="${type}"]`).hidden = !open;
   });
   el.querySelectorAll('[data-emset], [data-emset-bool], [data-emto]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'checkbox' ? 'change' : 'input', () => {
-    // The evening reminder time shows under both Tee Time Duty and Playing tomorrow — keep them the same.
+    // The evening reminder time shows under both Tee Time Duty and Fun Group players for tomorrow — keep them the same.
     if (i.dataset.emset) el.querySelectorAll(`[data-emset="${i.dataset.emset}"]`).forEach((x) => { if (x !== i) x.value = i.value; });
     markDirty();
     const item = i.closest('.em-item'); if (item) item.querySelectorAll('[data-em-unsaved]').forEach((n) => { n.hidden = false; });
