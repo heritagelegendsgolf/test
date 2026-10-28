@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-10-28e';
+const APP_VERSION = '2026-10-28g';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2605,6 +2605,8 @@ function renderPairingsAdmin(el) {
       <h2>Larry's Game email</h2>
       <p class="hint">The "Larry's Game" email with these pairings. Preview it, then send. Save any changes first. Who gets it, and whether it goes automatically, is under <b>Email settings</b> below.${rec && rec.EmailSentAt ? ` <b>Sent ${escapeHtml(when(rec.EmailSentAt))}.</b>` : ''}</p>
       <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send now'}</button></div>
+      <p class="hint" style="margin:12px 0 6px;"><b>Print or download the tables</b> to put them in an email of your own: <b>Copy</b> them and paste straight into an email, or get them as a PDF (pick “Save as PDF” in the print window), a Word file or an Excel file.</p>
+      <div class="row"><button class="secondary" id="prCopy">Copy tables</button><button class="secondary" id="prPrint">Print / PDF</button><button class="secondary" id="prWord">Word</button><button class="secondary" id="prExcel">Excel</button></div>
       <div id="prMailStatus" class="status"></div>
       <div id="prMail"></div>
     </div>` : ''}`;
@@ -2626,6 +2628,10 @@ function renderPairingsAdmin(el) {
   };
   document.getElementById('prPreview').onclick = previewPairEmail;
   document.getElementById('prSend').onclick = sendPairEmail;
+  document.getElementById('prCopy').onclick = copyPairTables;
+  document.getElementById('prPrint').onclick = printPairTables;
+  document.getElementById('prWord').onclick = () => pairTablesHtml().then((h) => h && downloadPairWord(h));
+  document.getElementById('prExcel').onclick = () => pairTablesHtml().then((h) => h && downloadPairExcel(h));
 }
 // ---------------- Pairings > Fun Group ----------------
 // Made on the server (laFunMake_ in LegendsApp.gs) when the round's sign-ups close, or
@@ -2706,7 +2712,7 @@ function renderFunPairAdmin(el) {
       <h2>Fun Group pairings</h2>
       <div class="row" style="align-items:center;gap:10px;">${dateSel}
         <span class="hint">${v.players.length} playing${v.slots ? ` of ${v.slots} spots` : ''}${v.standby.length ? ` · ${v.standby.length} on standby` : ''}${v.times ? ` · ${escapeHtml(v.times)}` : ''}</span></div>
-      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They don't use handicaps. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put at most one nine-hole player in a foursome and none in a threesome (unless all three are), put people on the same tees together where they can, avoid three riders with one walker, and split up people who have played together in the last few rounds. Groups with nine-hole players go out first, and anyone whose sign-up note asks for the first or last group (e.g. "last group please") gets it where possible. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
+      <p class="hint">Pairings are made automatically when sign-ups close (just before the pro shop list goes, so the list shows the groups), or you can make them now. They keep anyone playing 9 holes from leaving an 18-hole player on his own, put at most one nine-hole player in a foursome and none in a threesome (unless all three are), put people on the same tees together where they can, avoid three riders with one walker, and split up people who have played together in the last few rounds. After all that, they put players with similar handicaps together where they can. Groups with nine-hole players go out first, and anyone whose sign-up note asks for the first or last group (e.g. "last group please") gets it where possible. If someone drops out or joins, they update themselves: made again from scratch until the pro shop list has gone or you've changed them by hand, and after that only the people who have to move are moved.</p>
       <div class="row"><button class="primary" id="fpMake" ${v.players.length < 2 ? 'disabled' : ''}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.edited ? ' · changed by hand' : ''}</span>` : ''}</div>
       ${shopLine}
@@ -3069,6 +3075,98 @@ async function sendPairEmail() {
     renderPairingsAdmin(document.getElementById('adminContent'));
     showStatus('prMailStatus', true, 'Sent.');
   } catch (er) { showStatus('prMailStatus', false, 'Could not reach the server — try again.'); }
+}
+// Larry's Game tables from the email (no message or app link), for Copy / Print / Word / Excel,
+// so a player can put them in an email of his own.
+async function pairTablesHtml() {
+  if (adminDirty) { showStatus('prMailStatus', false, 'Save your changes first, so the tables show them.'); return null; }
+  showStatus('prMailStatus', true, 'Getting the tables…');
+  try {
+    const res = await apiPost('legendsPairingsPreview', { dateKey: pair.key });
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('prMailStatus', false, cleanError(res.error)); return null; }
+    const root = new DOMParser().parseFromString(res.data.html, 'text/html').body;
+    const keep = [...(root.firstElementChild || root).children].filter((n) => n.tagName === 'TABLE' || /^Playing, not in the bet/.test(n.textContent));
+    if (!keep.length) { showStatus('prMailStatus', false, 'Make the pairings first.'); return null; }
+    showStatus('prMailStatus', true, 'Done.');
+    return keep.map((n) => n.outerHTML).join('');
+  } catch (er) { showStatus('prMailStatus', false, 'Could not reach the server — try again.'); return null; }
+}
+function pairFileName(ext) { return `Larrys-Game-${pair.key}.${ext}`; }
+function pairTitle() { return `Larry's Game — ${dateShort(pair.key)}`; }
+function downloadBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+function copyPairTables() {
+  const got = pairTablesHtml();
+  const showToCopy = (h) => { // no clipboard access: show them to select and copy by hand
+    document.getElementById('prMail').innerHTML = `<div class="preview-box">${h}</div>`;
+    showStatus('prMailStatus', false, 'Couldn’t copy here — select the tables below and copy them.');
+  };
+  // ClipboardItem takes promises, so the copy still counts as part of the click (Safari needs that)
+  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+    const blob = (type, f) => got.then((h) => { if (!h) throw new Error('none'); return new Blob([f(h)], { type }); });
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html': blob('text/html', (h) => h),
+      'text/plain': blob('text/plain', (h) => { const d = document.createElement('div'); d.innerHTML = h.replace(/<\/tr>/g, '</tr>\n').replace(/<\/td>/g, '</td>\t'); return d.textContent; }),
+    })]).then(() => showStatus('prMailStatus', true, 'Tables copied — paste them into your email.'))
+      .catch(() => got.then((h) => h && showToCopy(h)));
+  } else got.then((h) => h && showToCopy(h));
+}
+function printPairTables() {
+  const w = window.open('', '_blank'); // opened now, while it's still the click, so it isn't blocked
+  pairTablesHtml().then((h) => {
+    if (!h) { if (w) w.close(); return; }
+    const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pairTitle())}</title>` +
+      '<style>@page{margin:12mm;} body{margin:12px;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}</style></head>' +
+      `<body>${h}<script>setTimeout(function(){window.print();},300);<\/script></body></html>`;
+    if (w) { w.document.open(); w.document.write(page); w.document.close(); return; }
+    // pop-up blocked: print from a hidden frame instead
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(f);
+    f.contentDocument.open(); f.contentDocument.write(page); f.contentDocument.close();
+    setTimeout(() => f.remove(), 60000);
+  });
+}
+function downloadPairWord(h) {
+  // Word opens an HTML page saved as .doc, colors and all
+  const doc = '﻿<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+    `<head><meta charset="utf-8"><title>${escapeHtml(pairTitle())}</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->` +
+    '<style>@page Sec1{size:8.5in 11in;margin:0.5in;} div.Sec1{page:Sec1;}</style></head>' +
+    `<body><div class="Sec1">${h}</div></body></html>`;
+  downloadBlob(new Blob([doc], { type: 'application/msword' }), pairFileName('doc'));
+}
+async function downloadPairExcel(h) {
+  try { await loadScriptOnce(XLSX_URL); } catch (er) { showStatus('prMailStatus', false, 'Could not load the Excel maker — try again.'); return; }
+  const box = document.createElement('div'); box.innerHTML = h;
+  // each cell as plain text (keeping its line breaks), so "McCulloch (G/R)" keeps its space
+  const cellText = (td) => { const c = td.cloneNode(true); c.querySelectorAll('br').forEach((b) => b.replaceWith('\u0001')); return c.textContent.replace(/\s+/g, ' ').split('\u0001').map((l) => l.trim()).join('\n').trim(); };
+  box.querySelectorAll('td,th').forEach((td) => { td.innerHTML = cellText(td).split('\n').map(escapeHtml).join('<br>'); });
+  let ws = null;
+  const addRows = (rows) => { if (ws) XLSX.utils.sheet_add_aoa(ws, rows, { origin: -1 }); else ws = XLSX.utils.aoa_to_sheet(rows); };
+  [...box.children].forEach((n) => {
+    if (ws) addRows([['']]); // a blank row between tables
+    const cells = n.tagName === 'TABLE' ? [...n.querySelectorAll('td,th')] : [];
+    // text and long notes (the tees key, standby) one per row, so they don't squash the columns
+    if (!cells.length || cells.some((td) => td.textContent.length > 30)) { addRows(cells.length ? cells.map((td) => [td.textContent]) : [[n.textContent.trim()]]); return; }
+    if (ws) XLSX.utils.sheet_add_dom(ws, n, { origin: -1, raw: true }); else ws = XLSX.utils.table_to_sheet(n, { raw: true });
+  });
+  // numbers as numbers (raw keeps "+2" handicaps and the date as they show); columns as wide as
+  // their text, leaving out titles that span columns and the long notes, which run on to the right
+  const widths = [], merged = {};
+  (ws['!merges'] || []).forEach((m) => { merged[XLSX.utils.encode_cell(m.s)] = true; });
+  Object.keys(ws).filter((k) => k[0] !== '!').forEach((k) => {
+    const c = ws[k], { c: col } = XLSX.utils.decode_cell(k);
+    if (c.t === 's' && /^-?\d+(\.\d+)?$/.test(String(c.v).trim())) { c.t = 'n'; c.v = Number(c.v); }
+    const len = Math.max(...String(c.v ?? '').split('\n').map((l) => l.length));
+    if (!merged[k] && len <= 26) widths[col] = Math.max(widths[col] || 4, len + 1);
+  });
+  ws['!cols'] = [...widths].map((w) => ({ wch: w || 4 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Larrys Game');
+  XLSX.writeFile(wb, pairFileName('xlsx'));
 }
 
 // ---------------- Members ----------------
