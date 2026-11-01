@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-01c';
+const APP_VERSION = '2026-11-01f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3693,7 +3693,7 @@ function renderDutyAdmin(el) {
       </div>
       <div class="tbl-wrap"><table class="ad" style="min-width:700px;"><thead><tr><th style="width:170px;">Duty day</th><th>In person 1</th><th>In person 2</th><th>In person 3</th><th>Phone in</th></tr></thead><tbody>
       ${keys.map((k) => { const d = dutyEdit.days[k]; return `<tr class="${isPlayDay(k) ? '' : 'weekend'}">
-        <td><b>${escapeHtml(dateShortY(k))}</b>${heavy.has(k) ? ' <span class="imp-bad" title="Heavy demand expected: three in person">HEAVY</span>' : ''} for ${dutyEdit.editTarget === k
+        <td><b>${escapeHtml(dateShortY(k))}</b>${heavy.has(k) ? ` <span class="imp-bad" title="Heavy demand expected: three in person">HEAVY${heavyMap()[k] ? ` · ${escapeHtml(heavyMap()[k])}` : ''}</span>` : ''} for ${dutyEdit.editTarget === k
           ? `<input type="date" data-target="${k}" value="${d.target || defaultTarget(k)}" style="width:140px;">`
           : `<button class="link" data-edit-target="${k}" title="Change the round this duty day books" style="padding:0;${d.target && d.target !== defaultTarget(k) ? 'font-weight:700;' : ''}">${escapeHtml(dateShortY(d.target || defaultTarget(k)))}</button>`}${k < board.today ? ' <span class="hint">(past)</span>' : ''}${extrasHtml(k, d)}${heavy.has(k) && d.slots.concat(d.extras || []).filter((x) => x.id && x.role === 'inperson').length < 3 ? '<div class="imp-bad hint">Heavy day: needs three in person</div>' : ''}</td>
         ${d.slots.map((sl, i) => `<td>${slotHtml(k, i, sl)}</td>`).join('')}
@@ -3708,15 +3708,12 @@ function renderDutyAdmin(el) {
         <button class="secondary" id="dSwap">Swap</button></div>
       <p class="hint" style="margin-top:4px;">If both are on duty in the dates shown, they trade all their days. If the first person isn't, they take over all of the second person's days. Then click Save duty.</p>
     </div>
-    ${dutySetupHtml()}
-    <div class="card">
-      <h2>Import a quarter from the assignments spreadsheet</h2>
+    ${dutySetupHtml(`
       <p class="hint">From the quarterly <b>Tee Time Assignments</b> sheet, copy the <b>Date Order</b> table (the Date and Name columns) and paste it here. The same rules as the sheet apply: a full-week range like <code>Oct 05 - 09</code> is in person for that week's duty days; a Monday–Wednesday range like <code>Oct 05 - 07</code> is phone-in; single dates say <code>In-Person</code> or <code>Phone-in</code>. Names can be last names, with an initial for shared ones (<code>Davis J</code>). Read shows what it found; Put into table replaces those dates above (then Save duty).</p>
       <div class="row"><label class="hint">Year of the first date <input type="number" id="impYear" value="${keyDate(board.today).getUTCFullYear()}" style="width:90px;"></label></div>
       <textarea id="dutyPaste" rows="6" placeholder="Sep 28 - Oct 02	Webster" style="margin-top:6px;"></textarea>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="dRead">Read</button><button class="primary" id="dApply" disabled>Put into table</button></div>
-      <div id="dPreview" style="margin-top:8px;"></div>
-    </div>`;
+      <div id="dPreview" style="margin-top:8px;"></div>`)}`;
   el.querySelectorAll('select[data-dk]').forEach((s) => s.onchange = () => {
     dutyEdit.days[s.dataset.dk].slots[Number(s.dataset.i)].id = s.value;
     markDirty();
@@ -3779,7 +3776,13 @@ async function saveDutyEdit() {
 function dateShortY(key) { return `${dateShort(key)}, ${keyDate(key).getUTCFullYear()}`; }
 function parseJsonSetting(v) { try { const x = JSON.parse(v || '{}'); return x && typeof x === 'object' ? x : {}; } catch (e) { return {}; } }
 function dutyLists() { return parseJsonSetting(board.settings.DutyLists); }
-function heavyDays() { return String(board.settings.DutyHeavyDays || '').split(',').filter(Boolean); }
+// Heavy-demand days as { DateKey: reason } (same as laHeavyDays_).
+function heavyMap() {
+  const v = String(board.settings.DutyHeavyDays || '').trim();
+  if (v.charAt(0) === '{') return parseJsonSetting(v);
+  const out = {}; v.split(',').filter(Boolean).forEach((k) => { out[k.trim()] = ''; }); return out;
+}
+function heavyDays() { return Object.keys(heavyMap()).sort(); }
 const DUTY_STATUS = { '': 'In person or phone', phone: 'Phone-in only', inperson: 'In-person only', nonmember: 'HGC non-member', medical: 'Medical leave' };
 // Why a name can't do this duty ('' = fine).
 function dutyProblem(id, role) {
@@ -3854,32 +3857,43 @@ function generateDutyQuarter(qt) {
   const open = Object.values(days).filter((d) => d.slots.filter((sl) => sl.id).length < 3).length;
   return { days, sitOut: phoneSit.concat(inSit).sort((a, b) => a.Name.localeCompare(b.Name)), open };
 }
-function dutySetupHtml() {
-  const lists = dutyLists(), heavy = heavyDays();
+let dutyFillTab = 'gen'; // which tab of the Quarter assignments card is showing
+function dutySetupHtml(importHtml) {
+  const lists = dutyLists(), heavy = heavyDays(), why = heavyMap();
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
   const counts = {}; roster.forEach((r) => { const s = (lists[String(r.PlayerID)] || {}).s || ''; counts[s] = (counts[s] || 0) + 1; });
   const qs = futureQuarters(4);
   const hasDuty = (qt) => (board.duty || []).filter((d) => d.DateKey >= qt.start && d.DateKey <= qt.end).length;
+  const qOptions = qs.map((qt) => `<option value="${qt.id}">${qt.label} (${escapeHtml(dateShortY(qt.start))} – ${escapeHtml(dateShortY(qt.end))})${hasDuty(qt) ? ` — ${hasDuty(qt)} assignments saved` : ''}</option>`).join('');
+  const tab = (id, label) => `<button type="button" data-dqtab="${id}" class="${dutyFillTab === id ? 'on' : ''}">${label}</button>`;
   return `
     <div class="card">
-      <h2>Fill or clear a quarter</h2>
-      <p class="hint"><b>Generate assignments</b> fills a whole quarter in the table above using the lists below: each week two people in person and one phone-in (from the Phone-in only list), and a third person in person for weeks with a heavy-demand day. Everyone eligible gets one week; the people left over sit out, starting with those who have sat out least, so nobody sits out twice until everyone else has. Change anything you like (or use Swap weeks), then click <b>Save duty</b>. Nothing is saved until then. <b>Delete quarter</b> removes every assignment in that quarter right away.</p>
-      <div class="row"><label class="hint">Quarter <select id="dqPick">${qs.map((qt) => `<option value="${qt.id}">${qt.label} (${escapeHtml(dateShortY(qt.start))} – ${escapeHtml(dateShortY(qt.end))})${hasDuty(qt) ? ` — ${hasDuty(qt)} assignments saved` : ''}</option>`).join('')}</select></label>
-        <button class="primary" id="dqGen">Generate assignments</button><button class="secondary danger" id="dqDel">Delete quarter</button></div>
+      <h2>Quarter assignments</h2>
+      <div class="seg" id="dqTabs" style="margin-bottom:10px;">${tab('gen', 'Generate Assignments')}${tab('imp', 'Import Assignments')}${tab('del', 'Delete Assignments')}</div>
+      <div data-dqpane="gen" ${dutyFillTab === 'gen' ? '' : 'hidden'}>
+        <p class="hint"><b>Generate assignments</b> fills a whole quarter in the table above using the lists below: each week two people in person and one phone-in (from the Phone-in only list), and a third person in person for weeks with a heavy-demand day. Everyone eligible gets one week; the people left over sit out, starting with those who have sat out least, so nobody sits out twice until everyone else has. Change anything you like (or use Swap weeks), then click <b>Save duty</b>. Nothing is saved until then.</p>
+        <div class="row"><label class="hint">Quarter <select id="dqPick">${qOptions}</select></label><button class="primary" id="dqGen">Generate assignments</button></div>
+      </div>
+      <div data-dqpane="imp" ${dutyFillTab === 'imp' ? '' : 'hidden'}>${importHtml}</div>
+      <div data-dqpane="del" ${dutyFillTab === 'del' ? '' : 'hidden'}>
+        <p class="hint"><b>Delete assignments</b> removes every saved assignment in a future quarter right away. It can't be undone.</p>
+        <div class="row"><label class="hint">Quarter <select id="dqPickDel">${qOptions}</select></label><button class="secondary danger" id="dqDel">Delete assignments</button></div>
+      </div>
       <div id="dqStatus" class="status"></div>
     </div>
     <div class="card">
       <h2>Heavy-demand days</h2>
       <p class="hint">Duty days when the round two weeks later will be in strong demand (for example Mon, Jan 4, 2027 books Mon, Jan 18 — MLK Day). On these days three people go in person; the phone-in person stays on as a backup. Add them before you click Generate.</p>
-      <div class="row" style="flex-wrap:wrap;">${heavy.length ? heavy.map((k) => `<span class="hint" style="border:1px solid #ddd;border-radius:12px;padding:2px 8px;">${escapeHtml(dateShortY(k))} <span class="hint">books ${escapeHtml(dateShort(defaultTarget(k)))}</span> <button class="link danger" data-heavy-del="${k}" title="Remove" style="font-size:15px;line-height:1;">×</button></span>`).join(' ') : '<span class="hint">None yet.</span>'}</div>
-      <div class="row" style="margin-top:8px;"><input type="date" id="dHeavyAdd"><button class="secondary" id="dHeavyBtn">Add heavy day</button></div>
+      <div class="row" style="flex-wrap:wrap;">${heavy.length ? heavy.map((k) => `<span class="hint" style="border:1px solid #ddd;border-radius:12px;padding:2px 8px;"><b>${escapeHtml(dateShortY(k))}</b>${why[k] ? ` — ${escapeHtml(why[k])}` : ''} <span class="hint">(books ${escapeHtml(dateShort(defaultTarget(k)))})</span> <button class="link danger" data-heavy-del="${k}" title="Remove" style="font-size:15px;line-height:1;">×</button></span>`).join(' ') : '<span class="hint">None yet.</span>'}</div>
+      <div class="row" style="margin-top:8px;"><input type="date" id="dHeavyAdd"><input type="text" id="dHeavyWhy" maxlength="60" placeholder="Reason, e.g. Martin Luther King Day" style="width:250px;"><button class="secondary" id="dHeavyBtn">Add heavy day</button></div>
       <div id="dHeavyStatus" class="status"></div>
     </div>
     <div class="card">
       <details><summary><b>Who does tee time duty</b> <span class="hint">— ${counts.phone || 0} phone-in only, ${counts.inperson || 0} in-person only, ${counts.nonmember || 0} HGC non-members, ${counts.medical || 0} on medical leave</span></summary>
       <p class="hint" style="margin-top:8px;">Phone-in only people are only given the phone-in spot; in-person only people never are. HGC non-members and anyone on medical leave aren't given duty. Inactive members aren't listed and never get duty. Click <b>Save lists</b> when done.</p>
+      <div class="row"><label class="hint">Show <select id="dlFilter"><option value="*">Everyone (${roster.length})</option>${Object.keys(DUTY_STATUS).map((s) => `<option value="${s}">${DUTY_STATUS[s]} (${counts[s] || 0})</option>`).join('')}</select></label></div>
       <div class="tbl-wrap"><table class="ad"><thead><tr><th>Member</th><th>Duty</th><th>Reason</th></tr></thead><tbody>
-      ${roster.map((r) => { const x = lists[String(r.PlayerID)] || {}; return `<tr><td>${escapeHtml(r.Name)}</td>
+      ${roster.map((r) => { const x = lists[String(r.PlayerID)] || {}; return `<tr data-dl-row="${escapeHtml(r.PlayerID)}"><td>${escapeHtml(r.Name)}</td>
         <td><select data-dl="${escapeHtml(r.PlayerID)}">${Object.keys(DUTY_STATUS).map((s) => `<option value="${s}" ${(x.s || '') === s ? 'selected' : ''}>${DUTY_STATUS[s]}</option>`).join('')}</select></td>
         <td><input type="text" data-dr="${escapeHtml(r.PlayerID)}" value="${escapeHtml(x.r || '')}" maxlength="80" placeholder="e.g. Drive time over 15 min" style="width:220px;"></td></tr>`; }).join('')}
       </tbody></table></div>
@@ -3896,7 +3910,13 @@ async function saveDutySetup(body, statusId, msg) {
   if (ok) showStatus(statusId, true, msg);
 }
 function wireDutySetup(el) {
-  const pickQ = () => futureQuarters(4).find((qt) => qt.id === document.getElementById('dqPick').value);
+  const pickQ = (id) => futureQuarters(4).find((qt) => qt.id === document.getElementById(id || 'dqPick').value);
+  el.querySelectorAll('[data-dqtab]').forEach((b) => b.onclick = () => {
+    dutyFillTab = b.dataset.dqtab;
+    el.querySelectorAll('[data-dqtab]').forEach((x) => x.classList.toggle('on', x === b));
+    el.querySelectorAll('[data-dqpane]').forEach((p) => { p.hidden = p.dataset.dqpane !== dutyFillTab; });
+    showStatus('dqStatus', true, '');
+  });
   document.getElementById('dqGen').onclick = () => {
     const qt = pickQ(); if (!qt) return;
     const saved = (board.duty || []).filter((d) => d.DateKey >= qt.start && d.DateKey <= qt.end).length;
@@ -3911,7 +3931,7 @@ function wireDutySetup(el) {
       (g.open ? ` Not enough eligible people: ${g.open} duty days have an open spot.` : ''));
   };
   document.getElementById('dqDel').onclick = async () => {
-    const qt = pickQ(); if (!qt) return;
+    const qt = pickQ('dqPickDel'); if (!qt) return;
     const saved = (board.duty || []).filter((d) => d.DateKey >= qt.start && d.DateKey <= qt.end).length;
     if (!saved) { showStatus('dqStatus', false, `${qt.label} has no saved assignments.`); return; }
     if (!confirm(`Delete all ${saved} tee time duty assignments for ${qt.label} (${dateShortY(qt.start)} – ${dateShortY(qt.end)})? This can't be undone.`)) return;
@@ -3928,14 +3948,21 @@ function wireDutySetup(el) {
     const na = displayName((rosterById(a) || {}).Name || ''), nb = displayName((rosterById(b) || {}).Name || '');
     showStatus('dStatus', true, both ? `${na} and ${nb} traded days — click Save duty to keep it.` : `${nb} now has ${na}'s days — click Save duty to keep it.`);
   };
-  const saveHeavy = (keys, msg) => saveDutySetup({ heavy: keys.join(',') }, 'dHeavyStatus', msg);
+  const saveHeavy = (map, msg) => saveDutySetup({ heavy: JSON.stringify(map) }, 'dHeavyStatus', msg);
   document.getElementById('dHeavyBtn').onclick = () => {
     const k = document.getElementById('dHeavyAdd').value;
     if (!k) { showStatus('dHeavyStatus', false, 'Choose a date.'); return; }
     if (!isPlayDay(k) && !confirm(`${dateShortY(k)} isn't a Monday, Wednesday or Friday. Add it anyway?`)) return;
-    saveHeavy(heavyDays().concat([k]), `Added ${dateShortY(k)}.`);
+    saveHeavy(Object.assign(heavyMap(), { [k]: document.getElementById('dHeavyWhy').value.trim() }), `Added ${dateShortY(k)}.`);
   };
-  el.querySelectorAll('[data-heavy-del]').forEach((b) => b.onclick = () => saveHeavy(heavyDays().filter((k) => k !== b.dataset.heavyDel), `Removed ${dateShortY(b.dataset.heavyDel)}.`));
+  el.querySelectorAll('[data-heavy-del]').forEach((b) => b.onclick = () => { const m = heavyMap(); delete m[b.dataset.heavyDel]; saveHeavy(m, `Removed ${dateShortY(b.dataset.heavyDel)}.`); });
+  // Show one category at a time; hidden rows are still saved with the rest.
+  document.getElementById('dlFilter').onchange = (e) => {
+    const f = e.target.value;
+    el.querySelectorAll('tr[data-dl-row]').forEach((tr) => {
+      tr.hidden = f !== '*' && tr.querySelector('select[data-dl]').value !== f;
+    });
+  };
   document.getElementById('dListsSave').onclick = () => {
     const lists = dutyLists(), out = {};
     // Keep entries for people not shown (inactive), replace the rest from the table.
@@ -4017,7 +4044,7 @@ function readDutyPaste() {
     ${dutyPastePlan.map((p) => `<tr><td>${escapeHtml(p.raw)}</td>
       <td>${p.error ? '' : p.member ? `<span class="imp-ok">${escapeHtml(p.member.Name)}</span>` : `<span class="imp-bad">no roster match for “${escapeHtml(p.nameText)}”</span>`}</td>
       <td>${p.error ? `<span class="imp-bad">${escapeHtml(p.error)}</span>` : (p.role === 'phone' ? 'Phone in' : 'In person')}</td>
-      <td>${p.error ? '' : p.dates.map(dateShort).map(escapeHtml).join('; ')}</td></tr>`).join('')}
+      <td>${p.error ? '' : p.dates.map(dateShortY).map(escapeHtml).join('; ')}</td></tr>`).join('')}
     </tbody></table></div>`;
   document.getElementById('dApply').disabled = !dutyPastePlan.some((p) => !p.error && p.member);
 }
@@ -4044,7 +4071,7 @@ function applyDutyPaste() {
   adminDirty = true;
   renderDutyAdmin(document.getElementById('adminContent'));
   showStatus('dStatus', !over.length, `Filled in ${dates.length} duty days from the paste — review, then click Save duty.` +
-    (over.length ? ` More people than fit the columns were listed on ${over.map(dateShort).join(', ')} — remove the extras with × before saving.` : ''));
+    (over.length ? ` More people than fit the columns were listed on ${over.map(dateShortY).join(', ')} — remove the extras with × before saving.` : ''));
 }
 
 // ---------------- First Tee Time (per-day setup) ----------------
