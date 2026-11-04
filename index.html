@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-03a';
+const APP_VERSION = '2026-11-04a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -4607,9 +4607,9 @@ const EMAIL_TYPES = [
     desc: 'One email to the Fun group players for the day, listing their names with tees, holes and riding, the Fun tee times, and anyone on standby. The Nassau players get “Nassau players for tomorrow” instead.',
     wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Line right under “Golf tomorrow, …” (the “Can\'t make it?” reminder)', 2]] },
   { type: 'nassautomorrow', prefix: 'NassauTomorrow', on: 'NassauTomorrowOn', title: 'Nassau players for tomorrow',
-    desc: 'The evening before, to the Nassau players: the tee time, how many are signed up and who is on standby, the tee key, and everyone by Handicap Index with his course handicap, marked by tees (* red, ** white, *** blue, + white/gold, ++ blue/white, +++ red/gold, no mark gold). The same as the one sent by hand today.',
-    boiler: 'Filled in automatically: “TEE TIME IS …” at the top; after the message, the tee key with the STANDBY box, then the players by index (1, 2, 3 …) in two columns with Index and Handicap.',
-    wording: [['NassauTomorrowMessage', 'Message under “TEE TIME IS …” — {count} becomes how many are signed up, {standby} becomes “ with … on standby” (or nothing), {pairings} becomes the Larry\'s Game time', 3], ['NassauTomorrowFooterText', 'Closing line (optional)', 2]] },
+    desc: 'The evening before, to the Nassau players: the tee time, how many are signed up and who is on standby, the tee key, and everyone by Handicap Index with his tees (Red, White/Gold …) and course handicap.',
+    boiler: 'Filled in automatically, in the same look as Larry\'s Game: after the message, the Nassau Group box (date, how many signed up, tee time, Larry\'s Game time), the STANDBY box, then the players by index (1, 2, 3 …) in two columns with Tees, Index and Handicap.',
+    wording: [['NassauTomorrowMessage', 'Message at the top — {count} becomes how many are signed up, {standby} becomes “ with … on standby” (or nothing), {pairings} becomes the Larry\'s Game time', 3], ['NassauTomorrowFooterText', 'Closing line (optional)', 2]] },
   { type: 'pairings', prefix: 'Pairings', on: 'PairingsAutoSend', title: 'Larry\'s Game email',
     desc: 'The "Larry\'s Game" email on the day of play: the Nassau pairings with each player\'s tees and handicap, blinds, the game, and everyone\'s index. Made and sent from Admin › Pairings › Nassau.',
     wording: [['PairingsMessage', 'Message added at the top (optional)', 2]] },
