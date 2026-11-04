@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-04a';
+const APP_VERSION = '2026-11-04b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -4459,7 +4459,7 @@ function renderSugImportAdmin(el) {
       <h2>Import sign-ups from SignUp Genius</h2>
       <p class="hint">Use this while the app runs alongside SignUp Genius, as often as you like (say once a day), and once more when switching over. Open the Legends sign-up page on SignUp Genius in a browser, press <b>Ctrl+A</b> (on a Mac <b>⌘+A</b>) to select the whole page, then <b>Ctrl+C</b> (<b>⌘+C</b>) to copy, and paste it below. Copying all the text from a PDF of the page works too. Click <b>Read</b> to see what was found — nothing changes until you click <b>Import</b>.</p>
       <p class="hint">What comes across: each day's Fun and Nassau lists in sign-up order (standby after the main list), each Fun player's tees / holes / riding and each Nassau player's tees read from their SignUp Genius comment, the first tee time and number of tee times for each day, and “No tee times” days as closures. Comments that can't be fully understood — and 9-hole rounds, since SignUp Genius never said which nine — are kept as the person's note so nothing is lost. Tee Time Duty is not imported (it comes from the quarterly sheet).</p>
-      <p class="hint"><b>Running both side by side:</b> tick <b>Make the app match SignUp Genius</b> below each time, so every date's lists in the app match SignUp Genius exactly: new names added, dropped names removed, same order. Anyone who signed up only in the app on those dates is removed too, so while both are running, ask players to keep signing up on SignUp Genius. It's safe to import the same page again.</p>
+      <p class="hint"><b>Two ways to import:</b> tick <b>Make the app match SignUp Genius</b> below to make every date's lists an exact copy of SignUp Genius (new names added, dropped names removed, same order; anyone who signed up or was added only in the app is removed). Leave it unticked to only bring in new names from SignUp Genius: nothing added, changed or dropped in the app is undone, and anyone who dropped out in the app isn't signed up again, which is what you want once SignUp Genius has closed for a date. It's safe to import the same page again.</p>
       <textarea id="sugText" rows="6" placeholder="Paste the SignUp Genius page here"></textarea>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="sugRead">Read</button></div>
       <div id="sugPreview" style="margin-top:10px;"></div>
@@ -4531,7 +4531,7 @@ function drawSugPreview() {
   }).join('');
   box.innerHTML = `<p class="hint"><b>${futureDays.length}</b> dates · <b>${total}</b> sign-ups${unmatched ? ` · <span class="imp-bad">${unmatched} not matched to the roster</span> (pick the person, or leave “skip”)` : ' · everyone matched to the roster'}.</p>
     ${html}
-    <label class="hint" style="display:block;margin-top:8px;"><input type="checkbox" id="sugReplace"> <b>Make the app match SignUp Genius.</b> For each date above, clear the app's Fun and Nassau lists and fill them from SignUp Genius. Leave this unticked to only add people who aren't in the app yet; no one is removed and existing entries aren't changed.</label>
+    <label class="hint" style="display:block;margin-top:8px;"><input type="checkbox" id="sugReplace"> <b>Make the app match SignUp Genius.</b> Ticked: for each date above, the app's Fun and Nassau lists become an exact copy of SignUp Genius, undoing anything added or dropped in the app. Unticked: only people who aren't in the app yet are added. Anything added, changed or dropped in the app stays as it is, and anyone who dropped out in the app isn't put back.</label>
     <label class="hint" style="display:block;"><input type="checkbox" id="sugSetDays" checked> Set each day's First Tee Time and number of tee times from SignUp Genius</label>
     <div class="row" style="margin-top:10px;"><button class="primary" id="sugGo" ${futureDays.length ? '' : 'disabled'}>Import</button></div>`;
   box.querySelectorAll('[data-sugpick]').forEach((s) => s.onchange = () => {
@@ -4574,7 +4574,7 @@ async function doSugImport() {
   if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('sugStatus', false, cleanError(res.error)); btn.disabled = false; return; }
   adoptBoard(res.data);
   const s = res.data.importSummary || { added: 0 };
-  showStatus('sugStatus', true, `Imported ${s.added} sign-ups${s.skipped ? ` (${s.skipped} were already signed up and left alone)` : ''}${s.daysSet ? `, set ${s.daysSet} first tee times` : ''}${s.closuresAdded ? `, added ${s.closuresAdded} closures` : ''}. Check the Sign-ups tab.`);
+  showStatus('sugStatus', true, `Imported ${s.added} sign-ups${s.skipped ? ` (${s.skipped} were already signed up and left alone)` : ''}${s.dropped ? `, skipped ${s.dropped} who dropped out in the app` : ''}${s.daysSet ? `, set ${s.daysSet} first tee times` : ''}${s.closuresAdded ? `, added ${s.closuresAdded} closures` : ''}. Check the Sign-ups tab.`);
 }
 
 // ====================== EMAILS (admin) ======================
