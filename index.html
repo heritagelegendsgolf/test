@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-04b';
+const APP_VERSION = '2026-11-04c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2577,8 +2577,9 @@ async function loadPairings(key, action) {
   } catch (e) { showStatus('prStatus', false, 'Could not reach the server — try again.'); }
 }
 function pairLayoutText(n, lay, total) {
+  if (total > 20) return `${total} playing — pairings handle at most 20 (five pairings).`;
   if (total && total !== n) return `${total} playing, ${total - n} not in bet: ` + pairLayoutText(n, lay);
-  if (!lay) return n < 6 ? `${n} players — pairings need at least 6.` : `${n} players — pairings handle at most 24.`;
+  if (!lay) return n < 6 ? `${n} players — pairings need at least 6.` : `${n} players — pairings handle at most 20 (five pairings).`;
   const four = lay.sizes.every((s) => s === 4);
   return `${n} players → ${lay.sizes.length} ${four ? 'foursomes' : 'pairings'} (${lay.sizes.join(', ')})${lay.blinds ? `, ${lay.blinds} blind${lay.blinds === 1 ? '' : 's'}` : ''}${lay.stableford ? ', Stableford' : ''}`;
 }
@@ -2600,7 +2601,7 @@ function renderPairingsAdmin(el) {
         <select id="prDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === pair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>
         <span class="hint">${escapeHtml(pairLayoutText(v.betting ?? v.players.length, v.layout, v.players.length))}${v.standby.length ? ` · ${v.standby.length} on standby` : ''} · first tee ${escapeHtml(v.teeTime)}</span>
       </div>
-      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short tee off first and play with a blind: the player right below the open slot, in the next pairing. No column or pairing has more than one blind, and with three short pairings there are no blinds (Stableford).</p>
+      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short tee off first and play with a blind: the player right below the open slot, in the next pairing. No column or pairing has more than one blind, and with three short pairings there are no blinds (Stableford). To avoid blinds, 15 players play as five threesomes.</p>
       <div class="row"><button class="primary" id="prMake" ${v.layout ? '' : 'disabled'}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.EmailSentAt ? ` · <b>email sent ${escapeHtml(when(rec.EmailSentAt))}</b>` : ''}</span>` : ''}</div>
       ${emChangeLine(v.nassauEmail ? Object.assign({ listAt: (proShopSentFor(pair.key) || {}).SentAt }, v.nassauEmail) : null, 'prChanges', 'Nassau players or pairings')}
