@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-04c';
+const APP_VERSION = '2026-11-05d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2936,7 +2936,7 @@ async function saveFunPairs() {
     const res = await apiPost('legendsFunSave', { dateKey: funPair.key, teams: JSON.stringify(e.teams) });
     if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('fpSaveStatus', false, cleanError(res.error)); return; }
     funAdopt(res.data);
-    showStatus('fpSaveStatus', true, res.data.proShop && res.data.proShop.sentBy === 'Automatic (update)' ? 'Saved. An updated list went to the pro shop.' : 'Saved.');
+    showStatus('fpSaveStatus', true, 'Saved.');
   } catch (err) { showStatus('fpSaveStatus', false, 'Could not reach the server — try again.'); }
 }
 
@@ -4585,17 +4585,17 @@ async function doSugImport() {
 const EMAIL_TYPES = [
   { type: 'closing', prefix: 'Closing', on: 'RemindClosing', title: 'Last day to sign up',
     desc: 'On the last sign-up day, a reminder of how many spots are left, for Legends who haven\'t signed up yet for that round.',
-    wording: [['ClosingMessage', 'Message added at the top (optional)', 2], ['ClosingFooterText', 'Closing line', 2]] },
+    wording: [['ClosingMessage', 'Message added at the top (optional) — {weekday} becomes the day of play (e.g. Monday), {date} becomes e.g. Mon, Nov 9', 2], ['ClosingFooterText', 'Closing line — {weekday} becomes the day of play (e.g. Monday), {date} becomes e.g. Mon, Nov 9', 2]] },
   { type: 'proshop', prefix: 'ProShop', on: 'ProShopAutoSend', title: 'List of players for pro shop',
-    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. If the players or the Fun group groups change after it has gone, an updated list marked UPDATED goes out (you can turn that off below). You can preview any day, or send it yourself at any time.',
+    desc: 'The list of who is playing — Fun group then Nassau group, each in alphabetical order by last name, with each Fun player\'s tees, holes and riding, and the standby lists (in standby order) marked as not playing. If the players or the Fun group groups change after it has gone, an updated list marked UPDATED goes out at 5 AM the next morning (you can turn that off below). You can preview any day, or send it yourself at any time.',
     boiler: 'Filled in automatically: the Fun group (in its groups by tee time once they are made, with each player\'s tees, holes, riding and note) and then the Nassau group, each with its tee times, the number playing and the standby list; then the total playing. An updated list starts with “UPDATED LIST — this replaces the one sent earlier” and who is out and who is in.',
     wording: [['ProShopMessage', 'Message added after “Hello — here are the Heritage Legends players…” (optional)', 2], ['ProShopFooterText', 'Closing line', 2]] },
   { type: 'funpairings', prefix: 'FunPairings', on: 'FunPairingsResend', title: 'Changes in Fun Group Pairings',
-    desc: 'The combined list goes to the pro shop first, when sign-ups close. After that, if someone in the Fun group drops out or joins, or the groups change, this goes instead of an updated combined list: just the Fun group, to the pro shop and the Fun players, so the Nassau group isn\'t emailed about Fun group changes.',
+    desc: 'The combined list goes to the pro shop first, when sign-ups close. After that, if someone in the Fun group drops out or joins, or the groups change, this goes instead of an updated combined list: just the Fun group, to the pro shop and the Fun players, so the Nassau group isn\'t emailed about Fun group changes. Changes are gathered and sent once a morning at 5 AM; on the day of play after 5 AM they go right away, but not to the pro shop. The day before play, if the group\'s evening “players for tomorrow” email is on, the 5 AM one goes to the pro shop only and the evening email tells the players what changed.',
     boiler: 'Filled in automatically: what changed (who is out and who is in), then each group under its tee time, with every player\'s tees, holes (18 / Front 9 / Back 9), riding or walking and sign-up note; anyone not in a group yet; how many are playing, riding and walking; and the standby list in order.',
     wording: [['FunPairingsMessage', 'Message added after “Hello — the Heritage Legends Fun group pairings… have changed” (optional)', 2], ['FunPairingsFooterText', 'Closing line', 2]] },
   { type: 'nassauchanges', prefix: 'NassauChanges', on: 'NassauChangesResend', title: 'Changes to Nassau Pairings',
-    desc: 'The combined list goes to the pro shop first, when sign-ups close. After that, if someone in the Nassau group drops out or joins, or the pairings change after Larry\'s Game has gone, this goes instead of an updated combined list: just the Nassau group, to the pro shop and the Nassau players, so the Fun group isn\'t emailed about Nassau changes.',
+    desc: 'The combined list goes to the pro shop first, when sign-ups close. After that, if someone in the Nassau group drops out or joins, or the pairings change after Larry\'s Game has gone, this goes instead of an updated combined list: just the Nassau group, to the pro shop and the Nassau players, so the Fun group isn\'t emailed about Nassau changes. Changes are gathered and sent once a morning at 5 AM; on the day of play after 5 AM they go right away, but not to the pro shop. The day before play, if the group\'s evening “players for tomorrow” email is on, the 5 AM one goes to the pro shop only and the evening email tells the players what changed.',
     boiler: 'Filled in automatically: what changed (who is out and who is in, or that the pairings changed), then the Nassau players with their sign-up notes, the standby list in order, and, once Larry\'s Game has gone, the pairings with their blinds and the game.',
     wording: [['NassauChangesMessage', 'Message added after “Hello — the Heritage Legends Nassau group… has changed” (optional)', 2], ['NassauChangesFooterText', 'Closing line', 2]] },
   { type: 'daily', prefix: 'Daily', on: 'RemindDaily', title: 'Sign-up summary (day before)',
@@ -4605,10 +4605,10 @@ const EMAIL_TYPES = [
     desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
     wording: [['DutyMessage', 'Message added after “Hi …,” (optional)', 2], ['DutyInPersonText', 'Instructions for whoever goes in person — {latest} becomes the latest arrival time, {arrive} the preferred one', 3], ['DutyPhoneText', 'Instructions for whoever phones in — {call} becomes the call-in time', 3], ['DutyFooterText', 'Closing line', 2]] },
   { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Fun Group players for tomorrow',
-    desc: 'One email to the Fun group players for the day, listing their names with tees, holes and riding, the Fun tee times, and anyone on standby. The Nassau players get “Nassau players for tomorrow” instead.',
+    desc: 'One email to the Fun group players for the day, listing their names with tees, holes and riding, the Fun tee times, and anyone on standby, with a “What changed” note if anyone dropped out or joined since they last heard. The Nassau players get “Nassau players for tomorrow” instead.',
     wording: [['PlayingMessage', 'Message added at the top (optional)', 2], ['PlayingFooterText', 'Line right under “Golf tomorrow, …” (the “Can\'t make it?” reminder)', 2]] },
   { type: 'nassautomorrow', prefix: 'NassauTomorrow', on: 'NassauTomorrowOn', title: 'Nassau players for tomorrow',
-    desc: 'The evening before, to the Nassau players: the tee time, how many are signed up and who is on standby, the tee key, and everyone by Handicap Index with his tees (Red, White/Gold …) and course handicap.',
+    desc: 'The evening before, to the Nassau players (with a “What changed” note if anyone dropped out or joined since they last heard): the tee time, how many are signed up and who is on standby, the tee key, and everyone by Handicap Index with his tees (Red, White/Gold …) and course handicap.',
     boiler: 'Filled in automatically, in the same look as Larry\'s Game: after the message, the Nassau Group box (date, how many signed up, tee time, Larry\'s Game time), the STANDBY box, then the players by index (1, 2, 3 …) in two columns with Tees, Index and Handicap.',
     wording: [['NassauTomorrowMessage', 'Message at the top — {count} becomes how many are signed up, {standby} becomes “ with … on standby” (or nothing), {pairings} becomes the Larry\'s Game time', 3], ['NassauTomorrowFooterText', 'Closing line (optional)', 2]] },
   { type: 'pairings', prefix: 'Pairings', on: 'PairingsAutoSend', title: 'Larry\'s Game email',
@@ -4679,7 +4679,7 @@ function emWhenHtml(t, key) {
   if (EM_CHANGE_TYPES.includes(t.type)) {
     const fun = t.type === 'funpairings', sent = proShopSentFor(key);
     return `<p>Only after the combined list has gone to the pro shop when sign-ups close. From then on, it goes automatically each time ${fun ? 'someone in the Fun group drops out or joins, or the groups change' : 'someone in the Nassau group drops out or joins, or the pairings change after Larry\'s Game has gone'}.</p>` +
-      (!emIsOn(t) ? `<p class="hint">Off — ${fun ? 'Fun group' : 'Nassau group'} changes go out on an updated combined list instead (if that list's “Send an updated list automatically” box is ticked on Admin › Setup › Emails), or when you click <b>Send now</b> below.</p>`
+      (!emIsOn(t) ? `<p class="hint">Off — ${fun ? 'Fun group' : 'Nassau group'} changes go out on an updated combined list at 5 AM the next morning instead (if that list's “Send an updated list at 5 AM” box is ticked on Admin › Setup › Emails), or when you click <b>Send now</b> below.</p>`
         : `<p class="hint">${sent ? `The combined list for <b>${escapeHtml(dateShort(key))}</b> went ${escapeHtml(whenLabel(Date.parse(sent.SentAt)))}, so changes for that round go in this email.` : `The combined list for <b>${escapeHtml(dateShort(key))}</b> hasn't gone yet, so there's nothing to send.`} Turn it <b>Off</b> (the switch at the top right) to send changes on the combined list instead.</p>`);
   }
   if (t.type === 'proshop') {
@@ -4688,7 +4688,7 @@ function emWhenHtml(t, key) {
     const opts = `<option value="" ${h === '' ? 'selected' : ''}>as soon as sign-ups close (11:59 PM, ${n} day${n === 1 ? '' : 's'} before play)</option>` +
       Array.from({ length: 13 }, (_, i) => i + 5).map((x) => `<option value="${x}" ${h === String(x) ? 'selected' : ''}>the next morning at ${fmtClock(x * 60)}</option>`).join('');
     return `<div class="row"><span>The list goes</span><select data-emset="ProShopHour" style="width:auto;">${opts}</select></div>
-      <label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list automatically if someone drops out or joins after it has gone</label>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list at 5 AM each morning if someone dropped out or joined since it went</label>
       <p class="hint em-sub">Only for a group whose own change email is Off: with <b>Changes in Fun Group Pairings</b> or <b>Changes to Nassau Pairings</b> On, that group's changes go in that email instead.</p>
       <p class="hint">The Fun group's groups are made when sign-ups close, so the list shows them. Sign-ups closing is set on Admin › Setup › Sign-up rules.</p>` +
       (!emIsOn(t) ? '<p class="hint">Off — it only goes when you click <b>Send now</b> below.</p>'
@@ -4780,7 +4780,7 @@ function emChangeLine(info, btnId, what) {
   if (info.listAt) parts.push(`Combined list sent ${escapeHtml(when(info.listAt))}${info.listBy ? ` (${escapeHtml(info.listBy)})` : ''}`);
   if (info.sentAt) parts.push(`changes email sent ${escapeHtml(when(info.sentAt))}`);
   return `<div class="row" style="align-items:center;gap:8px;margin-top:8px;">${parts.length ? `<span class="hint">${parts.join(' · ')}.</span>` : ''}
-    ${info.changed ? `<span class="status error" style="margin:0;">⚠️ The ${escapeHtml(what)} have changed since the last email.</span>${info.viaList ? '<span class="hint">Send an updated combined list from Admin › Setup › Emails.</span>' : `<button class="secondary" id="${btnId}">See below to send the changes</button>`}` : '<span class="hint">✓ It still matches.</span>'}</div>`;
+    ${info.changed ? `<span class="status error" style="margin:0;">⚠️ The ${escapeHtml(what)} have changed since the last email.</span>${info.viaList ? '<span class="hint">An updated combined list goes at 5 AM, or send one now from Admin › Setup › Emails.</span>' : `<span class="hint">It goes automatically at 5 AM (on the day of play, right away).</span><button class="secondary" id="${btnId}">See below to send the changes now</button>`}` : '<span class="hint">✓ It still matches.</span>'}</div>`;
 }
 // Its button opens that change email below, on this date, and goes to it.
 function emChangeButton(btnId, type, key) {
