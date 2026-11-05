@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-05h';
+const APP_VERSION = '2026-11-05i';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -4721,9 +4721,6 @@ function emWhoHtml(t, key) {
   let more = '';
   if (t.type === 'daily') {
     more = `<label class="hint em-field">Legends group address (optional — see note below)</label><input type="text" data-emset="DailyGroupEmail" value="${escapeHtml(st.DailyGroupEmail || '')}" placeholder="e.g. heritage-legends@googlegroups.com">
-      <label class="hint em-field">Note added at the bottom of any email that goes to a Google Group (the address above, or an @googlegroups.com address in any email's recipients) — {group} the address, {count} how many Legends, {names} their names, {link} a “click here” link that opens an email to all of them. Leave blank for no note.</label><textarea data-emset="DailyGroupNoteText" rows="3">${escapeHtml(st.DailyGroupNoteText || '')}</textarea>
-      <label class="hint em-field">Group members Google can't show the app — the app reads each group's members itself, but Google hides addresses with no Google account (such as aol.com or nc.rr.com). List those here, one line per group, like <i>legendstestgroup@googlegroups.com: bemiluv@aol.com, tbacca@nc.rr.com</i>. <b>Check the group</b> shows who the app sees in each group.</label><textarea data-emset="DailyGroupMembers" rows="3" placeholder="group@googlegroups.com: someone@aol.com, other@nc.rr.com">${escapeHtml(st.DailyGroupMembers || '')}</textarea>
-      <div class="row"><button type="button" class="secondary" onclick="emGroupCheck(this)">Check the group</button><span class="hint">Checks every Google Group in the saved email settings.</span></div><div data-em-groupcheck></div>
       <p class="hint"><b>Email limits:</b> an app email can carry at most 50 addresses, and Gmail allows about 100 recipients a day in total. Listed one by one, the Legends are about ${(board.roster || []).filter((r) => r.Active !== 'FALSE').length + 5} people — so the email has to go out in two parts (reply-all then only reaches your own part) and uses most of the day's allowance. <b>The fix is a Google Group</b> containing every Legend: put its address above and <b>All Legends</b> becomes that one address — reply-all reaches everyone, and it counts as a single recipient. Without a group, turn <b>Fun Group players for tomorrow</b> off when this is on.</p>`;
   }
   return boxes + `<p class="hint">${how}</p>` + more;
@@ -5015,6 +5012,10 @@ function renderEmailsAdmin(el) {
       <label>Daily email limit (recipients)</label><input type="number" min="1" data-emset="EmailDailyLimit" value="${escapeHtml(st.EmailDailyLimit || '100')}" style="max-width:120px;">
       <p class="hint">100 for a free Gmail account, 1500 for Google Workspace. Every To, Cc and Bcc address counts, so splitting an email into parts doesn't help.</p>
       ${emForecastHtml(typeTitle)}
+      <h3 style="margin:16px 0 4px;">Google Groups</h3>
+      <label class="hint em-field">Note added at the bottom of any email that goes to a Google Group (an @googlegroups.com address in any email's recipients, or the Legends group address under Sign-up summary) — {group} the address, {count} how many Legends, {names} their names, {link} a “click here” link that opens an email to all of them. Leave blank for no note.</label><textarea data-emset="DailyGroupNoteText" rows="3">${escapeHtml(st.DailyGroupNoteText || '')}</textarea>
+      <label class="hint em-field">Group members Google can't show the app — the app reads each group's members itself, but Google hides addresses with no Google account (such as aol.com or nc.rr.com). List those here, one line per group, like <i>legendstestgroup@googlegroups.com: bemiluv@aol.com, tbacca@nc.rr.com</i>. <b>Check the group</b> shows who the app sees in each group.</label><textarea data-emset="DailyGroupMembers" rows="3" placeholder="group@googlegroups.com: someone@aol.com, other@nc.rr.com">${escapeHtml(st.DailyGroupMembers || '')}</textarea>
+      <div class="row"><button type="button" class="secondary" onclick="emGroupCheck(this)">Check the group</button><span class="hint">Checks every Google Group in the saved email settings.</span></div><div data-em-groupcheck></div>
       <div class="row" style="margin-top:10px;"><button class="primary" data-em-save="all">Save</button></div>
       <div id="emStatus-all" class="status"></div>
     </div>
