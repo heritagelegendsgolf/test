@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-06e';
+const APP_VERSION = '2026-11-07a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2577,9 +2577,8 @@ async function loadPairings(key, action) {
   } catch (e) { showStatus('prStatus', false, 'Could not reach the server — try again.'); }
 }
 function pairLayoutText(n, lay, total) {
-  if (total > 20) return `${total} playing — pairings handle at most 20 (five pairings).`;
   if (total && total !== n) return `${total} playing, ${total - n} not in bet: ` + pairLayoutText(n, lay);
-  if (!lay) return n < 6 ? `${n} players — pairings need at least 6.` : `${n} players — pairings handle at most 20 (five pairings).`;
+  if (!lay) return n < 6 ? `${n} players — pairings need at least 6.` : `${n} players — more than the day's Nassau tee times can hold (4 per tee time).`;
   const four = lay.sizes.every((s) => s === 4);
   return `${n} players → ${lay.sizes.length} ${four ? 'foursomes' : 'pairings'} (${lay.sizes.join(', ')})${lay.blinds ? `, ${lay.blinds} blind${lay.blinds === 1 ? '' : 's'}` : ''}${lay.stableford ? ', Stableford' : ''}`;
 }
@@ -2601,7 +2600,7 @@ function renderPairingsAdmin(el) {
         <select id="prDate" style="width:auto;">${days.map((d) => `<option value="${d.DateKey}" ${d.DateKey === pair.key ? 'selected' : ''}>${escapeHtml(dateShort(d.DateKey))}${d.DateKey === board.today ? ' (today)' : ''}</option>`).join('')}</select>
         <span class="hint">${escapeHtml(pairLayoutText(v.betting ?? v.players.length, v.layout, v.players.length))}${v.standby.length ? ` · ${v.standby.length} on standby` : ''} · first tee ${escapeHtml(v.teeTime)}</span>
       </div>
-      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short tee off first and play with a blind: the player right below the open slot, in the next pairing. No column or pairing has more than one blind, and with three short pairings there are no blinds (Stableford). To avoid blinds, 15 players play as five threesomes.</p>
+      <p class="hint">Pairings are made automatically at 6 AM on the day of play from everyone signed up then, or you can make them now. Players are ranked A–D by Handicap Index and each pairing gets one of each, avoiding last round's partners${v.prev ? ` (${escapeHtml(dateShort(v.prev.key))})` : ''} where possible. Pairings that are a man short tee off first and play with a blind: the player right below the open slot, in the next pairing. No column or pairing has more than one blind, and with three short pairings there are no blinds (Stableford). To avoid blinds, players split into equal threesomes when the day's Nassau tee times allow (e.g. 15 = five threesomes). There are as many pairings as needed, up to the day's Nassau tee times.</p>
       <div class="row"><button class="primary" id="prMake" ${v.layout ? '' : 'disabled'}>${rec ? 'Redo pairings' : 'Make pairings'}</button>
         ${rec ? `<span class="hint">Made ${escapeHtml(when(rec.madeAt))} by ${escapeHtml(rec.madeBy || '')}${rec.EmailSentAt ? ` · <b>email sent ${escapeHtml(when(rec.EmailSentAt))}</b>` : ''}</span>` : ''}</div>
       ${emChangeLine(v.nassauEmail ? Object.assign({ listAt: (proShopSentFor(pair.key) || {}).SentAt }, v.nassauEmail) : null, 'prChanges', 'Nassau players or pairings')}
@@ -4147,14 +4146,14 @@ function renderDaysAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>First Tee Time <span class="hint" style="font-weight:400;">— the Legends tee times for each day</span></h2>
-      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. Until a first time is entered, members see “times TBD” for that day. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — following the club's pattern: six ${escapeHtml(board.settings.TeeIntervalMin)}-minute steps, then a 12-minute step to the top of the hour (10:00, 10:08, 10:16, 10:24, 10:32, 10:40, 10:48, 11:00). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. Each row saves on its own.</p>
+      <p class="hint">Once the tee time getters confirm what they got, enter the <b>first Legends tee time</b> and the number of <b>Fun tee times</b>. Until a first time is entered, members see “times TBD” for that day. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — following the club's pattern: six ${escapeHtml(board.settings.TeeIntervalMin)}-minute steps, then a 12-minute step to the top of the hour (10:00, 10:08, 10:16, 10:24, 10:32, 10:40, 10:48, 11:00). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. At most 9 tee times a day in all (Fun + Nassau), split however you enter them. Each row saves on its own.</p>
       <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th></th></tr></thead><tbody>
       ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); if (closed) return `<tr class="closed-day">
         <td><b>${escapeHtml(dateShort(k))}</b></td><td colspan="6" class="hint" style="color:var(--error)">No Legends tee times — ${escapeHtml(closed.Reason || 'closed')}</td></tr>`; return `<tr>
         <td><b>${escapeHtml(dateShort(k))}</b></td>
         <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="e.g. 9:00" style="width:95px;"></td>
-        <td><input type="number" min="0" max="14" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
-        <td><input type="number" min="0" max="14" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
+        <td><input type="number" min="0" max="9" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
+        <td><input type="number" min="0" max="9" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
         <td data-show="fun" data-k="${k}" style="white-space:nowrap;"></td>
         <td data-show="nassau" data-k="${k}" style="white-space:nowrap;"></td>
         <td><button class="secondary" data-save-day="${k}">Save</button></td></tr>`; }).join('')}
