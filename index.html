@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-07a';
+const APP_VERSION = '2026-11-07b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -5218,6 +5218,11 @@ async function loadVersion() {
   try {
     const res = await apiGet('getVersion');
     el.textContent = `${ENV.toUpperCase()} · Page ${APP_VERSION} · Backend ${res.success ? res.data.version : 'unknown'}`;
+    // LegendsApp.gs carries its own version; if it doesn't match Code.gs, one file wasn't pasted.
+    if (res.success && res.data.legends !== res.data.version) {
+      el.textContent += ` · LegendsApp.gs ${res.data.legends || 'old'} (doesn't match: paste both .gs files, then deploy a new version)`;
+      el.style.color = '#ffd27a'; el.style.fontWeight = '700';
+    }
   } catch (e) { el.textContent = `${ENV.toUpperCase()} · Page ${APP_VERSION} · Backend unreachable`; }
 }
 (function boot() {
