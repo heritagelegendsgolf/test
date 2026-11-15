@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-15c';
+const APP_VERSION = '2026-11-15d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -604,6 +604,32 @@ function dateShort(key) { const d = keyDate(key); return `${DOW[d.getUTCDay()]},
 function dutyClosedNote(key, target, reason) {
   const why = String(reason || '').trim();
   return `No need to get tee times${key === board.today ? ' today' : ''}. Club closed in two weeks, ${dateShort(target)}${why && why.toLowerCase() !== 'closed' ? `, for ${why}` : ''}.`;
+}
+// Duty moved earlier because the club is closed on its own day (Tom 2026-11-15): the club
+// lets us request tee times early, e.g. on Thu Dec 24 for Fri Jan 8 when it's closed Christmas Day.
+function earlyWords(key, from) { const n = Math.round((keyDate(from) - keyDate(key)) / 86400000); return n === 1 ? 'a day' : `${n} days`; }
+function dutyMovedNote(key, info) {
+  if (!info || !info.movedFrom) return '';
+  const why = String(info.movedWhy || '').trim();
+  const w = earlyWords(key, info.movedFrom);
+  return `${w.charAt(0).toUpperCase() + w.slice(1)} early: club closed ${dateShort(info.movedFrom)}${why && why.toLowerCase() !== 'closed' ? ` (${why})` : ''}`;
+}
+// Duty still on a day the club is closed (it couldn't move: the days before have passed or are taken).
+function dutyDayClosedNote(info) {
+  if (!info || !info.dayClosed || info.targetClosed) return '';
+  const why = String(info.dayClosed).trim();
+  return `Club closed this day${why && why.toLowerCase() !== 'closed' ? ` (${why})` : ''}. Check with the Tee Times Manager about when to request these tee times.`;
+}
+function dutyNotesHtml(key, info) {
+  const m = dutyMovedNote(key, info), c = dutyDayClosedNote(info);
+  return (m ? `<div class="hint" style="color:var(--green-dark);font-weight:600;">${escapeHtml(m)}</div>` : '') + (c ? `<div class="hint" style="color:var(--error)">${escapeHtml(c)}</div>` : '');
+}
+// What the server did with duty on closed days after a save (laMoveDutyForClosures_).
+function dutyMovesText(dm) {
+  if (!dm) return '';
+  const parts = (dm.moved || []).map((m) => m.back ? `Tee Time Duty for ${dateShort(m.to)} moved back to its own day (club open again).` : `Tee Time Duty for ${dateShort(m.from)} moved to ${dateShort(m.to)} (club closed).`);
+  (dm.stuck || []).forEach((k) => parts.push(`Club closed ${dateShort(k)}, but its Tee Time Duty couldn't move earlier — move it by hand under Admin > Tee Time Duty.`));
+  return parts.length ? ' ' + parts.join(' ') : '';
 }
 function dateLong(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}/${d.getUTCFullYear()}`; }
 function isPlayDay(key) { const d = dowOf(key); return d === 1 || d === 3 || d === 5; }
@@ -1333,7 +1359,7 @@ function mySummaryHtml(items) {
     // date on top, then what to do, then which day's tee times
     return `<div class="duty-cell"><div class="duty-date">${escapeHtml(dateShort(x.DateKey))}</div>
       <div class="snap-l1">${x.Role === 'phone' ? `Phone in · ${escapeHtml(inf.call || '')}` : `In person · by ${escapeHtml(inf.arrive || '')}`}</div>
-      <div class="snap-l2">${inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : '')}</div></div>`;
+      <div class="snap-l2">${inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : '')}</div>${inf.movedFrom && !inf.targetClosed ? `<div class="snap-l2" style="color:var(--green-dark);font-weight:600;">${escapeHtml(dutyMovedNote(x.DateKey, inf))}</div>` : ''}</div>`;
   }).join('');
   return `<div class="card my-summary">
       <h2 class="snap-title snap-banner">My Tee Time Duty</h2>
@@ -1424,8 +1450,16 @@ function groupChipsHtml(d, g) {
     </div>`;
 }
 function dutyLineHtml(key) {
-  const rows = dutyForDay(key);
-  if (!rows.length) return '';
+  let rows = dutyForDay(key);
+  if (!rows.length) {
+    // Club closed this day, so its duty moved earlier (Tom 2026-11-15)
+    const mv = (board.duty || []).filter((x) => x.MovedFrom === key);
+    if (!mv.length) return '';
+    const k = mv[0].DateKey, inf = (board.dutyDayInfo || {})[k] || {};
+    const ip = mv.filter((r) => r.DateKey === k && r.Role === 'inperson').map((r) => displayName(r.Name)), ph = mv.filter((r) => r.DateKey === k && r.Role === 'phone').map((r) => displayName(r.Name));
+    const who = [ip.length ? `in person: ${ip.join(', ')}` : '', ph.length ? `phone in: ${ph.join(', ')}` : ''].filter(Boolean).join(' · ');
+    return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty moved ${escapeHtml(earlyWords(k, key))} early to <b>${escapeHtml(dateShort(k))}</b> (club closed) — requesting tee times for ${escapeHtml(dateShort(inf.target || ''))}${who ? ` · ${escapeHtml(who)}` : ''}</span></div>`;
+  }
   const info = (board.dutyDayInfo || {})[key] || {};
   if (info.targetClosed) return `<div class="ts-duty"><span class="golf-flag">⛳</span><span>Tee Time Duty: ${escapeHtml(dutyClosedNote(key, info.target, info.targetClosed))}</span></div>`;
   const ip = rows.filter((r) => r.Role === 'inperson').map((r) => displayName(r.Name)), ph = rows.filter((r) => r.Role === 'phone').map((r) => displayName(r.Name));
@@ -1978,7 +2012,7 @@ function renderDuty() {
   if (dutyView === 'date') {
     el.innerHTML = `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Duty day</th><th>In person</th><th>Phone in</th><th>Requesting tee times for</th></tr></thead><tbody>
       ${days.map((d) => `<tr class="${d.rows.some((r) => String(r.PlayerID) === myId()) ? 'mine' : ''}">
-        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">${escapeHtml(dutyClosedNote(d.key, d.info.target, d.info.targetClosed))}</div>` : d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
+        <td><b>${escapeHtml(dateShort(d.key))}</b>${swapBtnHtml(d)}${dutyNotesHtml(d.key, d.info)}${d.info.targetClosed ? `<div class="hint" style="color:var(--error)">${escapeHtml(dutyClosedNote(d.key, d.info.target, d.info.targetClosed))}</div>` : d.info.arrive ? `<div class="hint">arrive ${escapeHtml(d.info.arrive)}${d.rows.some((r) => r.Role === 'phone') ? ` · call ${escapeHtml(d.info.call)}` : ''}</div>` : ''}</td>
         <td>${names(d.rows, 'inperson') || '<span class="hint">—</span>'}</td>
         <td>${names(d.rows, 'phone') || '<span class="hint">—</span>'}</td>
         <td>${d.info.target ? escapeHtml(dateShort(d.info.target)) : ''}</td>
@@ -1988,7 +2022,7 @@ function renderDuty() {
     days.forEach((d) => d.rows.forEach((r) => { if (want && String(r.PlayerID) !== String(want)) return; (byPerson[r.PlayerID] = byPerson[r.PlayerID] || { name: r.Name, items: [] }).items.push({ key: d.key, role: r.Role, info: d.info }); }));
     const ids = Object.keys(byPerson).sort((a, b) => byPerson[a].name.localeCompare(byPerson[b].name));
     el.innerHTML = ids.map((id) => `<h3>${escapeHtml(displayName(byPerson[id].name))}</h3><table class="dt"><tbody>
-      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b>${String(id) === myId() ? swapBtnHtml({ key: it.key, rows: dutyForDay(it.key) }) : ''}</td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ` <div class="hint" style="color:var(--error)">${escapeHtml(dutyClosedNote(it.key, it.info.target, it.info.targetClosed))}</div>` : ''}</td></tr>`).join('')}
+      ${byPerson[id].items.map((it) => `<tr><td style="width:40%"><b>${escapeHtml(dateShort(it.key))}</b>${String(id) === myId() ? swapBtnHtml({ key: it.key, rows: dutyForDay(it.key) }) : ''}</td><td>${it.role === 'phone' ? `<span class="role-p">PHONE IN</span> ${escapeHtml(it.info.call || '')}` : `In person, arrive ${escapeHtml(it.info.arrive || '')}`}${it.info.targetClosed ? ` <div class="hint" style="color:var(--error)">${escapeHtml(dutyClosedNote(it.key, it.info.target, it.info.targetClosed))}</div>` : ''}${dutyNotesHtml(it.key, it.info)}</td></tr>`).join('')}
       </tbody></table>`).join('') || '<p class="hint">Nothing matches.</p>';
   } else {
     const all = dutyDays();
@@ -2016,7 +2050,7 @@ function renderDuty() {
     const cellHtml = (k) => {
       const d = all.find((x) => x.key === k);
       if (!d) return `<div><span class="d">${escapeHtml(dateShort(k))}</span><div class="hint">—</div></div>`;
-      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(no need to get tee times)</span>' : d.info.arrive ? ` <span class="arr">arrive by ${escapeHtml(d.info.arrive)}</span>` : ''}
+      return `<div><span class="d">${escapeHtml(dateShort(k))}</span>${d.info.targetClosed ? ' <span class="hint">(no need to get tee times)</span>' : d.info.arrive ? ` <span class="arr">arrive by ${escapeHtml(d.info.arrive)}</span>` : ''}${dutyNotesHtml(k, d.info)}
         <div>${d.rows.filter((r) => r.Role === 'inperson').map((r) => escapeHtml(displayName(r.Name))).join('<br>')}</div>
         ${d.rows.some((r) => r.Role === 'phone') ? `<div><span class="role-p">PHONE:</span> ${d.rows.filter((r) => r.Role === 'phone').map((r) => escapeHtml(displayName(r.Name))).join(', ')}</div>` : ''}</div>`;
     };
@@ -2511,7 +2545,7 @@ async function adminSave(action, body, statusId, okMsg) {
     board = res.data;
     clockSkew = res.data.now - Date.now();
     renderAdminSub();
-    showStatus(statusId, true, okMsg || 'Saved.');
+    showStatus(statusId, true, (okMsg || 'Saved.') + dutyMovesText(res.data.dutyMoves));
     return true;
   } catch (e) { showStatus(statusId, false, 'Could not reach the server — try again.'); return false; }
 }
@@ -3670,7 +3704,7 @@ let dutyEdit = null;
 const SLOT_ROLES = ['inperson', 'inperson', 'inperson', 'phone']; // up to three in person + one phone-in
 const DUTY_SLOTS = SLOT_ROLES.length;
 function mondayOf(key) { return addDays(key, -((dowOf(key) + 6) % 7)); }
-function emptyDutyDay() { return { slots: SLOT_ROLES.map((role) => ({ id: '', role })), extras: [], target: '' }; }
+function emptyDutyDay() { return { slots: SLOT_ROLES.map((role) => ({ id: '', role })), extras: [], target: '', movedFrom: '' }; }
 function fillDutySlots(key, people) {
   const day = emptyDutyDay();
   const ins = people.filter((x) => x.role === 'inperson'), ph = people.filter((x) => x.role !== 'inperson');
@@ -3680,13 +3714,14 @@ function fillDutySlots(key, people) {
   return day;
 }
 function startDutyEdit(from, to) {
-  const days = {}, people = {}, targets = {};
+  const days = {}, people = {}, targets = {}, moved = {};
   for (let k = from; k <= to; k = addDays(k, 1)) if (isPlayDay(k)) people[k] = [];
   (board.duty || []).filter((x) => x.DateKey >= from && x.DateKey <= to).forEach((x) => {
     (people[x.DateKey] = people[x.DateKey] || []).push({ id: x.PlayerID, role: x.Role === 'phone' ? 'phone' : 'inperson' });
     if (x.TargetKey) targets[x.DateKey] = x.TargetKey;
+    if (x.MovedFrom) moved[x.DateKey] = x.MovedFrom;
   });
-  Object.keys(people).forEach((k) => { days[k] = fillDutySlots(k, people[k]); days[k].target = targets[k] || ''; });
+  Object.keys(people).forEach((k) => { days[k] = fillDutySlots(k, people[k]); days[k].target = targets[k] || ''; days[k].movedFrom = moved[k] || ''; });
   dutyEdit = { from, to, days };
 }
 function defaultTarget(key) { let t = addDays(key, 14); for (let i = 0; i < 7 && !isPlayDay(t); i++) t = addDays(t, 1); return t; }
@@ -3703,7 +3738,7 @@ function renderDutyAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Tee Time Duty assignments</h2>
-      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. Normally two people go <b>in person</b> and one <b>phones in</b>. On a <b>heavy-demand day</b> (set below) three go in person and the phone-in person is a backup. Names that break the duty lists below show in red. To remove a name, choose <b>✕ Clear (no one)</b> at the top of its list. Each duty day books the round two weeks later, shown as “Wed, Oct 7 <b>for</b> Wed, Oct 21”; click the second date to change it for an unusual day (like a Thursday standing in for a holiday). Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
+      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. Normally two people go <b>in person</b> and one <b>phones in</b>. On a <b>heavy-demand day</b> (set below) three go in person and the phone-in person is a backup. Names that break the duty lists below show in red. To remove a name, choose <b>✕ Clear (no one)</b> at the top of its list. Each duty day books the round two weeks later, shown as “Wed, Oct 7 <b>for</b> Wed, Oct 21”; click the second date to change it for an unusual day (like a Thursday standing in for a holiday). If the club is closed on a duty day itself (Christmas Day, a snow day; entered under Closures &amp; notices), that duty moves by itself to the closest earlier open day, still booking the same round, and moves back if the closure is removed. Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
       <div class="row" style="margin-bottom:8px;">
         <label class="hint">From <input type="date" id="dFrom" value="${dutyEdit.from}"></label>
         <label class="hint">To <input type="date" id="dTo" value="${dutyEdit.to}"></label>
@@ -3714,7 +3749,7 @@ function renderDutyAdmin(el) {
       ${keys.map((k) => { const d = dutyEdit.days[k], hv = heavyRoundFor(k, d.target); return `<tr class="${isPlayDay(k) ? '' : 'weekend'}">
         <td><b>${escapeHtml(dateShortY(k))}</b>${hv ? ` <span class="imp-bad" title="Heavy demand expected on ${escapeHtml(dateShort(hv))}: three in person">HEAVY${heavyMap()[hv] ? ` · ${escapeHtml(heavyMap()[hv])}` : ''}</span>` : ''} for ${dutyEdit.editTarget === k
           ? `<input type="date" data-target="${k}" value="${d.target || defaultTarget(k)}" style="width:140px;">`
-          : `<button class="link" data-edit-target="${k}" title="Change the round this duty day books" style="padding:0;${d.target && d.target !== defaultTarget(k) ? 'font-weight:700;' : ''}">${escapeHtml(dateShortY(d.target || defaultTarget(k)))}</button>`}${k < board.today ? ' <span class="hint">(past)</span>' : ''}${(() => { const t = d.target || defaultTarget(k), c = (board.closures || []).find((x) => x.DateKey === t); return c ? `<div class="hint" style="color:var(--error)">${escapeHtml(dutyClosedNote(k, t, c.Reason || 'Closed'))}</div>` : ''; })()}${extrasHtml(k, d)}${hv && d.slots.concat(d.extras || []).filter((x) => x.id && x.role === 'inperson').length < 3 ? `<div class="imp-bad hint">Heavy day ${escapeHtml(monDay(hv))}: need three in-person</div>` : ''}</td>
+          : `<button class="link" data-edit-target="${k}" title="Change the round this duty day books" style="padding:0;${d.target && d.target !== defaultTarget(k) ? 'font-weight:700;' : ''}">${escapeHtml(dateShortY(d.target || defaultTarget(k)))}</button>`}${k < board.today ? ' <span class="hint">(past)</span>' : ''}${(() => { const t = d.target || defaultTarget(k), c = (board.closures || []).find((x) => x.DateKey === t); return c ? `<div class="hint" style="color:var(--error)">${escapeHtml(dutyClosedNote(k, t, c.Reason || 'Closed'))}</div>` : ''; })()}${dutyAdminClosedHtml(k, d)}${extrasHtml(k, d)}${hv && d.slots.concat(d.extras || []).filter((x) => x.id && x.role === 'inperson').length < 3 ? `<div class="imp-bad hint">Heavy day ${escapeHtml(monDay(hv))}: need three in-person</div>` : ''}</td>
         ${d.slots.map((sl, i) => `<td>${slotHtml(k, i, sl)}</td>`).join('')}
 </tr>`; }).join('')}
       </tbody></table></div>
@@ -3766,6 +3801,20 @@ function renderDutyAdmin(el) {
   emEmbed(el, 'duty');
   if (adminDirty) document.getElementById('adDirty').hidden = false;
 }
+// Admin duty table: this day moved early, or the club is closed on it (Tom 2026-11-15).
+function dutyAdminClosedHtml(k, d) {
+  const why = (r) => { const w = String(r || '').trim(); return w && w.toLowerCase() !== 'closed' ? ` (${w})` : ''; };
+  const closedOn = (key) => (board.closures || []).find((x) => x.DateKey === key);
+  let out = '';
+  if (d.movedFrom) { const c = closedOn(d.movedFrom); out += `<div class="hint" style="color:var(--green-dark);font-weight:600;">Moved ${escapeHtml(earlyWords(k, d.movedFrom))} early: club closed ${escapeHtml(dateShort(d.movedFrom))}${escapeHtml(why(c ? c.Reason : ''))}</div>`; }
+  const c = closedOn(k);
+  if (c) {
+    const to = Object.keys(dutyEdit.days).find((x) => dutyEdit.days[x].movedFrom === k);
+    const filled = d.slots.concat(d.extras || []).some((x) => x.id);
+    out += `<div class="hint" style="color:var(--error)">Club closed${escapeHtml(why(c.Reason))}. ${filled ? 'Saving moves this duty to the closest earlier open day.' : to ? `Duty moved to ${escapeHtml(dateShort(to))}.` : 'No duty this day.'}</div>`;
+  }
+  return out;
+}
 function dutyRowsFromEdit() {
   const rows = [];
   for (const k of Object.keys(dutyEdit.days).sort()) {
@@ -3777,7 +3826,7 @@ function dutyRowsFromEdit() {
       if (!sl.id) continue;
       if (seen.has(sl.id)) { const r = rosterById(sl.id); return { error: `${displayName(r ? r.Name : 'Someone')} is in two spots on ${dateShortY(k)}.` }; }
       seen.add(sl.id);
-      rows.push({ DateKey: k, Role: sl.role === 'phone' ? 'phone' : 'inperson', PlayerID: sl.id, TargetKey: d.target && d.target !== defaultTarget(k) ? d.target : '' });
+      rows.push({ DateKey: k, Role: sl.role === 'phone' ? 'phone' : 'inperson', PlayerID: sl.id, TargetKey: d.target && d.target !== defaultTarget(k) ? d.target : '', MovedFrom: d.movedFrom || '' });
     }
   }
   return { rows };
@@ -3787,7 +3836,7 @@ async function saveDutyEdit() {
   if (out.error) { showStatus('dStatus', false, out.error); return; }
   const rows = out.rows;
   const ok = await adminSave('legendsSaveDuty', { fromKey: dutyEdit.from, toKey: dutyEdit.to, rows: JSON.stringify(rows) }, 'dStatus', `Saved ${rows.length} assignments.`);
-  if (ok) { startDutyEdit(dutyEdit.from, dutyEdit.to); renderDutyAdmin(document.getElementById('adminContent')); showStatus('dStatus', true, `Saved ${rows.length} assignments.`); }
+  if (ok) { startDutyEdit(dutyEdit.from, dutyEdit.to); renderDutyAdmin(document.getElementById('adminContent')); showStatus('dStatus', true, `Saved ${rows.length} assignments.` + dutyMovesText(board.dutyMoves)); }
 }
 
 // ---- duty lists, heavy days, quarters, Generate (Tom 2026-11-01) ----
@@ -4241,7 +4290,7 @@ function renderClosuresAdmin(el, cRows, nRows) {
   const nCols = [{ f: 'DateKey', label: 'Date', type: 'date', w: '160px' }, { f: 'Text', label: 'Notice shown on that date', ph: 'e.g. Cart path only' }];
   const oldC = (board.closures || []).filter((r) => r.DateKey < addDays(board.today, -30));
   const oldN = (board.notices || []).filter((r) => r.DateKey < addDays(board.today, -30));
-  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to get tee times.', cCols, cRows) +
+  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to get tee times. If a Tee Time Duty day itself is closed (e.g. Christmas Day or a snow day), the club lets us request tee times early, so that duty moves to the day before (the closest earlier open day) and its people are reminded the day before that.', cCols, cRows) +
     listEditorHtml('nt', 'Notices', 'A short note shown on a date in Sign-ups — anything worth flagging that isn\'t a closure.', nCols, nRows);
   // Older rows (more than 30 days back) are kept as they are when saving.
   wireListEditor(el, 'cl', cRows, 'legendsSaveClosures', cCols, (r) => renderClosuresAdmin(el, r, nRows));
@@ -4601,7 +4650,7 @@ const EMAIL_TYPES = [
     desc: 'The same email the Legends send by hand today: open slots and standby for each group, who to text, cancellations, that morning\'s Tee Time Duty, and the full sign-up list.',
     wording: [['DailyMessage', 'Message added under the heading (optional)', 2], ['DailyFunText', 'Fun group — who to text about a last-minute drop out', 2], ['DailyNassauText', 'Nassau group — how to grab an open slot', 2], ['DailyCancelText', 'Tee time cancellations', 2]] },
   { type: 'duty', prefix: 'Duty', on: 'RemindDuty', title: 'Tee Time Duty reminder', personal: true,
-    desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed that day, it tells them there\'s no need to get tee times.',
+    desc: 'Each person on duty gets their instructions (arrive-by or call-in time, which day they\'re requesting tee times for, who else is on duty). If the club is closed on the round they\'re booking, it tells them there\'s no need to get tee times; if it\'s closed on the duty day itself, the duty moves earlier and the email says so.',
     wording: [['DutyMessage', 'Message added after “Hi …,” (optional)', 2], ['DutyInPersonText', 'Instructions for whoever goes in person — {latest} becomes the latest arrival time, {arrive} the preferred one', 3], ['DutyPhoneText', 'Instructions for whoever phones in — {call} becomes the call-in time', 3], ['DutyFooterText', 'Closing line', 2]] },
   { type: 'playing', prefix: 'Playing', on: 'RemindPlaying', title: 'Fun Group players for tomorrow',
     desc: 'One email to the Fun group players for the day, listing their names with tees, holes and riding, the Fun tee times, and anyone on standby, with a “What changed” note if anyone dropped out or joined since they last heard. The Nassau players get “Nassau players for tomorrow” instead.',
