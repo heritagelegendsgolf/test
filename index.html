@@ -3738,7 +3738,7 @@ function renderDutyAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Tee Time Duty assignments</h2>
-      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. Normally two people go <b>in person</b> and one <b>phones in</b>. On a <b>heavy-demand day</b> (set below) three go in person and the phone-in person is a backup. Names that break the duty lists below show in red. To remove a name, choose <b>✕ Clear (no one)</b> at the top of its list. Each duty day books the round two weeks later, shown as “Wed, Oct 7 <b>for</b> Wed, Oct 21”; click the second date to change it for an unusual day (like a Thursday standing in for a holiday). If the club is closed on a duty day itself (Christmas Day, a snow day; entered under Closures &amp; notices), that duty moves by itself to the closest earlier open day, still booking the same round, and moves back if the closure is removed. Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
+      <p class="hint">Each row is a <b>duty day</b> — the day people go to the pro shop (in person) or phone in. Normally two people go <b>in person</b> and one <b>phones in</b>. On a <b>heavy-demand day</b> (set below) three go in person and the phone-in person is a backup. Names that break the duty lists below show in red. To remove a name, choose <b>✕ Clear (no one)</b> at the top of its list. Each duty day books the round two weeks later, shown as “Wed, Oct 7 <b>for</b> Wed, Oct 21”; click the second date to change it for an unusual day (like a Thursday standing in for a holiday). If the pro shop is closed on a duty day itself (Christmas Day, a snow day; entered under Closures &amp; notices with <b>Pro shop closed too</b> ticked), that duty moves by itself to the closest earlier open day, still booking the same round, and moves back if the closure is removed. Members can also swap dates with each other from the Tee Time Duty tab. Nothing here is saved until you click <b>Save duty</b>.</p>
       <div class="row" style="margin-bottom:8px;">
         <label class="hint">From <input type="date" id="dFrom" value="${dutyEdit.from}"></label>
         <label class="hint">To <input type="date" id="dTo" value="${dutyEdit.to}"></label>
@@ -3804,7 +3804,7 @@ function renderDutyAdmin(el) {
 // Admin duty table: this day moved early, or the club is closed on it (Tom 2026-11-15).
 function dutyAdminClosedHtml(k, d) {
   const why = (r) => { const w = String(r || '').trim(); return w && w.toLowerCase() !== 'closed' ? ` (${w})` : ''; };
-  const closedOn = (key) => (board.closures || []).find((x) => x.DateKey === key);
+  const closedOn = (key) => (board.closures || []).find((x) => x.DateKey === key && String(x.ShopClosed).toUpperCase() === 'TRUE');
   let out = '';
   if (d.movedFrom) { const c = closedOn(d.movedFrom); out += `<div class="hint" style="color:var(--green-dark);font-weight:600;">Moved ${escapeHtml(earlyWords(k, d.movedFrom))} early: club closed ${escapeHtml(dateShort(d.movedFrom))}${escapeHtml(why(c ? c.Reason : ''))}</div>`; }
   const c = closedOn(k);
@@ -4263,7 +4263,7 @@ function listEditorHtml(id, title, hint, cols, rows) {
   return `<div class="card"><h2>${title}</h2><p class="hint">${hint}</p>
     <div class="tbl-wrap"><table class="ad"><thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead><tbody id="${id}Body">
     ${rows.map((r, i) => `<tr>${cols.map((c) => `<td>${c.type === 'check'
-        ? `<input type="checkbox" data-le="${id}" data-i="${i}" data-f="${c.f}" ${String(r[c.f]).toUpperCase() !== 'FALSE' ? 'checked' : ''}>`
+        ? `<input type="checkbox" data-le="${id}" data-i="${i}" data-f="${c.f}" ${(c.off ? String(r[c.f]).toUpperCase() === 'TRUE' : String(r[c.f]).toUpperCase() !== 'FALSE') ? 'checked' : ''}>`
         : `<input type="${c.type || 'text'}" data-le="${id}" data-i="${i}" data-f="${c.f}" value="${escapeHtml(r[c.f] || '')}" placeholder="${escapeHtml(c.ph || '')}" style="${c.w ? 'width:' + c.w : 'width:100%'}">`}</td>`).join('')}
       <td><button class="link danger" data-le-rm="${id}" data-i="${i}">Remove</button></td></tr>`).join('') || `<tr><td colspan="${cols.length + 1}" class="hint">None yet.</td></tr>`}
     </tbody></table></div>
@@ -4278,7 +4278,7 @@ function wireListEditor(el, id, rows, action, cols, rerender) {
     markDirty();
   }));
   el.querySelectorAll(`[data-le-rm="${id}"]`).forEach((b) => b.onclick = () => { rows.splice(Number(b.dataset.i), 1); markDirty(); rerender(rows); });
-  el.querySelector(`[data-le-add="${id}"]`).onclick = () => { const o = {}; cols.forEach((c) => { o[c.f] = c.type === 'check' ? 'TRUE' : ''; }); rows.push(o); markDirty(); rerender(rows); };
+  el.querySelector(`[data-le-add="${id}"]`).onclick = () => { const o = {}; cols.forEach((c) => { o[c.f] = c.type === 'check' ? (c.off ? 'FALSE' : 'TRUE') : ''; }); rows.push(o); markDirty(); rerender(rows); };
   el.querySelector(`[data-le-save="${id}"]`).onclick = () => adminSave(action, { rows: JSON.stringify(rows) }, id + 'Status');
 }
 const copyRows = (rows) => (rows || []).map((r) => Object.assign({}, r));
@@ -4286,11 +4286,13 @@ const copyRows = (rows) => (rows || []).map((r) => Object.assign({}, r));
 function renderClosuresAdmin(el, cRows, nRows) {
   cRows = cRows || copyRows(board.closures).filter((r) => r.DateKey >= addDays(board.today, -30));
   nRows = nRows || copyRows(board.notices).filter((r) => r.DateKey >= addDays(board.today, -30));
-  const cCols = [{ f: 'DateKey', label: 'Date (no Legends tee times)', type: 'date', w: '160px' }, { f: 'Reason', label: 'Reason shown', ph: 'e.g. Club event' }];
+  // ShopClosed (Tom 2026-11-15): ticked = the pro shop is closed too (Christmas, snow), so that day's tee time duty moves earlier;
+  // unticked = an outside event: the shop is open and takes tee time requests as usual. Unticked unless set.
+  const cCols = [{ f: 'DateKey', label: 'Date (no Legends tee times)', type: 'date', w: '160px' }, { f: 'Reason', label: 'Reason shown', ph: 'e.g. Club event' }, { f: 'ShopClosed', label: 'Pro shop closed too', type: 'check', off: true, w: '90px' }];
   const nCols = [{ f: 'DateKey', label: 'Date', type: 'date', w: '160px' }, { f: 'Text', label: 'Notice shown on that date', ph: 'e.g. Cart path only' }];
   const oldC = (board.closures || []).filter((r) => r.DateKey < addDays(board.today, -30));
   const oldN = (board.notices || []).filter((r) => r.DateKey < addDays(board.today, -30));
-  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to get tee times. If a Tee Time Duty day itself is closed (e.g. Christmas Day or a snow day), the club lets us request tee times early, so that duty moves to the day before (the closest earlier open day) and its people are reminded the day before that.', cCols, cRows) +
+  el.innerHTML = listEditorHtml('cl', 'Course closures', 'Dates with no Legends tee times (club events, holidays). Sign-ups are off for these dates, and anyone with tee time duty two weeks earlier is told there\'s no need to get tee times. Tick <b>Pro shop closed too</b> when the whole club is closed (e.g. Christmas Day or a snow day): if that is a Tee Time Duty day, the club lets us request tee times early, so that duty moves to the day before (the closest earlier day the shop is open) and its people are reminded the day before that. Leave it unticked for an outside event: the pro shop is open and takes tee time requests, so duty that day stays put.', cCols, cRows) +
     listEditorHtml('nt', 'Notices', 'A short note shown on a date in Sign-ups — anything worth flagging that isn\'t a closure.', nCols, nRows);
   // Older rows (more than 30 days back) are kept as they are when saving.
   wireListEditor(el, 'cl', cRows, 'legendsSaveClosures', cCols, (r) => renderClosuresAdmin(el, r, nRows));
