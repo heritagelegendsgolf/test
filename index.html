@@ -480,7 +480,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-15d';
+const APP_VERSION = '2026-11-16a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -3755,6 +3755,9 @@ function renderDutyAdmin(el) {
       </tbody></table></div>
       <div class="row" style="margin-top:12px;"><button class="primary" id="dSave">Save duty</button>${dirtyNote}</div>
       <div id="dStatus" class="status"></div>
+      <div class="row" style="margin-top:12px;"><span class="hint"><b>Export</b> the dates shown:</span><button class="secondary" id="dXlsx">Download spreadsheet</button><button class="secondary" id="dPdf">Print / PDF</button></div>
+      <p class="hint" style="margin-top:4px;">The spreadsheet has an Assignments tab you can edit and paste back in under Import Assignments, plus By person, a tab for each "Who does tee time duty" group, and Heavy days. Unsaved changes in the table are included.</p>
+      <div id="dExportStatus" class="status"></div>
       <div class="row" style="margin-top:12px;"><span class="hint"><b>Swap weeks:</b> put</span>
         <select id="dSwapB"><option value="">anyone…</option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}">${escapeHtml(r.Name)}</option>`).join('')}</select>
         <span class="hint">in place of</span>
@@ -3763,7 +3766,7 @@ function renderDutyAdmin(el) {
       <p class="hint" style="margin-top:4px;">If both are on duty in the dates shown, they trade all their days. If the first person isn't, they take over all of the second person's days. Then click Save duty.</p>
     </div>
     ${dutySetupHtml(`
-      <p class="hint">From the quarterly <b>Tee Time Assignments</b> sheet, copy the <b>Date Order</b> table (the Date and Name columns) and paste it here. The same rules as the sheet apply: a full-week range like <code>Oct 05 - 09</code> is in person for that week's duty days; a Monday–Wednesday range like <code>Oct 05 - 07</code> is phone-in; single dates say <code>In-Person</code> or <code>Phone-in</code>. Names can be last names, with an initial for shared ones (<code>Davis J</code>). Read shows what it found; Put into table replaces those dates above (then Save duty).</p>
+      <p class="hint">From the quarterly <b>Tee Time Assignments</b> sheet, copy the <b>Date Order</b> table (the Date and Name columns) and paste it here. The same rules as the sheet apply: a full-week range like <code>Oct 05 - 09</code> is in person for that week's duty days; a Monday–Wednesday range like <code>Oct 05 - 07</code> is phone-in; single dates say <code>In-Person</code> or <code>Phone-in</code>. You can also paste rows from the <b>Assignments</b> tab of a spreadsheet downloaded below the table (Date, Day, Duty, Name, Tee times for); their dates carry the year. Names can be last names, with an initial for shared ones (<code>Davis J</code>). Read shows what it found; Put into table replaces those dates above (then Save duty).</p>
       <div class="row"><label class="hint">Year of the first date <input type="number" id="impYear" value="${keyDate(board.today).getUTCFullYear()}" style="width:90px;"></label></div>
       <textarea id="dutyPaste" rows="6" placeholder="Sep 28 - Oct 02	Webster" style="margin-top:6px;"></textarea>
       <div class="row" style="margin-top:8px;"><button class="secondary" id="dRead">Read</button><button class="primary" id="dApply" disabled>Put into table</button></div>
@@ -3795,11 +3798,125 @@ function renderDutyAdmin(el) {
     renderDutyAdmin(el); markDirty();
   };
   document.getElementById('dSave').onclick = saveDutyEdit;
+  document.getElementById('dXlsx').onclick = downloadDutyExcel;
+  document.getElementById('dPdf').onclick = printDutyList;
   document.getElementById('dRead').onclick = readDutyPaste;
   document.getElementById('dApply').onclick = applyDutyPaste;
   wireDutySetup(el);
   emEmbed(el, 'duty');
   if (adminDirty) document.getElementById('adDirty').hidden = false;
+}
+// ---- duty export: spreadsheet and print/PDF (Tom 2026-11-16) ----
+// Exports what the table above shows (the From–To range, including changes not saved yet).
+// The Assignments tab is one row per person per duty day (Date, Day, Duty, Name, Tee times for,
+// Notes); copying its rows and pasting them into Import Assignments reads them back
+// (parseDutyPaste's full-date form). The other tabs are for reading: By person, each
+// "Who does tee time duty" category, and heavy days.
+function mdy(key) { const d = keyDate(key); return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}/${d.getUTCFullYear()}`; }
+function dutyExportRows() {
+  const rows = [];
+  Object.keys(dutyEdit.days).sort().forEach((k) => {
+    const d = dutyEdit.days[k], target = d.target || defaultTarget(k), hv = heavyRoundFor(k, d.target);
+    const people = d.slots.concat(d.extras || []).filter((x) => x.id);
+    const closedT = (board.closures || []).find((x) => x.DateKey === target);
+    const notes = [];
+    if (d.movedFrom) { const c = (board.closures || []).find((x) => x.DateKey === d.movedFrom); notes.push(dutyMovedNote(k, { movedFrom: d.movedFrom, movedWhy: c ? c.Reason : '' })); }
+    if (closedT) notes.push(`No need to get tee times: club closed ${dateShort(target)}${closedT.Reason && closedT.Reason.toLowerCase() !== 'closed' ? ` (${closedT.Reason})` : ''}`);
+    if (hv) notes.push(`Heavy day ${monDay(hv)}${heavyMap()[hv] ? ` (${heavyMap()[hv]})` : ''}: three in person`);
+    people.sort((a, b) => (a.role === b.role ? 0 : a.role === 'inperson' ? -1 : 1)).forEach((x) => {
+      const r = rosterById(x.id);
+      rows.push({ key: k, day: DOW[dowOf(k)], role: x.role === 'phone' ? 'Phone in' : 'In person', name: r ? r.Name : '?', target, notes: notes.join('; ') });
+    });
+  });
+  return rows;
+}
+function dutyCategoryLists() {
+  const lists = dutyLists();
+  const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
+  return Object.keys(DUTY_STATUS).map((s) => ({ s, label: DUTY_STATUS[s],
+    people: roster.filter((r) => ((lists[String(r.PlayerID)] || {}).s || '') === s).map((r) => ({ name: r.Name, reason: (lists[String(r.PlayerID)] || {}).r || '' })) }));
+}
+function dutyExportName(ext) { return `Tee-Time-Duty-${dutyEdit.from}-to-${dutyEdit.to}.${ext}`; }
+async function downloadDutyExcel() {
+  const rows = dutyExportRows();
+  if (!rows.length) { showStatus('dExportStatus', false, 'No one is on duty in the dates shown.'); return; }
+  try { await loadScriptOnce(EXCELJS_URL); } catch (er) { showStatus('dExportStatus', false, 'Could not load the Excel maker — try again.'); return; }
+  const wb = new ExcelJS.Workbook();
+  const green = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E5B3A' } };
+  const sheet = (name, cols) => {
+    const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }], pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    ws.columns = cols.map(([header, width]) => ({ header, width }));
+    const h = ws.getRow(1); h.font = { bold: true, color: { argb: 'FFFFFFFF' } }; h.fill = green; h.alignment = { vertical: 'middle' }; h.height = 20;
+    return ws;
+  };
+  const dateCell = (key) => keyDate(key); // a real date; shown as mm/dd/yyyy
+  // 1. Assignments (importable)
+  const a = sheet('Assignments', [['Date', 12], ['Day', 6], ['Duty', 11], ['Name', 26], ['Tee times for', 13], ['Notes', 60]]);
+  let last = '';
+  rows.forEach((r) => {
+    const row = a.addRow([dateCell(r.key), r.day, r.role, r.name, dateCell(r.target), r.notes]);
+    row.getCell(1).numFmt = 'mm/dd/yyyy'; row.getCell(5).numFmt = 'mm/dd/yyyy';
+    if (r.key !== last && last) row.eachCell({ includeEmpty: true }, (c) => { c.border = { top: { style: 'thin', color: { argb: 'FF999999' } } }; });
+    if (r.role === 'Phone in') row.getCell(3).font = { color: { argb: 'FF9A6B00' }, bold: true };
+    last = r.key;
+  });
+  a.autoFilter = { from: 'A1', to: 'F1' };
+  // 2. By person
+  const p = sheet('By person', [['Name', 26], ['Duty', 11], ['Duty days', 70], ['Count', 7]]);
+  const by = {};
+  rows.forEach((r) => { const o = by[r.name + '|' + r.role] = by[r.name + '|' + r.role] || { name: r.name, role: r.role, keys: [] }; o.keys.push(r.key); });
+  Object.values(by).sort((x, y) => x.name.localeCompare(y.name) || x.role.localeCompare(y.role))
+    .forEach((o) => p.addRow([o.name, o.role, o.keys.map(dateShort).join('; '), o.keys.length]));
+  // 3. One tab per "Who does tee time duty" category
+  dutyCategoryLists().forEach((c) => {
+    const ws = sheet(c.label.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31), [['Name', 26], ['Reason', 50]]);
+    c.people.forEach((x) => ws.addRow([x.name, x.reason]));
+    if (!c.people.length) ws.addRow(['(no one)', '']);
+  });
+  // 4. Heavy days
+  const hv = sheet('Heavy days', [['Duty day (3 in person)', 22], ['Round (event) date', 20], ['Due to', 40]]);
+  heavyDays().forEach((k) => { const row = hv.addRow([dateCell(addDays(k, -14)), dateCell(k), heavyMap()[k] || '']); row.getCell(1).numFmt = 'ddd mm/dd/yyyy'; row.getCell(2).numFmt = 'ddd mm/dd/yyyy'; });
+  // 5. How to use
+  const info = wb.addWorksheet('How to use');
+  info.getColumn(1).width = 110;
+  [`Tee Time Duty, ${dateShortY(dutyEdit.from)} to ${dateShortY(dutyEdit.to)} — exported ${new Date().toLocaleString()}`, '',
+    'Assignments: one row per person per duty day. Duty is "In person" or "Phone in". "Tee times for" is the round that day books (normally two weeks later).',
+    'To import into SUN: change names or dates here if you like (keep the Date, Day, Duty, Name and Tee times for columns),',
+    'select the rows on the Assignments tab (the header row can be included), copy, then in SUN go to Admin > Tee Time Duty > Quarter assignments > Import Assignments,',
+    'paste, click Read, check the preview, click Put into table, then Save duty. Names must match the roster (Last, First). The Notes column is ignored on import.',
+    'Importing replaces the assignments on the dates you paste. Dates not in the paste are left as they are.', '',
+    'By person: each person\'s duty days. The category tabs list everyone in each "Who does tee time duty" group (active members only), with the reason.',
+    'Heavy days: duty days when three people go in person, and the busy round they book.'].forEach((t, i) => { const c = info.getCell(i + 1, 1); c.value = t; if (!i) c.font = { bold: true, size: 13 }; });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), dutyExportName('xlsx'));
+  showStatus('dExportStatus', true, `Downloaded ${dutyExportName('xlsx')} (${rows.length} assignments).`);
+}
+function printDutyList() {
+  const rows = dutyExportRows();
+  if (!rows.length) { showStatus('dExportStatus', false, 'No one is on duty in the dates shown.'); return; }
+  const byDay = {};
+  rows.forEach((r) => { (byDay[r.key] = byDay[r.key] || []).push(r); });
+  const cell = 'border:1px solid #bbb;padding:4px 6px;vertical-align:top;';
+  const th = cell + 'background:#1e5b3a;color:#fff;text-align:left;';
+  const main = `<table style="border-collapse:collapse;width:100%;font-size:12px;"><thead><tr><th style="${th}">Duty day</th><th style="${th}">In person</th><th style="${th}">Phone in</th><th style="${th}">Tee times for</th><th style="${th}">Notes</th></tr></thead><tbody>
+    ${Object.keys(byDay).sort().map((k) => { const l = byDay[k]; return `<tr style="page-break-inside:avoid;"><td style="${cell}white-space:nowrap;"><b>${escapeHtml(dateShortY(k))}</b></td>
+      <td style="${cell}">${l.filter((r) => r.role === 'In person').map((r) => escapeHtml(displayName(r.name))).join('<br>')}</td>
+      <td style="${cell}">${l.filter((r) => r.role === 'Phone in').map((r) => escapeHtml(displayName(r.name))).join('<br>')}</td>
+      <td style="${cell}white-space:nowrap;">${escapeHtml(dateShort(l[0].target))}</td><td style="${cell}">${escapeHtml(l[0].notes)}</td></tr>`; }).join('')}</tbody></table>`;
+  const cats = dutyCategoryLists().filter((c) => c.s).map((c) => `<div style="break-inside:avoid;margin-bottom:10px;"><h3 style="margin:0 0 4px;font-size:14px;color:#1e5b3a;">${escapeHtml(c.label)} (${c.people.length})</h3>
+    ${c.people.length ? `<div style="font-size:12px;">${c.people.map((x) => `${escapeHtml(displayName(x.name))}${x.reason ? ` <span style="color:#666;">— ${escapeHtml(x.reason)}</span>` : ''}`).join('<br>')}</div>` : '<div style="font-size:12px;color:#666;">No one</div>'}</div>`).join('');
+  const title = `Tee Time Duty, ${dateShortY(dutyEdit.from)} to ${dateShortY(dutyEdit.to)}`;
+  const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>` +
+    '<style>@page{margin:12mm;} body{margin:12px;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;} h1{font-size:18px;color:#1e5b3a;margin:0 0 8px;}</style></head>' +
+    `<body><h1>${escapeHtml(title)}</h1>${main}<h2 style="font-size:16px;color:#1e5b3a;margin:18px 0 8px;page-break-before:always;">Who does tee time duty</h2><div style="columns:2;column-gap:24px;">${cats}</div>` +
+    `<p style="font-size:11px;color:#666;margin-top:12px;">Everyone else does in person or phone. To save as a PDF, choose "Save as PDF" as the printer.</p><script>setTimeout(function(){window.print();},300);<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.open(); w.document.write(page); w.document.close(); return; }
+  const f = document.createElement('iframe');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(f);
+  f.contentDocument.open(); f.contentDocument.write(page); f.contentDocument.close();
+  setTimeout(() => f.remove(), 60000);
 }
 // Admin duty table: this day moved early, or the club is closed on it (Tom 2026-11-15).
 function dutyAdminClosedHtml(k, d) {
@@ -4069,8 +4186,26 @@ function parseDutyPaste(text, firstYear) {
     return `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   };
   const out = [];
+  // A full date: 01/04/2027, 1/4/2027, Mon 01/04/2027 or 2027-01-04 (the exported spreadsheet's Assignments tab).
+  const fullDate = (c) => {
+    const t = String(c || '').trim().replace(/^[A-Za-z]{3},?\s+/, '');
+    let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+    return '';
+  };
   lines.forEach((raw) => {
     let cells = raw.split('\t').map((c) => c.trim()).filter(Boolean);
+    // Exported Assignments row: Date, Day, Duty, Name, Tee times for, Notes (Tom 2026-11-16)
+    if (cells.length >= 3 && fullDate(cells[0])) {
+      const key = fullDate(cells[0]);
+      const ri = cells.findIndex((c, i) => i > 0 && /^(in[ -]?person|phone[ -]?in|phone)$/i.test(c));
+      if (ri === -1 || !cells[ri + 1]) { out.push({ raw, error: 'Expected Date, Day, Duty (In person or Phone in) and Name' }); return; }
+      const target = fullDate(cells[ri + 2]);
+      out.push({ raw, dates: [key], role: /phone/i.test(cells[ri]) ? 'phone' : 'inperson', nameText: cells[ri + 1], target: target && target !== defaultTarget(key) ? target : '' });
+      return;
+    }
     if (cells.length < 2) { const m = raw.match(/^(.*?\d)\s{2,}(\S.*)$/); if (m) cells = [m[1], m[2]]; }
     if (cells.length < 2) { out.push({ raw, error: 'Expected a date and a name' }); return; }
     // Either order: "date<tab>name" (Date Order table) or "name<tab>date" (Name Order).
@@ -4145,7 +4280,8 @@ function applyDutyPaste() {
     if (!people[k].some((x) => x.id === String(p.member.PlayerID))) people[k].push({ id: String(p.member.PlayerID), role: p.role });
   }));
   const over = dates.filter((k) => people[k].length > DUTY_SLOTS);
-  dates.forEach((k) => { dutyEdit.days[k] = fillDutySlots(k, people[k]); });
+  const targets = {}; good.forEach((p) => { if (p.target) p.dates.forEach((k) => { targets[k] = p.target; }); });
+  dates.forEach((k) => { dutyEdit.days[k] = fillDutySlots(k, people[k]); if (targets[k]) dutyEdit.days[k].target = targets[k]; });
   // A duty day that isn't a Mon/Wed/Fri (e.g. Thursday Dec 24) gets its "books round on" set to the next play day automatically.
   adminDirty = true;
   renderDutyAdmin(document.getElementById('adminContent'));
