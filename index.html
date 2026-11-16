@@ -121,7 +121,7 @@
     .ts-card-row { flex-wrap:wrap; } .ts-toggle-wrap { width:100%; align-items:stretch; } .ts-signup-select { width:100%; }
   }
   @media print {
-    header, nav, .no-print, .ts-toggle-wrap, .ts-closed-toggle-label, .my-summary, .admin-add, .ts-note-edit, #testBanner { display:none !important; }
+    header, nav, .no-print, .ts-toggle-wrap, .ts-closed-toggle-label, .admin-add, .ts-note-edit, #testBanner { display:none !important; }
     body { background:#fff; } .ts-card, .cal-c { break-inside:avoid; }
     /* an expanded day is often taller than a page — let it run on, or the whole row jumps to page 2 and leaves page 1 blank */
     .ts-cal-cell .ts-card { break-inside:auto; } .ts-cal-header { break-after:avoid; } .card { border:none; padding:0; } .ts-grid-wrap { max-height:none; overflow:visible; } .tbl-wrap { max-height:none !important; overflow:visible !important; }
@@ -184,6 +184,10 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .duty-date { font-weight:800; color:var(--green-dark); font-size:1rem; margin-bottom:2px; }
   .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
   @media (max-width:760px) { .snap-cols { grid-template-columns:1fr; } }
+  .snap-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 10px; }
+  .snap-head h2 { margin:0; color:var(--green-dark); } .snap-head .ts-print-btn { white-space:nowrap; flex-shrink:0; }
+  .snap-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap:0 22px; } .snap-grid .snap-row, .snap-grid .snap-row:last-child { border-bottom:1px dashed #e7dfc9; } .snap-grid .snap-l1 { font-size:.88rem; } .snap-grid .ts-signup-select { max-width:130px; } @media print { .snap-grid { grid-template-columns:repeat(3, 1fr); } }
+  @media print { .my-summary .snap-banner { background:none !important; color:var(--green-dark) !important; border-bottom:2px solid var(--gold) !important; border-radius:0 !important; } .snap-row { break-inside:avoid; } }
   @media (max-width:560px) { .snap-duty { grid-template-columns:1fr; } .duty-cell { border-bottom:1px dashed #e7dfc9; } }
   @media (max-width:480px) { .snap-row { flex-wrap:wrap; } .snap-row .ts-toggle-wrap { width:100%; } .snap-row .ts-signup-select { width:100%; } }
   .news-card { border-left:4px solid var(--gold); }
@@ -356,8 +360,10 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
     </div>
   </header>
   <nav id="tabs">
-    <button data-tab="signups" class="active">Sign-ups</button>
+    <button data-tab="snapshot" class="active">My SUN Snapshot</button>
+    <button data-tab="signups">Sign-ups</button>
     <button data-tab="duty">Tee Time Duty</button>
+    <button data-tab="events">Events</button>
     <button data-tab="roster">Roster</button>
     <button data-tab="handicaps">Handicaps</button>
     <button data-tab="files">Related Files</button>
@@ -365,8 +371,16 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
     <button data-tab="admin">Admin</button>
   </nav>
   <main>
-    <section id="tab-signups" class="tab-panel">
+    <section id="tab-snapshot" class="tab-panel">
+      <div id="snapshotBody"><div class="card hint">Loading…</div></div>
+    </section>
+
+    <section id="tab-signups" class="tab-panel" hidden>
       <div id="signupsBody"><div class="card hint">Loading…</div></div>
+    </section>
+
+    <section id="tab-events" class="tab-panel" hidden>
+      <div id="eventsBody"><div class="card hint">Loading…</div></div>
     </section>
 
     <section id="tab-duty" class="tab-panel" hidden>
@@ -480,7 +494,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-16a';
+const APP_VERSION = '2026-11-16b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -870,7 +884,7 @@ function handleSignedOut(err) {
 function cleanError(err) { return String(err || 'Something went wrong.').replace(/^SIGNED_OUT:\s*/, ''); }
 
 // ====================== APP SHELL ======================
-let currentTab = 'signups';
+let currentTab = 'snapshot'; // My SUN Snapshot is the landing page (Tom 2026-11-16)
 function showApp(tab, preloaded) {
   document.getElementById('gateWrap').hidden = true;
   document.getElementById('app').hidden = false;
@@ -881,7 +895,7 @@ function showApp(tab, preloaded) {
   document.getElementById('lnkLive').href = 'live.html' + location.search;
   document.getElementById('lnkTAdmin').href = 'tournament-admin.html' + location.search;
   if (preloaded) adoptBoard(preloaded); // already fetched with the sign-in — no second wait
-  selectTab(tab || currentTab || 'signups');
+  selectTab(tab || currentTab || 'snapshot');
   if (!preloaded) loadBoard();
 }
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
@@ -897,7 +911,9 @@ function selectTab(tab) {
 }
 function renderCurrent() {
   if (!board) return;
-  if (currentTab === 'signups') renderSignups();
+  if (currentTab === 'snapshot') renderSnapshot();
+  else if (currentTab === 'signups') renderSignups();
+  else if (currentTab === 'events') renderEvents();
   else if (currentTab === 'duty') renderDuty();
   else if (currentTab === 'files') renderFiles();
   else if (currentTab === 'roster') renderRoster();
@@ -1313,8 +1329,8 @@ function dayState(d) {
 
 // One line per thing I'm on (round, event, duty) and per date I can still join.
 function mySummaryHtml(items) {
-  // "My Sign-up Snapshot": my sign-ups and available sign-ups side by side (stacked on a
-  // phone), each row a small date badge, two short lines and the same toggle as the cards.
+  // "My SUN Snapshot" (the landing page): my tee time duty, then my sign-ups and my events,
+  // each with what I'm on and what I can still join side by side (stacked on a phone).
   const me = myId();
   const mine = [], canJoin = [], soon = [];
   const badge = (key) => { const d = keyDate(key); return `<div class="snap-date"><span>${DOW[d.getUTCDay()]}</span><b>${d.getUTCDate()}</b><span>${MON[d.getUTCMonth()]}</span></div>`; };
@@ -1361,15 +1377,19 @@ function mySummaryHtml(items) {
       <div class="snap-l1">${x.Role === 'phone' ? `Phone in · ${escapeHtml(inf.call || '')}` : `In person · by ${escapeHtml(inf.arrive || '')}`}</div>
       <div class="snap-l2">${inf.targetClosed ? 'No tee times needed' : (inf.target ? `Tee times for ${escapeHtml(dateShort(inf.target))}` : '')}</div>${inf.movedFrom && !inf.targetClosed ? `<div class="snap-l2" style="color:var(--green-dark);font-weight:600;">${escapeHtml(dutyMovedNote(x.DateKey, inf))}</div>` : ''}</div>`;
   }).join('');
+  const isEv = (x) => x.html.indexOf('🏆') !== -1;
+  // "Signed up" on top, "Available" under it, each in 2-3 columns to save space (Tom 2026-11-16)
+  const cols = (a, b, emptyA, emptyB, extra) => `<h3>Signed up</h3>${a.length ? `<div class="snap-grid">${list(a)}</div>` : `<p class="hint">${emptyA}</p>`}
+      <h3>Available</h3>${b.length ? `<div class="snap-grid">${list(b)}</div>` : `<p class="hint">${emptyB}</p>`}${extra || ''}`;
+  const soonDays = soon.filter((t) => t.indexOf('🏆') === -1), soonEv = soon.filter((t) => t.indexOf('🏆') !== -1);
+  const soonHtml = (arr) => (arr.length ? `<p class="snap-soon"><b>Opening soon:</b> ${arr.join(' · ')}</p>` : '');
   return `<div class="card my-summary">
       <h2 class="snap-title snap-banner">My Tee Time Duty</h2>
       ${dutyRows ? `<div class="snap-duty">${dutyRows}</div>` : '<p class="hint">No upcoming tee time duty.</p>'}
-      <h2 class="snap-title snap-banner snap-title-2">My Sign-up Snapshot</h2>
-      <div class="snap-cols">
-        <div><h3>My sign-ups</h3>${mine.length ? list(mine) : '<p class="hint">Nothing yet.</p>'}</div>
-        <div><h3>Available sign-ups</h3>${canJoin.length ? list(canJoin) : '<p class="hint">Nothing open right now.</p>'}
-          ${soon.length ? `<p class="snap-soon"><b>Opening soon:</b> ${soon.join(' · ')}</p>` : ''}</div>
-      </div>
+      <h2 class="snap-title snap-banner snap-title-2">My Sign-ups</h2>
+      ${cols(mine.filter((x) => !isEv(x)), canJoin.filter((x) => !isEv(x)), 'Nothing yet.', 'Nothing open right now.', soonHtml(soonDays))}
+      <h2 class="snap-title snap-banner snap-title-2">My Events</h2>
+      ${cols(mine.filter(isEv), canJoin.filter(isEv), 'No events yet.', 'No events open right now.', soonHtml(soonEv))}
     </div>`;
 }
 function dateLongPlain(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]}, ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()]} ${d.getUTCDate()}`; }
@@ -1600,15 +1620,41 @@ function personOn(it, pid) {
   if (it.type === 'day') return ['fun', 'nassau'].some((g) => groupList(it.key, g).some((s) => String(s.PlayerID) === String(pid)));
   return (board.signups || []).some((s) => s.Group === 'event:' + it.e.EventID && String(s.PlayerID) === String(pid));
 }
+// My SUN Snapshot tab: swap requests to answer, Legends News, then my duty, sign-ups and events.
+function renderSnapshot() {
+  const el = document.getElementById('snapshotBody');
+  const who = session ? displayName(session.member.Name) : '';
+  const head = `<div class="snap-head"><h2>My SUN Snapshot${who ? ` <span class="hint" style="font-weight:400;">· ${escapeHtml(who)}</span>` : ''}</h2><button class="ts-print-btn no-print" data-print>🖨️ Print</button></div>`;
+  const body = session ? mySummaryHtml(schedItems())
+    : '<div class="card"><p class="hint" style="margin:0;">You are signed in as an admin only, so there is no personal snapshot. Sign in with your member PIN to see your tee time duty, sign-ups and events here.</p></div>';
+  el.innerHTML = swapIncomingHtml() + newsCardHtml() + head + body;
+  wireSchedule(el);
+  wireNews(el);
+  wireSignups(el);
+  wireSwaps(el);
+}
+// Events tab: every upcoming event (banquet, $5 / $10 tournaments, divot day...), as cards.
+function renderEvents() {
+  const el = document.getElementById('eventsBody');
+  const items = schedItems().filter((it) => it.type === 'event');
+  el.innerHTML = `<div class="ts-section-title-row no-print"><h2 class="ts-section-title">Events <span>${items.length} coming up</span></h2>
+      <button class="ts-print-btn" data-print>🖨️ Print</button></div>
+    ${items.length ? `<div class="ts-duty-sort no-print"><button class="ts-duty-sort-btn" id="schedExpandAll">Expand All</button><button class="ts-duty-sort-btn" id="schedCollapseAll">Collapse All</button></div>` : ''}
+    <div id="eventsList">${items.map((it) => schedEventCardHtml(it.e)).join('') || '<div class="card"><p class="hint" style="margin:0;">No upcoming events right now.</p></div>'}</div>`;
+  wireSchedule(el);
+  wireSignups(el);
+}
+const SIGNUP_DAYS = 14; // the Sign-ups tab shows the next 14 days (Tom 2026-11-16)
 function renderSignups() {
   const el = document.getElementById('signupsBody');
-  const items = schedItems();
+  const lastKey = addDays(board.today, SIGNUP_DAYS - 1);
+  const items = schedItems().filter((it) => it.type === 'day' && it.key <= lastKey);
   const filterId = schedFilter === '__me__' ? myId() : schedFilter;
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
   if (['calendar', 'date', 'person'].indexOf(schedView) === -1) schedView = 'date';
   const views = [['calendar', 'Calendar view'], ['date', 'List by date'], ['person', 'List by person']];
   const controls = `
-    <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next ${board.dates.length ? Math.round((keyDate(board.dates[board.dates.length - 1].DateKey) - keyDate(board.today)) / 86400000) + 1 : 0} days</span></h2>
+    <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next ${SIGNUP_DAYS} days</span></h2>
       <button class="ts-print-btn" id="schedPrint">🖨️ Print</button></div>
     <div class="ts-duty-sort no-print">${views.map(([v, l]) => `<button class="ts-duty-sort-btn ${schedView === v ? 'active' : ''}" data-sched-view="${v}">${l}</button>`).join('')}</div>
     ${schedView === 'date' || schedView === 'person' ? `<div class="ts-filter-row no-print"><select id="schedFilter">
@@ -1620,12 +1666,11 @@ function renderSignups() {
     const shown = filterId ? items.filter((it) => personOn(it, filterId)) : items;
     body = shown.map((it) => (it.type === 'day' ? schedDayCardHtml(it.d) : schedEventCardHtml(it.e))).join('') || '<p class="ts-empty">No dates match this filter.</p>';
   } else if (schedView === 'calendar') {
-    const days = board.dates;
+    const days = items.map((it) => it.d);
     const col = (k) => { const w = dowOf(k); return w === 1 ? 0 : w === 3 ? 1 : 2; };
     const pad = days.length ? col(days[0].DateKey) : 0;
     body = `<div class="ts-cal-grid"><div class="ts-cal-header">Monday</div><div class="ts-cal-header">Wednesday</div><div class="ts-cal-header">Friday</div>
-      ${'<div class="ts-cal-cell ts-cal-blank"></div>'.repeat(pad)}${days.map((d) => `<div class="ts-cal-cell">${schedDayCardHtml(d)}</div>`).join('')}</div>
-      ${items.some((it) => it.type === 'event') ? `<h3 class="ts-sub-title">Events</h3>${items.filter((it) => it.type === 'event').map((it) => schedEventCardHtml(it.e)).join('')}` : ''}`;
+      ${'<div class="ts-cal-cell ts-cal-blank"></div>'.repeat(pad)}${days.map((d) => `<div class="ts-cal-cell">${schedDayCardHtml(d)}</div>`).join('')}</div>`;
   } else if (schedView === 'person') {
     const people = filterId ? roster.filter((r) => String(r.PlayerID) === String(filterId)) : roster;
     body = people.map((p) => {
@@ -1645,21 +1690,21 @@ function renderSignups() {
       return `<div class="ts-person-group"><div class="ts-person-name">${escapeHtml(displayName(p.Name))}</div>${rows.length ? `<table class="ts-person-table"><tbody>${rows.join('')}</tbody></table>` : '<p class="ts-empty">Not signed up for anything yet.</p>'}</div>`;
     }).join('') || '<p class="ts-empty">No one is signed up yet.</p>';
   }
-  el.innerHTML = swapIncomingHtml() + newsCardHtml() + (session ? mySummaryHtml(items) : '') + controls + `<div id="schedBody">${body}</div>`;
+  el.innerHTML = controls + `<div id="schedBody">${body}</div><p class="hint no-print" style="margin-top:12px;">Events are on the <a href="#" data-goto-tab="events">Events</a> tab. Your own duty, sign-ups and events are on <a href="#" data-goto-tab="snapshot">My SUN Snapshot</a>.</p>`;
   wireSchedule(el);
-  wireNews(el);
   wireSignups(el);
-  wireSwaps(el);
 }
 function wireSchedule(el) {
-  el.querySelectorAll('[data-sched-view]').forEach((b) => b.onclick = () => { schedView = b.dataset.schedView; try { localStorage.setItem('legends_sched_view', schedView); } catch (e) {} renderSignups(); });
-  const f = document.getElementById('schedFilter'); if (f) f.onchange = () => { schedFilter = f.value; renderSignups(); };
+  el.querySelectorAll('[data-sched-view]').forEach((b) => b.onclick = () => { schedView = b.dataset.schedView; try { localStorage.setItem('legends_sched_view', schedView); } catch (e) {} renderCurrent(); });
+  const f = document.getElementById('schedFilter'); if (f) f.onchange = () => { schedFilter = f.value; renderCurrent(); };
   const pr = document.getElementById('schedPrint'); if (pr) pr.onclick = () => window.print();
-  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = true; renderSignups(); };
-  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = false; renderSignups(); };
+  el.querySelectorAll('[data-print]').forEach((b) => b.onclick = () => window.print());
+  el.querySelectorAll('[data-goto-tab]').forEach((a) => a.onclick = (e) => { e.preventDefault(); selectTab(a.dataset.gotoTab); window.scrollTo(0, 0); });
+  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = true; renderCurrent(); };
+  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = false; renderCurrent(); };
   el.querySelectorAll('[data-expand]').forEach((row) => row.addEventListener('click', (e) => {
     if (e.target.closest && e.target.closest('.ts-toggle-wrap, select, button, input, a')) return;
-    const k = row.dataset.expand; schedExpanded[k] = !schedIsOpen(k); renderSignups();
+    const k = row.dataset.expand; schedExpanded[k] = !schedIsOpen(k); renderCurrent();
   }));
   el.querySelectorAll('[data-signup-select]').forEach((s) => s.onchange = () => onSignupSelect(s));
   el.querySelectorAll('[data-event-select]').forEach((s) => s.onchange = () => onEventSelect(s));
@@ -1674,7 +1719,7 @@ function wireSchedule(el) {
 async function onSignupSelect(sel) {
   const key = sel.dataset.signupSelect, v = sel.value, mineId = sel.dataset.mine;
   const d = board.dates.find((x) => x.DateKey === key);
-  const restore = () => renderSignups();
+  const restore = () => renderCurrent();
   if (v.indexOf('drop:') === 0) {
     const before = (board.signups || []).length;
     await leaveSignup(v.slice(5), dayState(d) === 'closed', false);
@@ -1715,12 +1760,12 @@ async function onSignupSelect(sel) {
 async function onEventSelect(sel) {
   const id = sel.dataset.eventSelect, v = sel.value, mineId = sel.dataset.mine;
   const e = (board.events || []).find((x) => x.EventID === id);
-  if (mineId && v === 'out') { const before = (board.signups || []).length; await leaveSignup(mineId, false, false); if ((board.signups || []).length === before) renderSignups(); return; }
+  if (mineId && v === 'out') { const before = (board.signups || []).length; await leaveSignup(mineId, false, false); if ((board.signups || []).length === before) renderCurrent(); return; }
   if (!mineId && v === 'in') {
     let note = '';
-    if (e && e.GuestPrompt) { note = prompt(`${e.GuestPrompt} (optional):`, '') ; if (note === null) { renderSignups(); return; } }
+    if (e && e.GuestPrompt) { note = prompt(`${e.GuestPrompt} (optional):`, '') ; if (note === null) { renderCurrent(); return; } }
     const ok = await act('legendsJoin', { signupId: newId('s'), dateKey: e.DateKey, group: 'event:' + id, note: String(note || '').trim() }, `Signed up for ${e.Title}.`);
-    if (!ok) renderSignups();
+    if (!ok) renderCurrent();
   }
 }
 
@@ -1870,22 +1915,22 @@ function eventFormHtml(e) {
 }
 
 function wireSignups(el) {
-  el.querySelectorAll('[data-join]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.join, group: b.dataset.group, mode: 'join' }; renderSignups(); });
-  el.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.key, group: b.dataset.group, mode: 'edit', signupId: b.dataset.edit }; renderSignups(); });
+  el.querySelectorAll('[data-join]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.join, group: b.dataset.group, mode: 'join' }; renderCurrent(); });
+  el.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => { openForm = { key: b.dataset.key, group: b.dataset.group, mode: 'edit', signupId: b.dataset.edit }; renderCurrent(); });
   el.querySelectorAll('[data-leave]').forEach((b) => b.onclick = () => leaveSignup(b.dataset.leave, !!b.dataset.late, false));
   el.querySelectorAll('[data-admin-rm]').forEach((b) => b.onclick = () => leaveSignup(b.dataset.adminRm, false, true));
-  el.querySelectorAll('[data-admin-edit]').forEach((b) => b.onclick = () => { adminEditId = adminEditId === b.dataset.adminEdit ? null : b.dataset.adminEdit; renderSignups(); });
+  el.querySelectorAll('[data-admin-edit]').forEach((b) => b.onclick = () => { adminEditId = adminEditId === b.dataset.adminEdit ? null : b.dataset.adminEdit; renderCurrent(); });
   el.querySelectorAll('[data-admin-edit-form]').forEach((f) => {
     const id = f.dataset.adminEditForm, s = (board.signups || []).find((x) => x.SignupID === id);
     const save = async () => {
       const body = { signupId: id, asAdmin: true, note: f.querySelector('[data-admin-edit-note]').value };
       const t = f.querySelector('[data-admin-edit-tee]');
       if (t && t.value) body.tee = t.value;
-      if (await act('legendsUpdate', body, `${displayName(s ? s.Name : '')} updated.`)) { adminEditId = null; renderSignups(); }
+      if (await act('legendsUpdate', body, `${displayName(s ? s.Name : '')} updated.`)) { adminEditId = null; renderCurrent(); }
     };
     f.querySelector('[data-admin-edit-save]').onclick = save;
     f.querySelector('[data-admin-edit-note]').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
-    f.querySelector('[data-admin-edit-cancel]').onclick = () => { adminEditId = null; renderSignups(); };
+    f.querySelector('[data-admin-edit-cancel]').onclick = () => { adminEditId = null; renderCurrent(); };
   });
   el.querySelectorAll('[data-switch]').forEach((b) => b.onclick = () => switchGroup(b.dataset.switch, b.dataset.key, b.dataset.group));
   el.querySelectorAll('[data-admin-add]').forEach((s) => s.onchange = () => { if (s.value) adminAdd(s.dataset.adminAdd, s.dataset.group, s.value); });
@@ -1894,7 +1939,7 @@ function wireSignups(el) {
     form.querySelectorAll('#jfHoles button').forEach((b) => b.onclick = () => {
       form.querySelectorAll('#jfHoles button').forEach((x) => x.classList.toggle('on', x === b));
     });
-    document.getElementById('jfCancel').onclick = () => { openForm = null; renderSignups(); };
+    document.getElementById('jfCancel').onclick = () => { openForm = null; renderCurrent(); };
     document.getElementById('jfGo').onclick = submitForm;
     const note = document.getElementById('jfNote');
     note.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitForm(); });
@@ -2360,7 +2405,7 @@ function renderNewsAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>Post Legends news</h2>
-      <p class="hint">A hole in one, a tournament winner, a birthday — it shows at the top of everyone's Sign-ups page for as long as you choose. A photo is optional; it's also kept in <b>Related Files → Photos</b> afterwards.</p>
+      <p class="hint">A hole in one, a tournament winner, a birthday — it shows at the top of everyone's My SUN Snapshot page for as long as you choose. A photo is optional; it's also kept in <b>Related Files → Photos</b> afterwards.</p>
       <div class="grid2">
         <div><label>Headline</label><input type="text" id="nwTitle" maxlength="120" placeholder="e.g. Hole in one! Ray Schipani, #7"></div>
         <div><label>Show on Sign-ups for</label><select id="nwDays">${[3, 7, 14, 30].map((d) => `<option value="${d}" ${String(d) === String(board.settings.NewsDays || 7) ? 'selected' : ''}>${d} days</option>`).join('')}</select></div>
@@ -2397,7 +2442,7 @@ function renderNewsAdmin(el) {
       if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('nwStatus', false, cleanError(res.error)); btn.disabled = false; return; }
       newsEdit = null; filesEdit = null;
       adoptBoard(res.data);
-      showStatus('nwStatus', true, 'Posted — it\'s at the top of the Sign-ups page.');
+      showStatus('nwStatus', true, 'Posted — it\'s at the top of the My SUN Snapshot page.');
     } catch (e) { showStatus('nwStatus', false, e.message || 'Could not reach the server — try again.'); btn.disabled = false; }
   };
   el.querySelectorAll('[data-ne]').forEach((i) => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', () => {
@@ -4454,7 +4499,7 @@ function renderEventsAdmin(el, rows) {
     { f: 'GuestPrompt', label: 'Ask for', ph: 'e.g. Spouse/guest name', w: '170px' },
     { f: 'Active', label: 'Show', type: 'check' },
   ];
-  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, $5 / $10 tournaments, divot filling day and anything else people sign up for. Events show on the Sign-ups tab in date order. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
+  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, $5 / $10 tournaments, divot filling day and anything else people sign up for. Events show on the Events tab in date order, and on everyone\'s My SUN Snapshot. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
   wireListEditor(el, 'ev', rows, 'legendsSaveEvents', cols, (r) => renderEventsAdmin(el, r));
   // Picking an event date fills in "Sign-ups open" two weeks earlier (unless it was already set).
   el.querySelectorAll('[data-le="ev"][data-f="DateKey"]').forEach((inp) => inp.addEventListener('change', () => {
