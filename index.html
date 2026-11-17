@@ -494,7 +494,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-17c';
+const APP_VERSION = '2026-11-17d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2685,7 +2685,6 @@ function renderPairingsAdmin(el) {
       ${emChangeLine(v.nassauEmail ? Object.assign({ listAt: (proShopSentFor(pair.key) || {}).SentAt }, v.nassauEmail) : null, 'prChanges', 'Nassau players or pairings')}
       <div id="prStatus" class="status"></div>
     </div>
-    ${pairGamesCard(v)}
     ${e ? `<div class="card">
       <h2>Pairings for ${escapeHtml(dateShort(pair.key))}</h2>
       <div class="row" style="align-items:center;gap:8px;margin-bottom:8px;"><label for="prGame"><b>Larry's Game:</b></label><input type="text" id="prGame" maxlength="80" value="${escapeHtml(e.game)}" list="prGameOpts" placeholder="Pick or type a game" style="max-width:340px;"><datalist id="prGameOpts">${((v.games && v.games.list) || []).map((g) => `<option value="${escapeHtml(g)}">`).join('')}</datalist></div>
@@ -2710,6 +2709,8 @@ function renderPairingsAdmin(el) {
       <div id="prMail"></div>
     </div>` : ''}`;
   emEmbed(el, ['nassautomorrow', 'pairings', 'nassauchanges']);
+  // Larry's Game for upcoming days sits at the very bottom of the page (Tom 2026-11-17).
+  el.insertAdjacentHTML('beforeend', pairGamesCard(v));
   emChangeButton('prChanges', 'nassauchanges', pair.key);
   document.getElementById('prDate').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = pair.key; return; } pair.view = null; pair.key = ev.target.value; renderPairingsAdmin(el); };
   document.getElementById('prMake').onclick = () => {
