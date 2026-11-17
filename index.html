@@ -494,7 +494,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-16b';
+const APP_VERSION = '2026-11-17a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2860,7 +2860,7 @@ function renderFunPairAdmin(el) {
   const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
   const ps = v.proShop;
   // the combined pro shop list, then "Changes in Fun Group Pairings" for anything after it
-  const shopLine = ps ? emChangeLine(Object.assign({ listAt: ps.sentAt, listBy: ps.sentBy }, v.funEmail || {}, String(board.settings.FunPairingsResend).toUpperCase() === 'FALSE' || !(v.funEmail || {}).tracked ? { changed: ps.changed, viaList: true } : {}), 'fpResend', 'players or groups') : '';
+  const shopLine = ps ? emChangeLine(Object.assign({ listAt: ps.sentAt, listBy: ps.sentBy }, v.funEmail || {}, String(board.settings.FunPairingsResend).toUpperCase() !== 'TRUE' || !(v.funEmail || {}).tracked ? { changed: ps.changed, viaList: true } : {}), 'fpResend', 'players or groups') : '';
   el.innerHTML = `
     <div class="card">
       <h2>Fun Group pairings</h2>
@@ -4866,7 +4866,7 @@ function proShopSentFor(key) { return (board.proShopLog || []).filter((r) => r.D
 function proShopDue(d) { const h = String(board.settings.ProShopHour || ''); return h === '' ? d.closesAt : d.closesAt + 60000 + Number(h) * 3600000; }
 function emIsOn(t) {
   const v = String(board.settings[t.on]).toUpperCase();
-  return t.type === 'proshop' || EM_CHANGE_TYPES.includes(t.type) ? v !== 'FALSE' : v === 'TRUE';
+  return v === 'TRUE'; // On only when saved as On (Tom 2026-11-17)
 }
 // The date each email would next be about (the round, or the duty day).
 function emNextKey(type) {
@@ -4919,7 +4919,7 @@ function emWhenHtml(t, key) {
     const opts = `<option value="" ${h === '' ? 'selected' : ''}>as soon as sign-ups close (11:59 PM, ${n} day${n === 1 ? '' : 's'} before play)</option>` +
       Array.from({ length: 13 }, (_, i) => i + 5).map((x) => `<option value="${x}" ${h === String(x) ? 'selected' : ''}>the next morning at ${fmtClock(x * 60)}</option>`).join('');
     return `<div class="row"><span>The list goes</span><select data-emset="ProShopHour" style="width:auto;">${opts}</select></div>
-      <label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? 'checked' : ''}> Send an updated list at 5 AM each morning if someone dropped out or joined since it went</label>
+      <label class="em-aud"><input type="checkbox" data-emset-bool="ProShopResend" ${String(st.ProShopResend).toUpperCase() === 'TRUE' ? 'checked' : ''}> Send an updated list at 5 AM each morning if someone dropped out or joined since it went</label>
       <p class="hint em-sub">Only for a group whose own change email is Off: with <b>Changes in Fun Group Pairings</b> or <b>Changes to Nassau Pairings</b> On, that group's changes go in that email instead.</p>
       <p class="hint">The Fun group's groups are made when sign-ups close, so the list shows them. Sign-ups closing is set on Admin › Setup › Sign-up rules.</p>` +
       (!emIsOn(t) ? '<p class="hint">Off — it only goes when you click <b>Send now</b> below.</p>'
@@ -5055,7 +5055,7 @@ function emEmbedOne(wrap, type) {
     const who = String(st[t.prefix + 'SendTo'] || '').split(/[,\s]+/).filter((a) => EMAIL_AUDIENCES[type].includes(a)).map((a) => emAudienceLabel(a, type, key, true));
     const summary = `<b>${emIsOn(t) ? 'On' : 'Off'}</b> · goes to ${who.length ? escapeHtml(who.join(', ')) : '<b>nobody</b>'}` +
       (EM_CHANGE_TYPES.includes(type) ? ` · ${emIsOn(t) ? `after the combined list, whenever the ${type === 'funpairings' ? 'Fun players or groups' : 'Nassau players or pairings'} change` : 'off — changes go on the combined list'}`
-        : type === 'proshop' ? ` · ${emIsOn(t) ? (String(st.ProShopHour || '') === '' ? 'when sign-ups close' : `the morning after sign-ups close, at ${fmtClock(Number(st.ProShopHour) * 60)}`) : 'only when sent by hand'}${String(st.ProShopResend).toUpperCase() !== 'FALSE' ? ', and again if the players change' : ''}`
+        : type === 'proshop' ? ` · ${emIsOn(t) ? (String(st.ProShopHour || '') === '' ? 'when sign-ups close' : `the morning after sign-ups close, at ${fmtClock(Number(st.ProShopHour) * 60)}`) : 'only when sent by hand'}${String(st.ProShopResend).toUpperCase() === 'TRUE' ? ', and again if the players change' : ''}`
         : type === 'pairings' ? ` · ${emIsOn(t) ? `on the day of play at ${fmtClock((Number(st.PairingsHour) || 7) * 60)}` : 'only when sent by hand'}`
         : type === 'nassautomorrow' ? ` · ${emIsOn(t) ? `the evening before, at ${fmtClock((Number(st.NassauTomorrowHour) || 17) * 60)}` : 'off'}`
         : type === 'duty' ? ` · ${emIsOn(t) ? `the evening before, at ${fmtClock((Number(st.ReminderHour) || 17) * 60)}` : 'off'}` : '');
@@ -5128,11 +5128,25 @@ function emHeadHtml(type, title, onKey, isOn) {
     </div>
     <div id="emSw-${type}" class="status em-sw-status"></div>`;
 }
+// Emails with no schedule or wording to set, just On/Off (Tom 2026-11-17: these used to go
+// out with no switch; now nothing goes automatically unless its switch is On).
+const EM_SIMPLE = [
+  ['LateDropEmailOn', 'latedrop', 'Late drop-out note to the admin', 'When someone drops out of a round after sign-ups have closed, the Legends admin email gets a note saying who dropped out and who moved up from standby, in case the pro shop needs to be told. It is still recorded on Admin › Pairings › No-shows either way.'],
+  ['SwapEmailOn', 'swap', 'Tee Time Duty swap emails', 'A member who is asked to swap duty dates gets an email, and the member who asked gets one when it is accepted, declined or cancelled. When Off, the request still shows on the other member\'s My SUN Snapshot and Tee Time Duty tab for them to accept or decline.'],
+  ['ListChangeEmailOn', 'listchange', 'Email list change note to the admin', 'When a member changes which Legends email list they are on (Fun, Nassau or Both) under My info, the Legends admin email gets a note so the Google Groups can be updated by hand. The choice is always saved in the Members list either way.'],
+];
+function emSimpleHtml() {
+  const st = board.settings;
+  return EM_SIMPLE.map(([key, type, title, desc]) => `<div class="em-item">
+    ${emHeadHtml(type, title, key, String(st[key]).toUpperCase() === 'TRUE')}
+    <div class="em-panel" data-em-panel="${type}" ${emOpen[type] ? '' : 'hidden'}><p class="hint">${desc}</p><p class="hint">Sent right away when it happens, from the Legends email (${escapeHtml(st.AdminEmail || 'no address set')}).</p></div>
+  </div>`).join('');
+}
 // "Moved up from standby": sent right away when a standby player gets a spot, so it
 // has no schedule; the admin picks who gets a copy and can change the wording.
 const SB_SAMPLE = { first: 'Michael', name: 'Michael Roane', group: 'Nassau group on Fri, Oct 30' };
 function emStandbyHtml() {
-  const st = board.settings, on = String(st.StandbyEmailOn).toUpperCase() !== 'FALSE';
+  const st = board.settings, on = String(st.StandbyEmailOn).toUpperCase() === 'TRUE';
   const copy = String(st.StandbyCopyTo || '').split(/[,\s]+/);
   const box = (id, label) => `<label class="em-aud"><input type="checkbox" data-emto="standby" value="${id}" ${copy.includes(id) ? 'checked' : ''}> ${label}</label>`;
   return `<div class="em-item">
@@ -5237,6 +5251,7 @@ function renderEmailsAdmin(el) {
     </div>
     ${EMAIL_TYPES.map(emPanelHtml).join('')}
     ${emStandbyHtml()}
+    ${emSimpleHtml()}
     <div class="card"><h2>All emails</h2>
       <label>App link in emails</label><input type="text" data-emset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}">
       <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Fun Group players for tomorrow” uses one per player.</p>
