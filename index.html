@@ -464,6 +464,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
         <div id="viewOnlyBanner" class="view-only-banner" hidden>👀 <b>View only</b> — you can look at every admin page, but nothing can be changed or saved.</div>
         <div id="otherAdminsBanner" class="other-admins-banner" role="status" hidden></div>
         <div id="emailLimitBanner" class="limit-banner" hidden></div>
+        <div id="testCopyCard" hidden></div>
         <div id="adminContent"></div>
       </div>
     </section>
@@ -494,7 +495,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-17d';
+const APP_VERSION = '2026-11-17e';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2594,9 +2595,36 @@ async function adminSave(action, body, statusId, okMsg) {
     return true;
   } catch (e) { showStatus(statusId, false, 'Could not reach the server — try again.'); return false; }
 }
+// TEST only: refresh TEST with a copy of the LIVE data (Tom 2026-11-17). The backend says
+// whether this is TEST (board.testCopy); it only reads LIVE and never writes to it.
+function renderTestCopyCard() {
+  const c = document.getElementById('testCopyCard');
+  if (!c) return;
+  const show = !!(board && board.testCopy && amAdmin());
+  c.hidden = !show;
+  if (!show) { c.innerHTML = ''; delete c.dataset.ready; return; }
+  if (c.dataset.ready) return;
+  c.dataset.ready = '1';
+  c.innerHTML = `<div class="card no-print" style="border-left:4px solid var(--gold, #c9a227);">
+      <b>TEST site.</b> Emails from TEST go only to the Legends email, never to members or the pro shop.
+      <div class="row" style="margin-top:8px;align-items:center;"><button class="secondary" id="testCopyBtn">Copy LIVE data into TEST</button>
+      <span class="hint">Replaces everything on TEST (sign-ups, duty, members, events, pairings, handicaps…) with a fresh copy of LIVE. TEST keeps its own email switches, addresses and app link. LIVE is only read, never changed.</span></div>
+      <div id="testCopyStatus" class="status"></div></div>`;
+  document.getElementById('testCopyBtn').onclick = async () => {
+    if (!confirm('Replace all the TEST data with a copy of LIVE?\n\nAnything you changed on TEST (test sign-ups, test members, test duty…) will be gone. LIVE is not changed.')) return;
+    showStatus('testCopyStatus', true, 'Copying from LIVE… this can take a minute.');
+    try {
+      const res = await apiPost('legendsCopyFromLive', {}, false, 300000);
+      if (!res.success) { showStatus('testCopyStatus', false, cleanError(res.error)); return; }
+      showStatus('testCopyStatus', true, `Done: copied ${res.data.tabs.length} tabs from “${res.data.liveName}”. Admin PINs and member PINs are now the same as on LIVE.`);
+      loadBoard(true);
+    } catch (e) { showStatus('testCopyStatus', false, 'Could not reach the server, or it took too long. Wait a minute and reload the page to see if it finished.'); }
+  };
+}
 function renderAdminSub() {
   const el = document.getElementById('adminContent');
   renderEmailLimitBanner();
+  renderTestCopyCard();
   if (adminSub === 'members') return renderMembersAdmin(el);
   if (!board) { el.innerHTML = '<div class="card hint">Loading…</div>'; return; }
   if (adminSub === 'duty') return renderDutyAdmin(el);
