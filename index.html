@@ -495,7 +495,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-17e';
+const APP_VERSION = '2026-11-18a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1645,7 +1645,7 @@ function renderEvents() {
   wireSchedule(el);
   wireSignups(el);
 }
-const SIGNUP_DAYS = 14; // the Sign-ups tab shows the next 14 days (Tom 2026-11-16)
+const SIGNUP_DAYS = 15; // the Sign-ups tab shows today through two weeks from today (Tom 2026-11-18)
 function renderSignups() {
   const el = document.getElementById('signupsBody');
   const lastKey = addDays(board.today, SIGNUP_DAYS - 1);
@@ -1655,7 +1655,7 @@ function renderSignups() {
   if (['calendar', 'date', 'person'].indexOf(schedView) === -1) schedView = 'date';
   const views = [['calendar', 'Calendar view'], ['date', 'List by date'], ['person', 'List by person']];
   const controls = `
-    <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next ${SIGNUP_DAYS} days</span></h2>
+    <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next 2 weeks</span></h2>
       <button class="ts-print-btn" id="schedPrint">🖨️ Print</button></div>
     <div class="ts-duty-sort no-print">${views.map(([v, l]) => `<button class="ts-duty-sort-btn ${schedView === v ? 'active' : ''}" data-sched-view="${v}">${l}</button>`).join('')}</div>
     ${schedView === 'date' || schedView === 'person' ? `<div class="ts-filter-row no-print"><select id="schedFilter">
