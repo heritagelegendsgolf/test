@@ -495,7 +495,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-18a';
+const APP_VERSION = '2026-11-20a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2728,8 +2728,8 @@ function renderPairingsAdmin(el) {
       <div id="prSaveStatus" class="status"></div>
     </div>
     <div class="card">
-      <h2>Larry's Game email</h2>
-      <p class="hint">The "Larry's Game" email with these pairings. Preview it, then send. Save any changes first. Who gets it, and whether it goes automatically, is under <b>Email settings</b> below.${rec && rec.EmailSentAt ? ` <b>Sent ${escapeHtml(when(rec.EmailSentAt))}.</b>` : ''}</p>
+      <h2>Game-day Pairings email</h2>
+      <p class="hint">The "Game-day Pairings" email with these pairings (Larry's Game and the Nassau pairings). Preview it, then send. Save any changes first. Who gets it, and whether it goes automatically, is under <b>Email settings</b> below.${rec && rec.EmailSentAt ? ` <b>Sent ${escapeHtml(when(rec.EmailSentAt))}.</b>` : ''}</p>
       <div class="row"><button class="secondary" id="prPreview">Preview email</button><button class="primary" id="prSend">${rec && rec.EmailSentAt ? 'Send again' : 'Send now'}</button></div>
       <p class="hint" style="margin:12px 0 6px;"><b>Print or download the tables</b> to put them in an email of your own: <b>Copy</b> them and paste straight into an email, or get them as a PDF (pick “Save as PDF” in the print window), a Word file (.docx) or an Excel file (.xlsx).</p>
       <div class="row"><button class="secondary" id="prCopy">Copy tables</button><button class="secondary" id="prPrint">Print / PDF</button><button class="secondary" id="prWord">Word</button><button class="secondary" id="prExcel">Excel</button></div>
@@ -2782,7 +2782,7 @@ function pairGamesCard(v) {
   }).join('');
   return `<div class="card">
     <h2>Larry's Game for upcoming days</h2>
-    <p class="hint">Each play day gets a game picked at random from the game list, avoiding the games picked for nearby days. Choose a game from the list to force it, or click <b>New random game</b>. If the sign-ups need Stableford (13, 17 or 21 in the bet, or groups of mixed sizes), the game is Stableford whatever is picked here. The game goes on the pairings when they are made and into the Larry's Game email.</p>
+    <p class="hint">Each play day gets a game picked at random from the game list, avoiding the games picked for nearby days. Choose a game from the list to force it, or click <b>New random game</b>. If the sign-ups need Stableford (13, 17 or 21 in the bet, or groups of mixed sizes), the game is Stableford whatever is picked here. The game goes on the pairings when they are made and into the Game-day Pairings email.</p>
     <div class="tbl-wrap"><table class="ad"><thead><tr><th>Day</th><th>Game</th><th>Chosen</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="hint">No upcoming play days.</td></tr>'}</tbody></table></div>
     <details style="margin-top:12px;"><summary><b>Game list</b> (${g.list.length} games)</summary>
       <p class="hint">One game per line. Random picks come from this list. It started as the foursome games on Larry's Nassau games sheet, 2024–2026.</p>
