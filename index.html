@@ -495,7 +495,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-20a';
+const APP_VERSION = '2026-11-20c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1447,6 +1447,39 @@ function myFunDefaults(group) {
     riding: last ? last.Riding === 'TRUE' : false,
   };
 }
+// Fun Group sign-up (Tom 2026-11-20): nothing is saved until the member has chosen tees,
+// holes and Walking/Riding. Resolves { tee, holes, riding } or null if cancelled.
+function funPick(key) {
+  return new Promise((resolve) => {
+    let box = document.getElementById('funPickBox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'funPickBox';
+      box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px;z-index:50;overflow:auto;';
+      document.body.appendChild(box);
+    }
+    const tees = TEE_LIST();
+    const df = myFunDefaults('fun');
+    const hadLast = (board.signups || []).some((x) => x.Group === 'fun' && String(x.PlayerID) === myId() && x.Tee);
+    const lastTxt = hadLast ? `Last time: ${df.tee} · ${FUN_HOLES[df.holes] || '18'} · ${df.riding ? 'Riding' : 'Walking'}` : '';
+    box.hidden = false;
+    box.innerHTML = `<div class="card" style="max-width:420px;width:100%;">
+        <h2 style="margin-top:0;">Fun Group · ${escapeHtml(dateShort(key))}</h2>
+        <p class="hint">Choose all three, then click <b>Sign up</b>. Nothing is saved until then.${lastTxt ? `<br>${escapeHtml(lastTxt)}` : ''}</p>
+        <label style="display:block;">Tees</label><select id="fpTee"><option value="">Choose tees…</option>${tees.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+        <label style="display:block;margin-top:8px;">Holes</label><select id="fpHoles"><option value="">Choose holes…</option>${HOLES_PILLS.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join('')}</select>
+        <label style="display:block;margin-top:8px;">Walking or riding</label><select id="fpRide"><option value="">Choose…</option><option value="walking">Walking</option><option value="riding">Riding</option></select>
+        <div class="row" style="margin-top:12px;"><button class="primary" id="fpGo" disabled>Sign up</button><button class="link" id="fpCancel">Cancel</button></div>
+      </div>`;
+    const t = document.getElementById('fpTee'), h = document.getElementById('fpHoles'), r = document.getElementById('fpRide'), go = document.getElementById('fpGo');
+    const check = () => { go.disabled = !(t.value && h.value && r.value); };
+    [t, h, r].forEach((x) => x.onchange = check);
+    const done = (v) => { box.hidden = true; box.innerHTML = ''; resolve(v); };
+    document.getElementById('fpCancel').onclick = () => done(null);
+    box.onclick = (e) => { if (e.target === box) done(null); };
+    go.onclick = () => { if (!go.disabled) done({ tee: t.value, holes: h.value, riding: r.value === 'riding' }); };
+  });
+}
 // Admins can change any sign-up's tees and comment (✎ on the name chip).
 let adminEditId = null;
 function chipHtml(s, n, key) {
@@ -1522,7 +1555,7 @@ function toggleHtml(d, state, compact) {
   } else if (mine.Group === 'fun' && state === 'open') {
     extra = `<div class="ts-holes-group">${HOLES_PILLS.map(([v, l]) => `<button type="button" class="ts-holes-pill ${(mine.Holes || '18') === v ? 'active' : ''}" data-holes-set="${escapeHtml(mine.SignupID)}|${v}">${l}</button>`).join('')}</div>
       <div class="ts-holes-group">${teeSelect}
-      <button type="button" class="ts-holes-pill ${mine.Riding === 'TRUE' ? 'active' : ''}" data-ride-set="${escapeHtml(mine.SignupID)}">${mine.Riding === 'TRUE' ? 'Riding' : 'Walking'}</button></div>`;
+      <select class="ts-tee-select" data-ride-set="${escapeHtml(mine.SignupID)}"><option value="walking" ${mine.Riding === 'TRUE' ? '' : 'selected'}>Walking</option><option value="riding" ${mine.Riding === 'TRUE' ? 'selected' : ''}>Riding</option></select></div>`;
   } else if (!compact && detailText(mine)) {
     extra = `<span class="ts-mini">${escapeHtml(detailText(mine))}</span>`;
   }
@@ -1711,7 +1744,7 @@ function wireSchedule(el) {
   el.querySelectorAll('[data-event-select]').forEach((s) => s.onchange = () => onEventSelect(s));
   el.querySelectorAll('[data-holes-set]').forEach((b) => b.onclick = () => { const [id, h] = b.dataset.holesSet.split('|'); act('legendsUpdate', { signupId: id, holes: h }, 'Saved.'); });
   el.querySelectorAll('[data-tee-set]').forEach((s) => s.onchange = () => act('legendsUpdate', { signupId: s.dataset.teeSet, tee: s.value }, 'Saved.'));
-  el.querySelectorAll('[data-ride-set]').forEach((b) => b.onclick = () => { const s = (board.signups || []).find((x) => x.SignupID === b.dataset.rideSet); act('legendsUpdate', { signupId: b.dataset.rideSet, riding: !(s && s.Riding === 'TRUE') }, 'Saved.'); });
+  el.querySelectorAll('[data-ride-set]').forEach((b) => b.onchange = () => act('legendsUpdate', { signupId: b.dataset.rideSet, riding: b.value === 'riding' }, 'Saved.'));
   el.querySelectorAll('[data-note-save]').forEach((b) => b.onclick = () => {
     const i = el.querySelector(`[data-note-input="${b.dataset.noteSave}"]`);
     act('legendsUpdate', { signupId: b.dataset.noteSave, note: i ? i.value : '' }, 'Note saved.');
@@ -1736,15 +1769,19 @@ async function onSignupSelect(sel) {
       ? `Take a spot in the ${g === 'fun' ? 'Fun' : 'Nassau'} group and stay on standby for the other? If your standby spot comes through, you'll be moved over automatically and your ${g === 'fun' ? 'Fun' : 'Nassau'} spot goes to the next person.`
       : `Go on the ${g === 'fun' ? 'Fun' : 'Nassau'} standby list and keep your spot? If the standby spot comes through, you'll be moved over automatically and your current spot goes to the next person.`) : '')) { restore(); return; }
     const body = { signupId: newId('s'), dateKey: key, group: g, note: '' };
-    const df = myFunDefaults(g);
-    body.tee = df.tee;
-    if (g === 'fun') { body.holes = df.holes; body.riding = df.riding; }
+    if (g === 'fun') {
+      const pick = await funPick(key);
+      if (!pick) { restore(); return; }
+      body.tee = pick.tee; body.holes = pick.holes; body.riding = pick.riding;
+    } else {
+      body.tee = myFunDefaults(g).tee;
+    }
     // Show it on the list right away (marked pending) while the server saves it.
     const pending = { SignupID: body.signupId, DateKey: key, Group: g, PlayerID: myId(), Name: session.member.Name,
       Tee: body.tee || '', Holes: body.holes || '', Riding: body.riding ? 'TRUE' : '', Note: '', SignedUpAt: Date.now(), pending: true };
     board.signups = (board.signups || []).concat([pending]);
     restore();
-    const ok = await act('legendsJoin', body, g === 'fun' ? 'Signed up for the Fun group — check your holes, tees and riding.' : 'Signed up for the Nassau group — check your tees.');
+    const ok = await act('legendsJoin', body, g === 'fun' ? 'Signed up for the Fun group.' : 'Signed up for the Nassau group — check your tees.');
     if (!ok) { board.signups = (board.signups || []).filter((s) => s.SignupID !== body.signupId); restore(); }
     return;
   }
@@ -1827,15 +1864,17 @@ function joinFormHtml(d, group) {
   const editing = openForm.mode === 'edit' ? (board.signups || []).find((s) => s.SignupID === openForm.signupId) : null;
   const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
   const me = session ? rosterById(session.member.PlayerID) : null;
-  const tee = editing ? editing.Tee : prefTee(me, tees);
-  const holes = editing ? (editing.Holes || '18') : (openForm.holes || '18');
-  const riding = editing ? editing.Riding === 'TRUE' : false;
+  // A new Fun sign-up starts with nothing chosen (Tom 2026-11-20); Nassau keeps the preferred tee.
+  const blankFun = isFun && !editing;
+  const tee = editing ? editing.Tee : blankFun ? '' : prefTee(me, tees);
+  const holes = editing ? (editing.Holes || '18') : blankFun ? '' : (openForm.holes || '18');
+  const ride = editing ? (editing.Riding === 'TRUE' ? 'riding' : 'walking') : '';
   const note = editing ? editing.Note : '';
   const funFields = isFun ? `
-      <div class="row"><label>Tees</label><select id="jfTee">${tees.map((t) => `<option ${t === tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
+      <div class="row"><label>Tees</label><select id="jfTee">${tee ? '' : '<option value="" selected>Choose tees…</option>'}${tees.map((t) => `<option ${t === tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
         <label style="margin-left:8px;">Holes</label>
         <span class="seg" id="jfHoles">${[['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']].map(([v, l]) => `<button type="button" data-h="${v}" class="${v === holes ? 'on' : ''}">${l}</button>`).join('')}</span></div>
-      <div class="row"><label><input type="checkbox" id="jfRiding" ${riding ? 'checked' : ''}> Riding (cart)</label><span class="hint">Leave unticked if walking.</span></div>` :
+      <div class="row"><label>Walking or riding</label><select id="jfRide" style="width:auto;">${ride ? '' : '<option value="" selected>Choose…</option>'}<option value="walking" ${ride === 'walking' ? 'selected' : ''}>Walking</option><option value="riding" ${ride === 'riding' ? 'selected' : ''}>Riding</option></select></div>` :
     `<div class="row"><label>Tees</label><select id="jfTee">${tees.map((t) => `<option ${t === tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select></div>`;
   return `
     <div class="join-form" id="joinForm">
@@ -1953,8 +1992,10 @@ function formValues() {
   if (openForm.group === 'fun') {
     v.tee = document.getElementById('jfTee').value;
     const on = document.querySelector('#jfHoles button.on');
-    v.holes = on ? on.dataset.h : '18';
-    v.riding = document.getElementById('jfRiding').checked;
+    v.holes = on ? on.dataset.h : '';
+    const rd = document.getElementById('jfRide').value;
+    v.riding = rd === 'riding';
+    v.missing = !v.tee || !v.holes || !rd;
   }
   return v;
 }
@@ -1978,6 +2019,8 @@ async function submitForm() {
   const btn = document.getElementById('jfGo');
   if (btn) btn.disabled = true;
   const v = formValues();
+  if (v.missing) { toast('Choose your tees, holes, and walking or riding first.', true); if (btn) btn.disabled = false; return; }
+  delete v.missing;
   if (openForm.mode === 'edit') {
     await act('legendsUpdate', Object.assign({ signupId: openForm.signupId }, v), 'Saved.');
   } else {
@@ -1998,13 +2041,15 @@ async function leaveSignup(signupId, late, asAdmin) {
 async function switchGroup(signupId, key, toGroup) {
   if (!confirm(`Switch to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group? You'll go to the end of that list.`)) return;
   const s = (board.signups || []).find((x) => x.SignupID === signupId);
+  const pick = toGroup === 'fun' ? await funPick(key) : null;
+  if (toGroup === 'fun' && !pick) return;
   const ok = await act('legendsLeave', { signupId });
   if (!ok) return;
   const body = { signupId: newId('s'), dateKey: key, group: toGroup, note: s ? s.Note : '' };
   const df = myFunDefaults(toGroup);
   body.tee = s && s.Tee && TEE_LIST().indexOf(s.Tee) !== -1 ? s.Tee : df.tee;
-  if (toGroup === 'fun') { body.holes = df.holes; body.riding = df.riding; }
-  await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group — check your ${toGroup === 'fun' ? 'tees, holes and riding' : 'tees'}.`);
+  if (pick) { body.tee = pick.tee; body.holes = pick.holes; body.riding = pick.riding; }
+  await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group${toGroup === 'fun' ? '.' : ' — check your tees.'}`);
 }
 async function adminAdd(key, group, playerId) {
   const r = rosterById(playerId);
