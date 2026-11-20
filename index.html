@@ -495,7 +495,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-20c';
+const APP_VERSION = '2026-11-20d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -703,7 +703,19 @@ function drawGate() {
       <input id="gPin" name="password" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" placeholder="4 digits">
       <button type="submit" class="primary" id="gNext">Sign in</button>
       <div class="gate-alt"><button type="button" class="link" id="gBack">Use a different email</button></div>
-      <p class="hint" style="text-align:center; margin-top:14px;">Forgot your PIN? Ask the admin to reset it, then sign in again to choose a new one.</p>`;
+      ${gate.pinReset ? '<div class="gate-alt"><button type="button" class="link" id="gForgot">Forgot your PIN?</button></div>' : '<p class="hint" style="text-align:center; margin-top:14px;">Forgot your PIN? Ask the admin to reset it, then sign in again to choose a new one.</p>'}`;
+  } else if (gate.step === 'resetcode') {
+    body = `
+      <h2>Reset your PIN</h2>
+      <p class="hint lead">We emailed a 6-digit code to ${escapeHtml(gate.email)}. It works for 15 minutes. Check the spam folder if you don't see it.</p>
+      <label for="gCode">Code from the email</label>
+      <input id="gCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6 digits">
+      <label for="gPin">New PIN</label>
+      <input id="gPin" name="password" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits">
+      <label for="gPin2">Confirm PIN</label>
+      <input id="gPin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="4 digits again">
+      <button type="submit" class="primary" id="gNext">Save PIN &amp; sign in</button>
+      <div class="gate-alt"><button type="button" class="link" id="gResend">Send me a new code</button> · <button type="button" class="link" id="gBack">Use a different email</button></div>`;
   } else if (gate.step === 'newpin') {
     body = `
       <h2>Choose a PIN</h2>
@@ -724,16 +736,36 @@ function drawGate() {
       <div class="gate-alt"><button type="button" class="link" id="gBack">Back</button></div>`;
   }
   // A real <form> with username + password fields lets the browser offer to save and fill the email and PIN.
-  const userField = gate.step === 'pin' || gate.step === 'newpin'
+  const userField = gate.step === 'pin' || gate.step === 'newpin' || gate.step === 'resetcode'
     ? `<input type="email" name="username" autocomplete="username" value="${escapeHtml(gate.email)}" style="position:absolute;left:-9999px;width:1px;height:1px;" tabindex="-1" aria-hidden="true">` : '';
   el.innerHTML = `<form id="gForm" method="post" action="#" autocomplete="on">${userField}${body}</form><p class="gate-err" role="alert">${escapeHtml(gate.err)}</p>`;
   document.getElementById('gForm').onsubmit = (e) => { e.preventDefault(); submitGate(); };
-  const first = document.getElementById(gate.step === 'email' ? 'gEmail' : 'gPin');
+  const first = document.getElementById(gate.step === 'email' ? 'gEmail' : gate.step === 'resetcode' ? 'gCode' : 'gPin');
+  const forgot = document.getElementById('gForgot');
+  if (forgot) forgot.onclick = () => requestPinReset();
+  const resend = document.getElementById('gResend');
+  if (resend) resend.onclick = () => requestPinReset();
   if (first) first.focus();
   const back = document.getElementById('gBack');
   if (back) back.onclick = () => { gate.step = 'email'; gate.err = ''; drawGate(); };
   const adm = document.getElementById('gAdmin');
   if (adm) adm.onclick = () => { gate.step = 'admin'; gate.err = ''; drawGate(); };
+}
+// "Forgot your PIN?" (Tom 2026-11-20): email a code, then choose a new PIN on the resetcode step.
+async function requestPinReset() {
+  if (gate.busy) return;
+  gate.busy = true; gate.err = '';
+  try {
+    const res = await apiPost('memberPinResetRequest', { email: gate.email });
+    if (!res.success) { gate.err = res.error; return; }
+    gate.step = 'resetcode';
+    toast('Code sent. Check your email.');
+  } catch (e) {
+    gate.err = 'Could not reach the server — check your connection and try again.';
+  } finally {
+    gate.busy = false;
+    drawGate();
+  }
 }
 function gateVal(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
 async function submitGate() {
@@ -751,6 +783,7 @@ async function submitGate() {
       if (!res.success) { gate.err = res.error; return; }
       if (!res.data.found) { gate.err = "We don't have that email on file. Check the spelling, or ask the admin to add it."; return; }
       gate.step = res.data.needsPin ? 'newpin' : 'pin';
+      gate.pinReset = !!res.data.pinReset;
       return;
     }
     if (gate.step === 'pin') {
@@ -768,6 +801,17 @@ async function submitGate() {
       const res = await apiPost('memberSetPin', { email: gate.email, newPin: a });
       if (!res.success) { gate.err = res.error; return; }
       finishSignIn(res.data);
+      return;
+    }
+    if (gate.step === 'resetcode') {
+      const code = gateVal('gCode').replace(/\s/g, ''), a = gateVal('gPin'), b = gateVal('gPin2');
+      if (!/^\d{6}$/.test(code)) { gate.err = 'Enter the 6-digit code from the email.'; return; }
+      if (!/^\d{4}$/.test(a)) { gate.err = 'Enter exactly 4 numbers, like 1234.'; return; }
+      if (a !== b) { gate.err = "The two PINs don't match."; return; }
+      const res = await apiPost('memberPinResetConfirm', { email: gate.email, code, newPin: a });
+      if (!res.success) { gate.err = res.error; return; }
+      finishSignIn(res.data);
+      toast('New PIN saved.');
       return;
     }
     if (gate.step === 'admin') {
@@ -5207,6 +5251,7 @@ function emHeadHtml(type, title, onKey, isOn) {
 const EM_SIMPLE = [
   ['LateDropEmailOn', 'latedrop', 'Late drop-out note to the admin', 'When someone drops out of a round after sign-ups have closed, the Legends admin email gets a note saying who dropped out and who moved up from standby, in case the pro shop needs to be told. It is still recorded on Admin › Pairings › No-shows either way.'],
   ['SwapEmailOn', 'swap', 'Tee Time Duty swap emails', 'A member who is asked to swap duty dates gets an email, and the member who asked gets one when it is accepted, declined or cancelled. When Off, the request still shows on the other member\'s My SUN Snapshot and Tee Time Duty tab for them to accept or decline.'],
+  ['PinResetEmailOn', 'pinreset', '"Forgot your PIN?" reset code', 'A member who forgot their PIN clicks <b>Forgot your PIN?</b> on the sign-in page and gets a 6-digit code at the email address on file. The code works for 15 minutes; they enter it and choose a new PIN, with no admin needed. When Off, the sign-in page tells them to ask an admin to reset it. At most one code a minute per member, and each one is logged on Admin › Info › Activity.'],
   ['ListChangeEmailOn', 'listchange', 'Email list change note to the admin', 'When a member changes which Legends email list they are on (Fun, Nassau or Both) under My info, the Legends admin email gets a note so the Google Groups can be updated by hand. The choice is always saved in the Members list either way.'],
 ];
 function emSimpleHtml() {
