@@ -300,6 +300,20 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   table.dt th { font-size: 0.74rem; text-transform: uppercase; color: var(--muted); }
   table.dt tr.past td { opacity: 0.5; }
   table.dt tr.mine td { background: #eef6f0; }
+  /* away weeks (Tom 2026-11-21) */
+  .aw-banner { border-left: 4px solid var(--gold, #c9a227); }
+  .aw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .aw-wk { display: flex; gap: 8px; align-items: flex-start; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; cursor: pointer; background: #fafaf6; }
+  .aw-wk input { margin-top: 3px; }
+  .aw-wk b { display: block; } .aw-wk small { color: #666; font-size: 12px; }
+  .aw-wk.away { border-color: #b4412f; background: #f9e7e3; } .aw-wk.away b { color: #9a3322; }
+  .aw-wk.blocked { opacity: .6; cursor: default; }
+  .aw-ok { color: var(--green-dark); font-weight: 600; } .aw-due { color: #9a5b00; font-weight: 600; }
+  .aw-pill { display: inline-block; font-size: 12px; border-radius: 10px; padding: 1px 7px; margin: 0 3px 3px 0; border: 1px solid #b4412f; color: #9a3322; background: #f9e7e3; white-space: nowrap; }
+  .aw-pill.auto { border-color: #bbb; color: #555; background: #eee; }
+  .aw-pick { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .aw-pick button { font-size: 12px; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+  .aw-pick button.on { border-color: #b4412f; color: #9a3322; background: #f9e7e3; }
   .role-p { color: #1565c0; font-weight: 600; font-size: 0.8em; }
   .cal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cal-h { background: var(--green); color: #fff; font-weight: 700; text-align: center; padding: 6px; border-radius: 6px; }
@@ -388,6 +402,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
         <div class="ts-section-title-row" style="margin-top:0;"><h2 style="margin:0;">Tee Time Duty</h2><button class="ts-print-btn no-print" id="dutyPrint" onclick="window.print()">🖨️ Print</button></div>
         <p class="hint">Who goes to the pro shop in person and who phones in, on each duty day. Each duty day requests tee times for two weeks later.</p>
         <div id="dutyInstr"></div>
+        <div id="dutyAway"></div>
         <div id="dutySwap"></div>
         <div class="view-btns no-print">
           <button class="subtab-btn active" data-dview="calendar">Calendar view</button>
@@ -495,7 +510,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-20d';
+const APP_VERSION = '2026-11-21a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1705,11 +1720,12 @@ function renderSnapshot() {
   const head = `<div class="snap-head"><h2>My SUN Snapshot${who ? ` <span class="hint" style="font-weight:400;">· ${escapeHtml(who)}</span>` : ''}</h2><button class="ts-print-btn no-print" data-print>🖨️ Print</button></div>`;
   const body = session ? mySummaryHtml(schedItems())
     : '<div class="card"><p class="hint" style="margin:0;">You are signed in as an admin only, so there is no personal snapshot. Sign in with your member PIN to see your tee time duty, sign-ups and events here.</p></div>';
-  el.innerHTML = swapIncomingHtml() + newsCardHtml() + head + body;
+  el.innerHTML = awayBannerHtml() + swapIncomingHtml() + newsCardHtml() + head + body;
   wireSchedule(el);
   wireNews(el);
   wireSignups(el);
   wireSwaps(el);
+  wireAway(el);
 }
 // Events tab: every upcoming event (banquet, $5 / $10 tournaments, divot day...), as cards.
 function renderEvents() {
@@ -2123,13 +2139,17 @@ function dutyDays() {
 }
 function dutyInstrHtml() {
   const st = board.settings || {};
-  const fill = (t) => String(t || '').replace(/\{arrive\}/g, 'the time shown for your day below').replace(/\{call\}/g, 'the time shown for your day below');
+  // {latest} is 90 minutes before the first tee time, {arrive} 2 hours: 30 minutes apart.
+  const fill = (t) => String(t || '').replace(/by \{latest\} \(preferably \{arrive\}\)/g, 'at the time shown for your day below (30 minutes later at the latest)')
+    .replace(/\{arrive\}/g, 'the time shown for your day below').replace(/\{latest\}/g, '30 minutes after the time shown for your day below').replace(/\{call\}/g, 'the time shown for your day below');
   const ip = fill(st.DutyInPersonText), ph = fill(st.DutyPhoneText);
   if (!ip && !ph) return '';
   return `<div class="duty-instr">${ip ? `<div><b>In person:</b> ${escapeHtml(ip)}</div>` : ''}${ph ? `<div><b>Phone in:</b> ${escapeHtml(ph)}</div>` : ''}</div>`;
 }
 function renderDuty() {
   const di = document.getElementById('dutyInstr'); if (di) di.innerHTML = dutyInstrHtml();
+  const da = document.getElementById('dutyAway');
+  if (da) { const keep = document.activeElement && document.activeElement.id === 'awayNote'; da.innerHTML = awayBoxHtml(); wireAway(da); if (keep) { const n = document.getElementById('awayNote'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } } }
   const sel = document.getElementById('dutyFilter');
   const people = {};
   (board.duty || []).forEach((x) => { people[x.PlayerID] = x.Name; });
@@ -2200,10 +2220,75 @@ function renderDuty() {
   // The swap form sits above the view buttons, so they come right after "Send swap requests".
   // Keep any choices already made in the swap form when the page refreshes itself.
   const kept = {}; document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { kept[x.dataset.swapTo] = x.value; });
+  const keptW = {}; document.querySelectorAll('#dutySwap [data-swap-week]').forEach((x) => { keptW[x.dataset.swapWeek] = x.value; });
   document.getElementById('dutySwap').innerHTML = swapPanelHtml();
   document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { const v = kept[x.dataset.swapTo]; if (v && [...x.options].some((o) => o.value === v)) x.value = v; });
+  document.querySelectorAll('#dutySwap [data-swap-week]').forEach((x) => { const v = keptW[x.dataset.swapWeek]; if (v && [...x.options].some((o) => o.value === v)) x.value = v; });
   wireSwaps(document.getElementById('tab-duty'));
 }
+
+// ---------------- away weeks: "Weeks I can't do duty next quarter" (Tom 2026-11-21) ----------------
+// Each member sees only their own (board.dutyAway.mine; the server sends nobody else's).
+// Saving marks them as answered, which stops the reminder banner and emails. Weeks of the
+// quarter's first month are blocked for anyone with duty in the month before (no duty two
+// months running); those show ticked and greyed.
+let awayDraft = null; // { q, weeks: Set, note } while a member is ticking boxes
+function awayInfo() { return board.dutyAway || {}; }
+function awayMine() { const a = awayInfo(); return session && a.mine && !a.mine.noDuty ? a.mine : null; }
+function weekDaysLabel(m) {
+  const w = addDays(m, 2), f = addDays(m, 4), md = (k) => monDay(k), same = (a, b) => keyDate(a).getUTCMonth() === keyDate(b).getUTCMonth();
+  return `${md(m)}, ${same(m, w) ? keyDate(w).getUTCDate() : md(w)}, ${same(w, f) ? keyDate(f).getUTCDate() : md(f)}`;
+}
+function awayNeedsAnswer() { const q = awayInfo().quarter, m = awayMine(); return !!(q && m && q.state === 'open' && !m.done); }
+function awayBannerHtml() {
+  if (!awayNeedsAnswer()) return '';
+  const q = awayInfo().quarter;
+  return `<div class="card no-print aw-banner"><b>Tee Time Duty ${escapeHtml(q.label)}:</b> please tell us which weeks you can't do, by <b>${escapeHtml(dateShort(q.due))}</b>. <button class="link" data-goto-away>Mark my away weeks</button></div>`;
+}
+function awayBoxHtml() {
+  const a = awayInfo(), q = a.quarter, m = awayMine();
+  if (!q || !m) return '';
+  const range = `${dateShortY(q.start)} – ${dateShortY(q.end)}`;
+  if (q.state === 'before') return `<div class="card no-print aw-box"><b>Weeks I can't do duty next quarter (${escapeHtml(q.label)})</b><p class="hint" style="margin:4px 0 0;">Opens on ${escapeHtml(dateShort(q.opens))}. You'll be able to tick the weeks you'll be away until ${escapeHtml(dateShort(q.due))}.</p></div>`;
+  const blocked = new Set(m.blocked || []), mon = a.blockedMonth || {};
+  if (!awayDraft || awayDraft.q !== q.id) awayDraft = { q: q.id, weeks: new Set(m.weeks || []), note: m.note || '' };
+  const open = q.state === 'open';
+  const status = m.done ? `<span class="aw-ok">✓ Saved${m.updatedAt ? ` ${escapeHtml(dateShort(String(m.updatedAt).slice(0, 10)))}` : ''}.</span> ${open ? `You can change it until ${escapeHtml(dateShort(q.due))}.` : ''}`
+    : open ? `<span class="aw-due">Not saved yet. Please save by ${escapeHtml(dateShort(q.due))}, even if you can do any week.</span>` : '<span class="aw-due">You didn\'t answer.</span>';
+  const weeks = q.weeks.map((w) => {
+    const bl = blocked.has(w), on = bl || awayDraft.weeks.has(w);
+    return `<label class="aw-wk ${on ? 'away' : ''} ${bl ? 'blocked' : ''}"><input type="checkbox" data-away-wk="${w}" ${on ? 'checked' : ''} ${bl || !open ? 'disabled' : ''}>
+      <span><b>Week of ${escapeHtml(monDay(w))}</b><small>${escapeHtml(weekDaysLabel(w))}${bl ? ` · duty in ${escapeHtml(mon.prev || 'the month before')}` : on ? ' · away' : ''}</small></span></label>`;
+  }).join('');
+  return `<div class="card no-print aw-box" id="awayBox">
+    <h3 style="margin:0 0 4px;font-size:1.15em;">Weeks I can't do duty next quarter: ${escapeHtml(q.label)}</h3>
+    <p class="hint" style="margin:0 0 6px;">${escapeHtml(range)}. Duty is one week a quarter (Monday, Wednesday and Friday). ${open ? 'Tick any week you\'ll be away or can\'t get tee times, then click <b>Save</b>.' : `The due date (${escapeHtml(dateShort(q.due))}) has passed. To change anything, ask a Tee Time Duty admin, or once duty is drawn, swap.`} Only you and the duty admins see this.</p>
+    ${blocked.size ? `<p class="hint" style="margin:0 0 6px;">You had duty in ${escapeHtml(mon.prev || 'the month before')}, so you won't get a ${escapeHtml(mon.first || 'first-month')} week (greyed out).</p>` : ''}
+    <div class="aw-grid">${weeks}</div>
+    <label class="hint" for="awayNote" style="display:block;margin-top:10px;">Note for the duty admins (optional)</label>
+    <input type="text" id="awayNote" maxlength="120" value="${escapeHtml(awayDraft.note)}" placeholder="e.g. In Florida mid-January, back Feb 1" ${open ? '' : 'disabled'} style="width:100%;max-width:520px;">
+    <div class="row" style="margin-top:8px;align-items:center;">${open ? `<button class="primary" id="awaySave">${awayDraft.weeks.size ? 'Save' : 'Save: I can do any week'}</button>` : ''}<span class="hint">${status}</span></div>
+  </div>`;
+}
+function wireAway(el) {
+  el.querySelectorAll('[data-goto-away]').forEach((b) => b.onclick = () => { selectTab('duty'); setTimeout(() => { const x = document.getElementById('awayBox'); if (x && x.scrollIntoView) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); });
+  el.querySelectorAll('[data-away-wk]').forEach((c) => c.onchange = () => {
+    if (c.checked) awayDraft.weeks.add(c.dataset.awayWk); else awayDraft.weeks.delete(c.dataset.awayWk);
+    const l = c.closest('.aw-wk'); l.classList.toggle('away', c.checked);
+    const s = document.getElementById('awaySave'); if (s) s.textContent = awayDraft.weeks.size ? 'Save' : 'Save: I can do any week';
+  });
+  const n = document.getElementById('awayNote'); if (n) n.oninput = () => { awayDraft.note = n.value; };
+  const s = document.getElementById('awaySave');
+  if (s) s.onclick = async () => {
+    const q = awayInfo().quarter, weeks = [...awayDraft.weeks].sort();
+    const ok = await act('legendsDutyAwaySave', { quarter: q.id, weeks: weeks.join(','), note: awayDraft.note.trim() },
+      weeks.length ? `Saved: ${weeks.length} week${weeks.length === 1 ? '' : 's'} you can't do. The duty admins will see it.` : 'Saved: you can do any week.');
+    if (ok) awayDraft = null;
+    renderCurrent();
+  };
+}
+// A week I said I can't do (any quarter from now on), for the swap warnings.
+function iAmAwayWeek(key) { const m = awayMine(); return !!(m && (m.allWeeks || []).includes(mondayOf(key))); }
 
 // ---------------- duty swaps (members) ----------------
 let swapFrom = null; // the duty date I'm offering to swap
@@ -2220,55 +2305,88 @@ function swapChoices(fromKey) {
     String(x.PlayerID) !== myId() && !onFrom.has(String(x.PlayerID)))
     .sort((a, b) => (a.DateKey < b.DateKey ? -1 : a.DateKey > b.DateKey ? 1 : a.Name.localeCompare(b.Name)));
 }
+// Whole-week swaps come first (Tom 2026-11-21): my weeks (every day still ahead), and other
+// people's weeks I could trade for (I have no duty that week; they have none in mine).
+function swapWhat(x) { return x.Week === 'TRUE' ? `week of ${monDay(mondayOf(x.FromKey))} ⇄ ${displayName(x.TargetName)}, week of ${monDay(mondayOf(x.ToKey))}` : `${dateShort(x.FromKey)} ⇄ ${displayName(x.TargetName)}, ${dateShort(x.ToKey)}`; }
+function dutyWeeksOf(pid) {
+  const by = {};
+  (board.duty || []).filter((x) => String(x.PlayerID) === String(pid)).forEach((x) => { (by[mondayOf(x.DateKey)] = by[mondayOf(x.DateKey)] || []).push(x); });
+  return Object.keys(by).sort().filter((m) => by[m].every((x) => x.DateKey >= board.today)).map((m) => ({ mon: m, rows: by[m].sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1)) }));
+}
+function weekSwapChoices(myMon) {
+  const mineWeeks = new Set(dutyWeeksOf(myId()).map((w) => w.mon).concat((board.duty || []).filter((x) => String(x.PlayerID) === myId()).map((x) => mondayOf(x.DateKey))));
+  const onMine = new Set((board.duty || []).filter((x) => mondayOf(x.DateKey) === myMon).map((x) => String(x.PlayerID)));
+  const people = [...new Set((board.duty || []).map((x) => String(x.PlayerID)))].filter((id) => id !== myId() && !onMine.has(id));
+  const out = [];
+  people.forEach((id) => dutyWeeksOf(id).forEach((w) => { if (w.mon !== myMon && !mineWeeks.has(w.mon)) out.push({ id, name: w.rows[0].Name, mon: w.mon, first: w.rows[0].DateKey, role: w.rows.some((r) => r.Role === 'phone') ? 'phone in' : 'in person' }); }));
+  return out.sort((a, b) => (a.mon < b.mon ? -1 : a.mon > b.mon ? 1 : a.name.localeCompare(b.name)));
+}
 function myDutyDates() { return [...new Set((board.duty || []).filter((x) => String(x.PlayerID) === myId() && x.DateKey >= board.today).map((x) => x.DateKey))].sort(); }
 function swapRoleOf(key, pid) { const r = dutyForDay(key).find((x) => String(x.PlayerID) === String(pid)); return r ? (r.Role === 'phone' ? 'phone in' : 'in person') : ''; }
 function swapIncomingHtml() {
   if (!session) return '';
   const inc = myPendingSwaps().filter((x) => String(x.TargetID) === myId());
   return inc.map((x) => `<div class="card no-print" style="border-left:4px solid var(--gold, #c9a227);">
-      <b>Swap request:</b> ${escapeHtml(displayName(x.RequesterName))} would like to give you <b>${escapeHtml(dateShort(x.FromKey))}</b> (${escapeHtml(swapRoleOf(x.FromKey, x.RequesterID))}) and take your <b>${escapeHtml(dateShort(x.ToKey))}</b> (${escapeHtml(swapRoleOf(x.ToKey, x.TargetID))}).
+      <b>${x.Week === 'TRUE' ? 'Week swap request' : 'Swap request'}:</b> ${x.Week === 'TRUE' ? `${escapeHtml(displayName(x.RequesterName))} would like to give you the <b>week of ${escapeHtml(monDay(mondayOf(x.FromKey)))}</b> (${escapeHtml(swapRoleOf(x.FromKey, x.RequesterID))}) and take your <b>week of ${escapeHtml(monDay(mondayOf(x.ToKey)))}</b> (${escapeHtml(swapRoleOf(x.ToKey, x.TargetID))}).`
+        : `${escapeHtml(displayName(x.RequesterName))} would like to give you <b>${escapeHtml(dateShort(x.FromKey))}</b> (${escapeHtml(swapRoleOf(x.FromKey, x.RequesterID))}) and take your <b>${escapeHtml(dateShort(x.ToKey))}</b> (${escapeHtml(swapRoleOf(x.ToKey, x.TargetID))}).`}
+      ${iAmAwayWeek(x.FromKey) ? `<div class="hint" style="color:var(--error);margin-top:4px;">You said you can't do the week of ${escapeHtml(monDay(mondayOf(x.FromKey)))}.</div>` : ''}
       <div class="row" style="margin-top:8px;"><button class="primary" data-swap-accept="${escapeHtml(x.SwapID)}">Accept swap</button><button class="secondary" data-swap-decline="${escapeHtml(x.SwapID)}">Decline</button></div>
     </div>`).join('');
 }
 function swapPanelHtml() {
   let html = swapIncomingHtml();
   const out = myPendingSwaps().filter((x) => session && String(x.RequesterID) === myId());
-  if (out.length) html += `<div class="card no-print"><b>Your swap requests waiting for an answer</b>${out.map((x) => `<div style="margin-top:6px;">${escapeHtml(dateShort(x.FromKey))} ⇄ ${escapeHtml(displayName(x.TargetName))}, ${escapeHtml(dateShort(x.ToKey))} <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel request</button></div>`).join('')}</div>`;
+  if (out.length) html += `<div class="card no-print"><b>Your swap requests waiting for an answer</b>${out.map((x) => `<div style="margin-top:6px;">${escapeHtml(swapWhat(x))} <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel request</button></div>`).join('')}</div>`;
   if (amAdmin() && !session) {
     const all = myPendingSwaps();
-    if (all.length) html += `<div class="card no-print"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
+    if (all.length) html += `<div class="card no-print"><b>Open swap requests</b>${all.map((x) => `<div style="margin-top:6px;">${escapeHtml(displayName(x.RequesterName))} (${x.Week === 'TRUE' ? 'week of ' + escapeHtml(monDay(mondayOf(x.FromKey))) : escapeHtml(dateShort(x.FromKey))}) ⇄ ${escapeHtml(displayName(x.TargetName))} (${x.Week === 'TRUE' ? 'week of ' + escapeHtml(monDay(mondayOf(x.ToKey))) : escapeHtml(dateShort(x.ToKey))}) <button class="link danger" data-swap-cancel="${escapeHtml(x.SwapID)}">Cancel</button></div>`).join('')}</div>`;
   }
   // Always shown to a signed-in member with upcoming duty: every date of mine, each with
   // its own choice of who to trade with. (A Swap… link just highlights that date.)
   const mine = session ? myDutyDates() : [];
   if (mine.length) {
     const any = mine.some((k) => swapChoices(k).length);
+    const myWeeks = dutyWeeksOf(myId()).filter((w) => w.rows.length > 1);
+    const weekHtml = myWeeks.length ? `<h4 style="margin:6px 0 4px;">Swap a whole week</h4>
+      <p class="hint" style="margin-top:0;">Trade your whole duty week (Monday, Wednesday and Friday) for someone else's.</p>
+      <table class="swap-tbl"><thead><tr><th>My week</th><th>Swap the whole week with...</th></tr></thead>${myWeeks.map((w) => { const ch = weekSwapChoices(w.mon); return `<tr>
+        <td><b>Week of ${escapeHtml(monDay(w.mon))}</b><br><span class="hint">${escapeHtml(swapRoleOf(w.rows[0].DateKey, myId()))}</span></td>
+        <td>${ch.length ? `<select data-swap-week="${w.rows[0].DateKey}"><option value="">Keep this week</option>${ch.map((x) => `<option value="${x.first}|${escapeHtml(x.id)}">Week of ${escapeHtml(monDay(x.mon))} — ${escapeHtml(displayName(x.name))} (${x.role})${iAmAwayWeek(x.mon) ? ' · you can\'t do this week' : ''}</option>`).join('')}</select>` : '<span class="hint">No other weeks to swap with.</span>'}</td></tr>`; }).join('')}</table>
+      <h4 style="margin:14px 0 4px;">Or swap single days</h4>` : '';
     html += `<div class="card no-print" id="swapForm"><h3 style="margin-top:0;font-size:1.2em;">Swap your tee time duty dates</h3>
-      <p class="hint">Pick who you'd like to trade with for any or all of your dates; leave the others on “Keep this date”. Each person gets an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>
+      <p class="hint">Each person gets an email and must accept before anything changes. Each of you takes over the other's spot as it is (in person or phone in).</p>${weekHtml}
+      <p class="hint" style="margin-top:0;">Pick who you'd like to trade with for any or all of your dates; leave the others on “Keep this date”.</p>
       <table class="swap-tbl"><thead><tr><th>My Dates</th><th>Request swap with...</th></tr></thead>${mine.map((k) => { const ch = swapChoices(k); return `<tr${k === swapFrom ? ' class="swap-picked"' : ''}>
         <td><b>${escapeHtml(dateShort(k))}</b><br><span class="hint">${escapeHtml(swapRoleOf(k, myId()))}</span></td>
-        <td>${ch.length ? `<select data-swap-to="${k}"><option value="">Keep this date</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})</option>`).join('')}</select>` : '<span class="hint">No other duty dates to swap with.</span>'}</td></tr>`; }).join('')}</table>
-      <div class="row" style="margin-top:8px;">${any ? '<button class="primary" id="swapSend">Send swap requests</button>' : ''}<button class="link" id="swapClose">Clear</button></div></div>`;
+        <td>${ch.length ? `<select data-swap-to="${k}"><option value="">Keep this date</option>${ch.map((x) => `<option value="${x.DateKey}|${escapeHtml(x.PlayerID)}">${escapeHtml(dateShort(x.DateKey))} — ${escapeHtml(displayName(x.Name))} (${x.Role === 'phone' ? 'phone in' : 'in person'})${iAmAwayWeek(x.DateKey) ? ' · you can\'t do this week' : ''}</option>`).join('')}</select>` : '<span class="hint">No other duty dates to swap with.</span>'}</td></tr>`; }).join('')}</table>
+      <div class="row" style="margin-top:8px;">${any || myWeeks.some((w) => weekSwapChoices(w.mon).length) ? '<button class="primary" id="swapSend">Send swap requests</button>' : ''}<button class="link" id="swapClose">Clear</button></div></div>`;
   }
   return html;
 }
 function wireSwaps(el) {
   el.querySelectorAll('[data-swap-from]').forEach((b) => b.onclick = () => { swapFrom = b.dataset.swapFrom; renderCurrent(); const f = document.getElementById('swapForm'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
-  const close = document.getElementById('swapClose'); if (close) close.onclick = () => { swapFrom = null; document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { x.value = ''; }); renderCurrent(); };
+  const close = document.getElementById('swapClose'); if (close) close.onclick = () => { swapFrom = null; document.querySelectorAll('#dutySwap [data-swap-to], #dutySwap [data-swap-week]').forEach((x) => { x.value = ''; }); renderCurrent(); };
   const send = document.getElementById('swapSend');
   if (send) send.onclick = async () => {
-    const picks = [...document.querySelectorAll('[data-swap-to]')].filter((x) => x.value).map((x) => { const [toKey, targetId] = x.value.split('|'); return { fromKey: x.dataset.swapTo, toKey, targetId }; });
-    if (!picks.length) { toast('Choose a date and person for at least one of your dates.', true); return; }
+    const weekPicks = [...document.querySelectorAll('[data-swap-week]')].filter((x) => x.value).map((x) => { const [toKey, targetId] = x.value.split('|'); return { fromKey: x.dataset.swapWeek, toKey, targetId, week: true }; });
+    const dayPicks = [...document.querySelectorAll('[data-swap-to]')].filter((x) => x.value).map((x) => { const [toKey, targetId] = x.value.split('|'); return { fromKey: x.dataset.swapTo, toKey, targetId }; });
+    const picks = weekPicks.concat(dayPicks);
+    if (!picks.length) { toast('Choose a week, or a date and person, for at least one of your dates.', true); return; }
+    if (weekPicks.length && dayPicks.some((d) => weekPicks.some((w) => mondayOf(w.fromKey) === mondayOf(d.fromKey)))) { toast('You picked a whole-week swap and a single-day swap for the same week. Choose one or the other.', true); return; }
+    const awayHit = picks.filter((x) => iAmAwayWeek(x.toKey));
+    if (awayHit.length && !confirm(`You said you can't do the week of ${awayHit.map((x) => monDay(mondayOf(x.toKey))).join(' and ')}. Ask for ${awayHit.length === 1 ? 'that swap' : 'those swaps'} anyway?`)) return;
     // Two of my dates can't both go to the same day, or I'd be on duty twice that day.
     const days = picks.map((x) => x.toKey);
     if (new Set(days).size !== days.length) { toast(`You picked ${dateShort(days.find((d, i) => days.indexOf(d) !== i))} twice. Choose a different date for one of them.`, true); return; }
     send.disabled = true;
     let sent = 0;
     for (const x of picks) if (await act('legendsSwapRequest', Object.assign({ siteUrl: location.origin + location.pathname }, x), '')) sent++; else break;
-    if (sent === picks.length) { swapFrom = null; document.querySelectorAll('#dutySwap [data-swap-to]').forEach((x) => { x.value = ''; }); renderCurrent(); toast(sent === 1 ? 'Swap request sent. They will get an email.' : `${sent} swap requests sent. Each person will get an email.`); }
+    if (sent === picks.length) { swapFrom = null; document.querySelectorAll('#dutySwap [data-swap-to], #dutySwap [data-swap-week]').forEach((x) => { x.value = ''; }); renderCurrent(); toast(sent === 1 ? 'Swap request sent. They will get an email.' : `${sent} swap requests sent. Each person will get an email.`); }
     else { renderCurrent(); if (sent) toast(`${sent} of ${picks.length} swap requests sent; the rest were not. See the list above.`, true); }
   };
   el.querySelectorAll('[data-swap-accept]').forEach((b) => b.onclick = async () => {
+    const x = myPendingSwaps().find((y) => y.SwapID === b.dataset.swapAccept);
+    if (x && iAmAwayWeek(x.FromKey) && !confirm(`You said you can't do the week of ${monDay(mondayOf(x.FromKey))}, and this swap puts you on duty then. Accept anyway?`)) return;
     if (!confirm('Accept this swap? Your tee time duty dates will change right away.')) return;
     await act('legendsSwapRespond', { swapId: b.dataset.swapAccept, accept: true, siteUrl: location.origin + location.pathname }, 'Swap done — your duty date has changed.');
   });
@@ -3893,8 +4011,8 @@ function renderDutyAdmin(el) {
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
   const slotHtml = (key, i, sl) => `<div class="duty-slot" style="display:flex;gap:4px;align-items:center;">
       <select data-dk="${key}" data-i="${i}" style="max-width:145px;"><option value="">${sl.id ? '✕ Clear (no one)' : ''}</option>${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${String(r.PlayerID) === String(sl.id) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select>
-    </div>${dutySlotWarn(sl.id, sl.role)}`;
-  const extrasHtml = (key, d) => (d.extras || []).map((x, j) => { const r = rosterById(x.id); return `<div class="hint" style="white-space:nowrap;">also ${x.role === 'phone' ? 'phone in' : 'in person'}: ${escapeHtml(r ? r.Name : '?')} <button class="link danger" title="Remove this name" data-clear-extra="${key}" data-j="${j}" style="font-size:16px;line-height:1;">×</button>${dutySlotWarn(x.id, x.role)}</div>`; }).join('');
+    </div>${dutySlotWarn(sl.id, sl.role, key)}`;
+  const extrasHtml = (key, d) => (d.extras || []).map((x, j) => { const r = rosterById(x.id); return `<div class="hint" style="white-space:nowrap;">also ${x.role === 'phone' ? 'phone in' : 'in person'}: ${escapeHtml(r ? r.Name : '?')} <button class="link danger" title="Remove this name" data-clear-extra="${key}" data-j="${j}" style="font-size:16px;line-height:1;">×</button>${dutySlotWarn(x.id, x.role, key)}</div>`; }).join('');
   const keys = Object.keys(dutyEdit.days).sort();
   const onDuty = [...new Set(keys.flatMap((k) => dutyEdit.days[k].slots.concat(dutyEdit.days[k].extras || []).map((x) => x.id).filter(Boolean)))]
     .map(rosterById).filter(Boolean).sort((a, b) => a.Name.localeCompare(b.Name));
@@ -4137,8 +4255,11 @@ function heavyRoundFor(dutyKey, target) { const t = target || defaultTarget(duty
 function monDay(key) { const d = keyDate(key); return `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`; }
 const DUTY_STATUS = { '': 'In person or phone', phone: 'Phone-in only', inperson: 'In-person only', nonmember: 'HGC non-member', medical: 'Medical leave' };
 // Why a name can't do this duty ('' = fine).
-function dutyProblem(id, role) {
+function dutyProblem(id, role, key) {
   if (!id) return '';
+  const aw = awayReason(id, key);
+  if (aw === 'away') return "said they can't do this week";
+  if (aw === 'auto') return 'had duty the month before';
   const r = rosterById(id), s = (dutyLists()[String(id)] || {}).s || '';
   if (r && r.Active === 'FALSE') return 'inactive';
   if (s === 'nonmember') return 'HGC non-member';
@@ -4147,7 +4268,7 @@ function dutyProblem(id, role) {
   if (role === 'phone' && s === 'inperson') return 'in-person only';
   return '';
 }
-function dutySlotWarn(id, role) { const p = dutyProblem(id, role); return p ? `<div class="imp-bad hint">${escapeHtml(p)}</div>` : ''; }
+function dutySlotWarn(id, role, key) { const p = dutyProblem(id, role, key); return p ? `<div class="imp-bad hint">${escapeHtml(p)}</div>` : ''; }
 // Quarters run Monday to Friday from the Monday of the week holding Jan 1, Apr 1, Jul 1 or Oct 1
 // (same as laQuarterOf_ on the server).
 function quarterStart(year, q) { return mondayOf(`${year}-${String(3 * q - 2).padStart(2, '0')}-01`); }
@@ -4187,28 +4308,59 @@ function generateDutyQuarter(qt) {
   const playDays = (m) => [0, 2, 4].map((o) => addDays(m, o)).filter((k) => k <= qt.end);
   const heavyWeek = weeks.map((m) => playDays(m).some(isHeavy));
   const n = weeks.length;
+  // Away weeks (Tom 2026-11-21): nobody goes in a week they marked, or in the quarter's first
+  // month if they had duty the month before.
+  const away = awayMap(qt);
+  const free = (r, i) => { const x = away[String(r.PlayerID)]; return !x || (!x.weeks.has(weeks[i]) && !x.auto.has(weeks[i])); };
+  const freeCount = (r) => weeks.filter((w, i) => free(r, i)).length;
   const phoneOnly = pool.filter((r) => status(r) === 'phone'), inPool = pool.filter((r) => status(r) !== 'phone');
-  const phoneSit = dueFirst(phoneOnly).slice(0, Math.max(0, phoneOnly.length - n));
+  // Who sits out: as before (fewest past sit-outs first), but someone away all quarter sits out first.
+  const sitFirst = (list) => { const gone = list.filter((r) => !freeCount(r)); return gone.concat(dueFirst(list.filter((r) => freeCount(r)))); };
+  const phoneSit = sitFirst(phoneOnly).slice(0, Math.max(0, phoneOnly.length - n));
   const callers = phoneOnly.filter((r) => !phoneSit.includes(r));
   const borrow = Math.max(0, n - callers.length); // not enough phone-in only people: others phone in too
   const inNeed = 2 * n + heavyWeek.filter(Boolean).length + borrow;
-  const inSit = dueFirst(inPool).slice(0, Math.max(0, inPool.length - inNeed));
-  let goers = shuffled(inPool.filter((r) => !inSit.includes(r)));
-  const borrowed = goers.filter((r) => status(r) === '').slice(0, borrow);
-  goers = goers.filter((r) => !borrowed.includes(r));
-  const phones = shuffled(callers.concat(borrowed));
+  const inSit = sitFirst(inPool).slice(0, Math.max(0, inPool.length - inNeed));
+  const inGo = inPool.filter((r) => !inSit.includes(r));
+  // Fill the weeks with the fewest free people first; in each, pick the people with the fewest
+  // free weeks. If a week can't be filled from those taking part, someone due to sit out who
+  // is free that week steps in. Best of many tries (fewest open spots, then fewest step-ins).
+  let best = null;
+  for (let t = 0; t < 400; t++) {
+    const used = new Set(), plan = {};
+    let open = 0, stepIns = 0;
+    const take = (lists2, i, ok) => {
+      for (let L = 0; L < lists2.length; L++) {
+        const c = shuffled(lists2[L].filter((r) => !used.has(r.PlayerID) && free(r, i) && ok(r))).sort((a, b) => freeCount(a) - freeCount(b))[0];
+        if (c) { used.add(c.PlayerID); if (L > 0) stepIns++; return c; }
+      }
+      open++; return null;
+    };
+    const order = shuffled(weeks.map((w, i) => i)).sort((a, b) => pool.filter((r) => free(r, a)).length - pool.filter((r) => free(r, b)).length);
+    order.forEach((i) => {
+      const ph = take([callers, inGo.filter((r) => status(r) === ''), phoneSit, inSit.filter((r) => status(r) === '')], i, (r) => status(r) !== 'inperson');
+      const ins = [take([inGo, inSit], i, () => true), take([inGo, inSit], i, () => true)];
+      if (heavyWeek[i]) ins.push(take([inGo, inSit], i, () => true));
+      plan[i] = { ph, ins };
+    });
+    const score = open * 1000 + stepIns;
+    if (!best || score < best.score) best = { plan, used, score, open };
+    if (!score) break;
+  }
   const days = {};
   weeks.forEach((m, i) => {
-    const a = goers.pop(), b = goers.pop(), c = phones.pop(), x = heavyWeek[i] ? goers.pop() : null;
+    const { ph, ins } = best.plan[i];
+    const [a, b, x] = ins;
     playDays(m).forEach((k) => {
       const people = [a, b].filter(Boolean).map((r) => ({ id: r.PlayerID, role: 'inperson' }));
       if (isHeavy(k) && x) people.push({ id: x.PlayerID, role: 'inperson' });
-      if (c) people.push({ id: c.PlayerID, role: 'phone' }); // on a heavy day, the backup
+      if (ph) people.push({ id: ph.PlayerID, role: 'phone' }); // on a heavy day, the backup
       days[k] = fillDutySlots(k, people); days[k].target = '';
     });
   });
   const open = Object.values(days).filter((d) => d.slots.filter((sl) => sl.id).length < 3).length;
-  return { days, sitOut: phoneSit.concat(inSit).sort((a, b) => a.Name.localeCompare(b.Name)), open };
+  const sitOut = pool.filter((r) => !best.used.has(r.PlayerID)).sort((a, b) => a.Name.localeCompare(b.Name));
+  return { days, sitOut, open };
 }
 let dutyFillTab = 'gen'; // which tab of the Quarter assignments card is showing
 function dutySetupHtml(importHtml) {
@@ -4219,12 +4371,12 @@ function dutySetupHtml(importHtml) {
   const hasDuty = (qt) => (board.duty || []).filter((d) => d.DateKey >= qt.start && d.DateKey <= qt.end).length;
   const qOptions = qs.map((qt) => `<option value="${qt.id}">${qt.label} (${escapeHtml(dateShortY(qt.start))} – ${escapeHtml(dateShortY(qt.end))})${hasDuty(qt) ? ` — ${hasDuty(qt)} assignments saved` : ''}</option>`).join('');
   const tab = (id, label) => `<button type="button" data-dqtab="${id}" class="${dutyFillTab === id ? 'on' : ''}">${label}</button>`;
-  return `
+  return awayAdminHtml() + `
     <div class="card">
       <h2>Quarter assignments</h2>
       <div class="seg" id="dqTabs" style="margin-bottom:10px;">${tab('gen', 'Generate Assignments')}${tab('imp', 'Import Assignments')}${tab('del', 'Delete Assignments')}</div>
       <div data-dqpane="gen" ${dutyFillTab === 'gen' ? '' : 'hidden'}>
-        <p class="hint"><b>Generate assignments</b> fills a whole quarter in the table above using the lists below: each week two people in person and one phone-in (from the Phone-in only list), and a third person in person for weeks with a heavy-demand day. Everyone eligible gets one week; the people left over sit out, starting with those who have sat out least, so nobody sits out twice until everyone else has. Change anything you like (or use Swap weeks), then click <b>Save duty</b>. Nothing is saved until then.</p>
+        <p class="hint"><b>Generate assignments</b> fills a whole quarter in the table above using the lists below: each week two people in person and one phone-in (from the Phone-in only list), and a third person in person for weeks with a heavy-demand day. Everyone eligible gets one week, never one of their <b>away weeks</b> (above); the people left over sit out, starting with those who have sat out least, so nobody sits out twice until everyone else has. Change anything you like (or use Swap weeks), then click <b>Save duty</b>. Nothing is saved until then.</p>
         <div class="row"><label class="hint">Quarter <select id="dqPick">${qOptions}</select></label><button class="primary" id="dqGen">Generate assignments</button></div>
       </div>
       <div data-dqpane="imp" ${dutyFillTab === 'imp' ? '' : 'hidden'}>${importHtml}</div>
@@ -4267,6 +4419,7 @@ async function saveDutySetup(body, statusId, msg) {
   if (ok) showStatus(statusId, true, msg);
 }
 function wireDutySetup(el) {
+  wireAwayAdmin(el);
   const pickQ = (id) => futureQuarters(4).find((qt) => qt.id === document.getElementById(id || 'dqPick').value);
   el.querySelectorAll('[data-dqtab]').forEach((b) => b.onclick = () => {
     dutyFillTab = b.dataset.dqtab;
@@ -4285,7 +4438,7 @@ function wireDutySetup(el) {
     renderDutyAdmin(el);
     showStatus('dqStatus', !g.open, `${qt.label} filled in above — review it, then click Save duty. ` +
       (g.sitOut.length ? `Sitting out this quarter (${g.sitOut.length}): ${g.sitOut.map((r) => displayName(r.Name)).join(', ')}.` : 'Nobody sits out.') +
-      (g.open ? ` Not enough eligible people: ${g.open} duty days have an open spot.` : ''));
+      (g.open ? ` Not enough people free: ${g.open} duty days have an open spot (check the away weeks).` : ''));
   };
   document.getElementById('dqDel').onclick = async () => {
     const qt = pickQ('dqPickDel'); if (!qt) return;
@@ -4300,6 +4453,14 @@ function wireDutySetup(el) {
     if (!a || !b || a === b) { showStatus('dStatus', false, 'Choose two different people.'); return; }
     let both = false;
     Object.values(dutyEdit.days).forEach((d) => d.slots.concat(d.extras || []).forEach((x) => { if (x.id === b) both = true; }));
+    // Warn first if the swap puts either of them in a week they can't do (Tom 2026-11-21).
+    const hits = [];
+    Object.keys(dutyEdit.days).forEach((k) => dutyEdit.days[k].slots.concat(dutyEdit.days[k].extras || []).forEach((x) => {
+      const to = x.id === a ? b : x.id === b ? a : null;
+      if (to && awayReason(to, k)) hits.push(`${displayName((rosterById(to) || {}).Name || '')}, week of ${monDay(mondayOf(k))} (${awayReason(to, k) === 'away' ? "said they can't do it" : 'had duty the month before'})`);
+    }));
+    const uniq = [...new Set(hits)];
+    if (uniq.length && !confirm(`This swap puts someone in a week they can't do:\n${uniq.join('\n')}\n\nSwap anyway?`)) return;
     Object.values(dutyEdit.days).forEach((d) => d.slots.concat(d.extras || []).forEach((x) => { x.id = x.id === a ? b : x.id === b ? a : x.id; }));
     markDirty(); renderDutyAdmin(el);
     const na = displayName((rosterById(a) || {}).Name || ''), nb = displayName((rosterById(b) || {}).Name || '');
@@ -4331,6 +4492,166 @@ function wireDutySetup(el) {
       if (s.value) out[id] = { s: s.value, r };
     });
     saveDutySetup({ lists: JSON.stringify(out) }, 'dListsStatus', 'Lists saved.');
+  };
+}
+
+// ---- away weeks on the admin duty page (Tom 2026-11-21) ----
+// board.dutyAway.all = everyone's saved entries for quarters not yet over; blocked weeks
+// (duty in the month before the quarter) are worked out here the same way as laAwayBlocked_.
+function awayRowsFor(qid) { return (awayInfo().all || []).filter((r) => r.Quarter === qid); }
+function quarterWeeks(qt) { const out = []; for (let m = qt.start; m <= qt.end; m = addDays(m, 7)) out.push(m); return out; }
+const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function awayBlockedFor(qt) {
+  const y = Number(qt.id.slice(0, 4)), q = Number(qt.id.slice(-1)), first = 3 * q - 2;
+  const prev = first === 1 ? `${y - 1}-12` : `${y}-${String(first - 1).padStart(2, '0')}`;
+  const second = `${y}-${String(first + 1).padStart(2, '0')}-01`;
+  const weeks = quarterWeeks(qt).filter((m) => m < second), by = {};
+  (board.duty || []).forEach((d) => { if (String(d.DateKey).slice(0, 7) === prev) by[String(d.PlayerID)] = weeks; });
+  return { by, weeks, prev: MONTH_LONG[Number(prev.slice(5)) - 1], first: MONTH_LONG[first - 1] };
+}
+const awayCache = {};
+function awayMap(qt) {
+  // { pid: { weeks:Set (saved), auto:Set (blocked), note, done, by, at } }
+  const key = qt.id + '|' + (board.now || '');
+  if (awayCache[key]) return awayCache[key];
+  const out = {}, bl = awayBlockedFor(qt);
+  awayRowsFor(qt.id).forEach((r) => { out[r.PlayerID] = { weeks: new Set(String(r.Weeks || '').split(',').filter(Boolean)), auto: new Set(), note: r.Note || '', done: r.Done === 'TRUE', by: r.UpdatedBy || '', at: r.UpdatedAt || '' }; });
+  Object.keys(bl.by).forEach((pid) => { (out[pid] = out[pid] || { weeks: new Set(), auto: new Set(), note: '', done: false, by: '', at: '' }).auto = new Set(bl.by[pid]); });
+  return (awayCache[key] = out);
+}
+// Why this person shouldn't have duty the week holding key: '' | 'away' | 'auto'.
+function awayReason(id, key) {
+  if (!id || !key) return '';
+  const qt = quarterOf(key); if (!qt) return '';
+  const x = awayMap(qt)[String(id)]; if (!x) return '';
+  const m = mondayOf(key);
+  return x.weeks.has(m) ? 'away' : x.auto.has(m) ? 'auto' : '';
+}
+let awayAdminQ = null, awayEdit = null, awayFilter = 'all';
+function awayDueFor(qt) { const d = (awayInfo().due || {})[qt.id]; return d || addDays(qt.start, -21); }
+function awayAdminHtml() {
+  const qs = futureQuarters(4);
+  if (!qs.length) return '';
+  if (!awayAdminQ || !qs.some((q) => q.id === awayAdminQ)) awayAdminQ = (awayInfo().quarter && qs.some((q) => q.id === awayInfo().quarter.id)) ? awayInfo().quarter.id : qs[0].id;
+  const qt = qs.find((q) => q.id === awayAdminQ), map = awayMap(qt), bl = awayBlockedFor(qt);
+  const lists = dutyLists();
+  const people = (board.roster || []).filter((r) => r.Active !== 'FALSE' && ['nonmember', 'medical'].indexOf((lists[String(r.PlayerID)] || {}).s || '') === -1).sort((a, b) => a.Name.localeCompare(b.Name));
+  const answered = people.filter((r) => (map[String(r.PlayerID)] || {}).done).length;
+  const withAway = people.filter((r) => { const x = map[String(r.PlayerID)]; return x && x.weeks.size; }).length;
+  const shown = people.filter((r) => { const x = map[String(r.PlayerID)] || {}; return awayFilter === 'all' || (awayFilter === 'no' ? !x.done : awayFilter === 'away' ? (x.weeks && x.weeks.size) || (x.auto && x.auto.size) : true); });
+  const due = awayDueFor(qt), custom = !!(awayInfo().due || {})[qt.id];
+  const pill = (m, auto) => `<span class="aw-pill ${auto ? 'auto' : ''}" title="${auto ? `Had duty in ${escapeHtml(bl.prev)}` : 'Can\'t do this week'}">${escapeHtml(monDay(m))}${auto ? ' (auto)' : ''}</span>`;
+  const rowHtml = (r) => {
+    const id = String(r.PlayerID), x = map[id] || { weeks: new Set(), auto: new Set(), note: '', done: false };
+    const weeksHtml = [...x.auto].sort().map((m) => pill(m, true)).join('') + [...x.weeks].sort().map((m) => pill(m, false)).join('') || '<span class="hint">None</span>';
+    const status = x.done ? `<span class="aw-ok">✓</span> <span class="hint">${x.by === 'member' ? 'by member' : `by ${escapeHtml(displayName(x.by))}`}${x.at ? ', ' + escapeHtml(dateShort(String(x.at).slice(0, 10))) : ''}</span>` : '<span class="aw-due">Not yet</span>';
+    if (awayEdit && awayEdit.id === id) {
+      return `<tr><td><b>${escapeHtml(r.Name)}</b></td><td>${status}</td><td colspan="2">
+        <div class="aw-pick">${quarterWeeks(qt).map((m) => x.auto.has(m) ? `<button type="button" disabled title="Had duty in ${escapeHtml(bl.prev)}">${escapeHtml(monDay(m))} (auto)</button>` : `<button type="button" data-aw-tg="${m}" class="${awayEdit.weeks.has(m) ? 'on' : ''}">${escapeHtml(monDay(m))}</button>`).join('')}</div>
+        <input type="text" id="awEditNote" maxlength="120" value="${escapeHtml(awayEdit.note)}" placeholder="Note" style="width:100%;max-width:420px;margin-top:6px;">
+        <div class="row" style="margin-top:6px;"><button class="primary" id="awEditSave">Save</button><button class="link" id="awEditCancel">Cancel</button><span class="hint">Saving with no weeks ticked means they can do any week.</span></div></td></tr>`;
+    }
+    return `<tr><td>${escapeHtml(r.Name)}</td><td>${status}</td><td>${weeksHtml}</td><td>${escapeHtml(x.note || '')} <button class="link" data-aw-edit="${escapeHtml(id)}">Edit</button></td></tr>`;
+  };
+  return `<div class="card" id="awayAdminCard">
+    <h2>Away weeks</h2>
+    <p class="hint">Weeks each member can't do tee time duty. Members tick their own on the Tee Time Duty tab (each sees only theirs) until the due date; you can enter or change anyone's here at any time. <b>Generate assignments</b> never puts anyone in one of these weeks. Anyone with duty in the last month of a quarter (e.g. December) is kept out of the next quarter's first month (shown as <i>auto</i>), so nobody has duty two months running.</p>
+    <div class="row" style="flex-wrap:wrap;align-items:flex-end;">
+      <label class="hint">Quarter <select id="awQ">${qs.map((q) => `<option value="${q.id}" ${q.id === qt.id ? 'selected' : ''}>${q.label} (${escapeHtml(dateShortY(q.start))} – ${escapeHtml(dateShortY(q.end))})</option>`).join('')}</select></label>
+      <label class="hint">Members can answer until <input type="date" id="awDue" value="${due}"></label>
+      <button class="secondary" id="awDueSave">Save due date</button>${custom ? '<button class="link" id="awDueReset">Use the usual date (3 weeks before)</button>' : ''}
+    </div>
+    <p class="hint" style="margin:6px 0;">The box opens for members 6 weeks before the quarter starts (${escapeHtml(dateShort(addDays(qt.start, -42)))}). <b>${answered} of ${people.length}</b> have answered; ${withAway} have away weeks.${bl.weeks.length && Object.keys(bl.by).length ? ` ${Object.keys(bl.by).length} had duty in ${escapeHtml(bl.prev)}.` : ''}</p>
+    <div id="awStatus" class="status"></div>
+    <div class="row"><label class="hint">Show <select id="awFilter"><option value="all" ${awayFilter === 'all' ? 'selected' : ''}>Everyone who does duty (${people.length})</option><option value="no" ${awayFilter === 'no' ? 'selected' : ''}>Not answered yet (${people.length - answered})</option><option value="away" ${awayFilter === 'away' ? 'selected' : ''}>With away weeks</option></select></label></div>
+    <div class="tbl-wrap"><table class="ad" style="min-width:640px;"><thead><tr><th>Member</th><th>Answered</th><th>Can't do (week of)</th><th>Note</th></tr></thead><tbody>
+      ${shown.map(rowHtml).join('') || '<tr><td colspan="4" class="hint">No one.</td></tr>'}</tbody></table></div>
+    <details style="margin-top:10px;"><summary><b>Fill in from a list</b> <span class="hint">(after canvassing)</span></summary>
+      <p class="hint">One person per line: a name, then a comma or tab, then dates or ranges separated by <b>;</b>, for example <code>Hope, Bob, Jan 11 - Jan 22; Mar 15</code> or <code>Bob Hope	Feb 8</code>. Any week a date or range touches is marked. A name with no dates means they can do any week. Weeks are added to what's already there, and everyone listed counts as answered.</p>
+      <textarea id="awPaste" rows="5" placeholder="Hope, Bob, Jan 11 - Jan 22"></textarea>
+      <div class="row" style="margin-top:6px;"><button class="secondary" id="awRead">Read</button><button class="primary" id="awApply" disabled>Save these</button></div>
+      <div id="awPasteOut" class="hint" style="margin-top:6px;"></div>
+    </details>
+  </div>`;
+}
+// "Hope, Bob, Jan 11 - Jan 22; Mar 15" -> { pid, weeks:[Mondays], note:'' } or { error }
+function awayParseLine(line, qt) {
+  const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE');
+  const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const parts = line.split(/\t|,/).map((x) => x.trim());
+  const dateRe = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+  let i = parts.findIndex((x, j) => j > 0 && dateRe.test(x));
+  if (i < 0) i = parts.length;
+  const nameText = parts.slice(0, i).join(', '), dateText = parts.slice(i).join(',');
+  const n = norm(nameText.includes(',') ? nameText.split(',').slice(1).join(' ') + ' ' + nameText.split(',')[0] : nameText);
+  const firstLast = (r) => norm(r.Name.split(',').slice(1).join(' ') + ' ' + r.Name.split(',')[0]), lastFirst = (r) => norm(r.Name.replace(',', ' '));
+  let hit = roster.filter((r) => norm(displayName(r.Name)) === n || firstLast(r) === n);
+  if (!hit.length && !nameText.includes(',')) hit = roster.filter((r) => lastFirst(r) === norm(nameText)); // "Hope Bob"
+  if (!hit.length) hit = roster.filter((r) => norm(r.Name.split(',')[0]) === n);
+  if (hit.length !== 1) return { error: `${nameText || line}: ${hit.length ? 'more than one member matches' : 'not on the roster'}` };
+  const weeks = new Set(), qw = quarterWeeks(qt);
+  const yearFor = (mi) => (mi === 11 && qt.id.endsWith('Q1') ? Number(qt.id.slice(0, 4)) - 1 : Number(qt.start.slice(0, 4)) + (mi < keyDate(qt.start).getUTCMonth() ? 1 : 0));
+  const toKey = (mon, day) => { const mi = MON_IDX[mon.slice(0, 3).toLowerCase()]; return `${yearFor(mi)}-${String(mi + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; };
+  for (const chunk of dateText.split(/[;,]/).map((x) => x.trim()).filter(Boolean)) {
+    const m = chunk.match(/^([a-z]{3})[a-z]*\.?\s*(\d{1,2})(?:\s*[-–]\s*(?:([a-z]{3})[a-z]*\.?\s*)?(\d{1,2}))?$/i);
+    if (!m) return { error: `${nameText}: couldn't read "${chunk}" (use e.g. Jan 11 or Jan 11 - Jan 22)` };
+    const a = toKey(m[1], m[2]), b = m[4] ? toKey(m[3] || m[1], m[4]) : a;
+    if (b < a) return { error: `${nameText}: "${chunk}" ends before it starts` };
+    qw.forEach((w) => { if (!(b < w || a > addDays(w, 4))) weeks.add(w); });
+  }
+  return { pid: String(hit[0].PlayerID), name: hit[0].Name, weeks: [...weeks].sort() };
+}
+let awayPasteItems = null;
+async function awayAdminSave(body, msg) {
+  const wasDirty = adminDirty;
+  const ok = await adminSave('legendsDutyAwaySave', Object.assign({ asAdmin: true }, body), 'awStatus', msg);
+  if (ok && wasDirty) markDirty();
+  if (ok) showStatus('awStatus', true, msg);
+  return ok;
+}
+function wireAwayAdmin(el) {
+  const card = el.querySelector('#awayAdminCard'); if (!card) return;
+  const qt = futureQuarters(4).find((q) => q.id === awayAdminQ);
+  const rerender = () => renderDutyAdmin(el);
+  card.querySelector('#awQ').onchange = (e) => { awayAdminQ = e.target.value; awayEdit = null; awayPasteItems = null; rerender(); };
+  card.querySelector('#awFilter').onchange = (e) => { awayFilter = e.target.value; rerender(); };
+  card.querySelector('#awDueSave').onclick = () => {
+    const v = card.querySelector('#awDue').value;
+    if (!v) { showStatus('awStatus', false, 'Choose a date.'); return; }
+    if (v >= qt.start) { showStatus('awStatus', false, `The due date must be before the quarter starts (${dateShort(qt.start)}).`); return; }
+    saveDutySetup({ awayDue: JSON.stringify(Object.assign({}, awayInfo().due || {}, { [qt.id]: v })) }, 'awStatus', `Members can answer for ${qt.label} until ${dateShortY(v)}.`);
+  };
+  const rs = card.querySelector('#awDueReset');
+  if (rs) rs.onclick = () => { const d = Object.assign({}, awayInfo().due || {}); delete d[qt.id]; saveDutySetup({ awayDue: JSON.stringify(d) }, 'awStatus', `Due date for ${qt.label} is back to ${dateShortY(addDays(qt.start, -21))}.`); };
+  card.querySelectorAll('[data-aw-edit]').forEach((b) => b.onclick = () => {
+    const x = awayMap(qt)[b.dataset.awEdit] || { weeks: new Set(), note: '' };
+    awayEdit = { id: b.dataset.awEdit, weeks: new Set(x.weeks), note: x.note || '' }; rerender();
+  });
+  card.querySelectorAll('[data-aw-tg]').forEach((b) => b.onclick = () => { const m = b.dataset.awTg; if (awayEdit.weeks.has(m)) awayEdit.weeks.delete(m); else awayEdit.weeks.add(m); b.classList.toggle('on'); });
+  const note = card.querySelector('#awEditNote'); if (note) note.oninput = () => { awayEdit.note = note.value; };
+  const cancel = card.querySelector('#awEditCancel'); if (cancel) cancel.onclick = () => { awayEdit = null; rerender(); };
+  const save = card.querySelector('#awEditSave');
+  if (save) save.onclick = async () => {
+    const r = rosterById(awayEdit.id), w = [...awayEdit.weeks].sort();
+    if (await awayAdminSave({ playerId: awayEdit.id, quarter: qt.id, weeks: w.join(','), note: awayEdit.note.trim() },
+      `Saved ${displayName(r ? r.Name : '')}: ${w.length ? w.map(monDay).join(', ') : 'can do any week'}.`)) { awayEdit = null; renderDutyAdmin(el); }
+  };
+  const ta = card.querySelector('#awPaste'), out = card.querySelector('#awPasteOut'), apply = card.querySelector('#awApply');
+  card.querySelector('#awRead').onclick = () => {
+    const lines = ta.value.split('\n').map((x) => x.trim()).filter(Boolean), got = [], bad = [];
+    lines.forEach((l) => {
+      const r = awayParseLine(l, qt); if (r.error) { bad.push(r.error); return; }
+      const same = got.find((g) => g.pid === r.pid); // the same person on two lines: add the weeks together
+      if (same) same.weeks = [...new Set(same.weeks.concat(r.weeks))].sort(); else got.push(r);
+    });
+    awayPasteItems = got.length ? got : null; apply.disabled = !got.length;
+    out.innerHTML = (got.length ? `<b>Found ${got.length}:</b> ${got.map((g) => `${escapeHtml(displayName(g.name))} (${g.weeks.length ? g.weeks.map(monDay).join(', ') : 'any week'})`).join('; ')}` : 'Nothing found.') +
+      (bad.length ? `<div style="color:var(--error);margin-top:4px;"><b>Check:</b> ${bad.map(escapeHtml).join('; ')}</div>` : '');
+  };
+  apply.onclick = async () => {
+    if (!awayPasteItems) return;
+    const items = awayPasteItems.map((g) => ({ playerId: g.pid, weeks: g.weeks.join(',') }));
+    if (await awayAdminSave({ quarter: qt.id, batch: JSON.stringify(items) }, `Saved away weeks for ${items.length} member${items.length === 1 ? '' : 's'}.`)) { awayPasteItems = null; }
   };
 }
 
@@ -5252,13 +5573,14 @@ const EM_SIMPLE = [
   ['LateDropEmailOn', 'latedrop', 'Late drop-out note to the admin', 'When someone drops out of a round after sign-ups have closed, the Legends admin email gets a note saying who dropped out and who moved up from standby, in case the pro shop needs to be told. It is still recorded on Admin › Pairings › No-shows either way.'],
   ['SwapEmailOn', 'swap', 'Tee Time Duty swap emails', 'A member who is asked to swap duty dates gets an email, and the member who asked gets one when it is accepted, declined or cancelled. When Off, the request still shows on the other member\'s My SUN Snapshot and Tee Time Duty tab for them to accept or decline.'],
   ['PinResetEmailOn', 'pinreset', '"Forgot your PIN?" reset code', 'A member who forgot their PIN clicks <b>Forgot your PIN?</b> on the sign-in page and gets a 6-digit code at the email address on file. The code works for 15 minutes; they enter it and choose a new PIN, with no admin needed. When Off, the sign-in page tells them to ask an admin to reset it. At most one code a minute per member, and each one is logged on Admin › Info › Activity.'],
+  ['DutyAwayEmailOn', 'dutyaway', 'Away weeks reminder (Tee Time Duty)', 'Members who do tee time duty and haven\'t yet saved their away weeks for next quarter get an email asking them to: on the day the box opens (6 weeks before the quarter), then once a week, and 2 days before it is due (for Q1 2027, Mon, Dec 14). It stops for each member once they click Save. Whether On or Off, they also see a reminder on My SUN Snapshot.', 'Sent at 9 AM on those days, from the Legends email'],
   ['ListChangeEmailOn', 'listchange', 'Email list change note to the admin', 'When a member changes which Legends email list they are on (Fun, Nassau or Both) under My info, the Legends admin email gets a note so the Google Groups can be updated by hand. The choice is always saved in the Members list either way.'],
 ];
 function emSimpleHtml() {
   const st = board.settings;
-  return EM_SIMPLE.map(([key, type, title, desc]) => `<div class="em-item">
+  return EM_SIMPLE.map(([key, type, title, desc, when]) => `<div class="em-item">
     ${emHeadHtml(type, title, key, String(st[key]).toUpperCase() === 'TRUE')}
-    <div class="em-panel" data-em-panel="${type}" ${emOpen[type] ? '' : 'hidden'}><p class="hint">${desc}</p><p class="hint">Sent right away when it happens, from the Legends email (${escapeHtml(st.AdminEmail || 'no address set')}).</p></div>
+    <div class="em-panel" data-em-panel="${type}" ${emOpen[type] ? '' : 'hidden'}><p class="hint">${desc}</p><p class="hint">${when || 'Sent right away when it happens, from the Legends email'} (${escapeHtml(st.AdminEmail || 'no address set')}).</p></div>
   </div>`).join('');
 }
 // "Moved up from standby": sent right away when a standby player gets a spot, so it
