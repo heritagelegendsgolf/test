@@ -238,6 +238,11 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .em-aud { display:block; margin:5px 0; font-size:.92rem; cursor:pointer; }
   .em-sub { margin-left:24px; width:calc(100% - 24px); }
   .em-field { display:block; margin:8px 0 3px; }
+  .sec-nav { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+  .sec-nav .subtab-btn { padding: 5px 11px; } .sec-nav-all { margin-left: auto; white-space: nowrap; font-size: .86rem; }
+  .sec-card { scroll-margin-top: 70px; } .sec-h { cursor: pointer; display: flex; align-items: baseline; gap: 10px; } .sec-tg { font-size: .8rem; font-weight: 400; margin-left: auto; }
+  .sec-collapsed > :not(.sec-h) { display: none !important; } .sec-collapsed > .sec-h { margin-bottom: 0; }
+  @media (max-width: 600px) { .sec-nav { position: static; } .sec-nav-all { margin-left: 0; } }
   .subtab-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: 92vw; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
   #toast.error { background: var(--error); }
@@ -510,7 +515,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-22a';
+const APP_VERSION = '2026-11-22b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -4085,7 +4090,49 @@ function renderDutyAdmin(el) {
   document.getElementById('dApply').onclick = applyDutyPaste;
   wireDutySetup(el);
   emEmbed(el, 'duty');
+  sectionNav(el, dutyCollapsed);
   if (adminDirty) document.getElementById('adDirty').hidden = false;
+}
+// ---- jump buttons and Collapse/Expand for long admin pages (Tom 2026-11-22) ----
+// Every top-level card with a heading gets a button in a bar that stays at the top of the
+// screen, and a Hide/Show toggle on its heading. What's hidden is remembered (per page)
+// while you're signed in, since the page redraws after every save.
+const dutyCollapsed = new Set();
+function sectionNav(el, collapsed) {
+  const cards = [...el.children].filter((c) => c.classList.contains('card'));
+  const secs = cards.map((c, i) => {
+    const h = c.querySelector(':scope > h2'), det = h ? null : c.querySelector(':scope > details');
+    const title = (h ? h.textContent : det ? det.querySelector('summary b').textContent : '').trim();
+    return title ? { c, h, det, title, id: 'sec-' + i } : null;
+  }).filter(Boolean);
+  if (secs.length < 2) return;
+  const apply = (x) => {
+    if (x.det) return;
+    const hide = collapsed.has(x.title);
+    x.c.classList.toggle('sec-collapsed', hide);
+    const t = x.h.querySelector('.sec-tg'); if (t) t.textContent = hide ? '▸ Show' : '▾ Hide';
+  };
+  const setHidden = (x, hide) => { if (x.det) x.det.open = !hide; else { if (hide) collapsed.add(x.title); else collapsed.delete(x.title); apply(x); } };
+  secs.forEach((x) => {
+    x.c.id = x.c.id || x.id; x.c.classList.add('sec-card');
+    if (x.h) {
+      x.h.classList.add('sec-h');
+      x.h.insertAdjacentHTML('beforeend', '<button type="button" class="link sec-tg no-print"></button>');
+      x.h.onclick = (e) => { if (e.target.closest('a,input,select')) return; setHidden(x, !collapsed.has(x.title)); };
+      apply(x);
+    }
+  });
+  const nav = document.createElement('div');
+  nav.className = 'card sec-nav no-print';
+  nav.innerHTML = `<span class="hint">Go to:</span>${secs.map((x, i) => `<button type="button" class="subtab-btn" data-sec="${i}">${escapeHtml(x.title)}</button>`).join('')}
+    <span class="sec-nav-all"><button type="button" class="link" data-sec-all="hide">Collapse all</button> · <button type="button" class="link" data-sec-all="show">Expand all</button> · <button type="button" class="link" data-sec-top>Top ↑</button></span>`;
+  el.prepend(nav);
+  nav.querySelectorAll('[data-sec]').forEach((b) => b.onclick = () => {
+    const x = secs[Number(b.dataset.sec)]; setHidden(x, false);
+    x.c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  nav.querySelectorAll('[data-sec-all]').forEach((b) => b.onclick = () => { secs.forEach((x) => setHidden(x, b.dataset.secAll === 'hide')); });
+  nav.querySelector('[data-sec-top]').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 // ---- duty export: spreadsheet and print/PDF (Tom 2026-11-16) ----
 // Exports what the table above shows (the From–To range, including changes not saved yet).
