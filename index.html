@@ -510,7 +510,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-21a';
+const APP_VERSION = '2026-11-22a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2249,7 +2249,7 @@ function awayBoxHtml() {
   const a = awayInfo(), q = a.quarter, m = awayMine();
   if (!q || !m) return '';
   const range = `${dateShortY(q.start)} – ${dateShortY(q.end)}`;
-  if (q.state === 'before') return `<div class="card no-print aw-box"><b>Weeks I can't do duty next quarter (${escapeHtml(q.label)})</b><p class="hint" style="margin:4px 0 0;">Opens on ${escapeHtml(dateShort(q.opens))}. You'll be able to tick the weeks you'll be away until ${escapeHtml(dateShort(q.due))}.</p></div>`;
+  if (q.state !== 'open') return ''; // members only see the box between the dates the admins set (Tom 2026-11-22)
   const blocked = new Set(m.blocked || []), mon = a.blockedMonth || {};
   if (!awayDraft || awayDraft.q !== q.id) awayDraft = { q: q.id, weeks: new Set(m.weeks || []), note: m.note || '' };
   const open = q.state === 'open';
@@ -4529,6 +4529,7 @@ function awayReason(id, key) {
 }
 let awayAdminQ = null, awayEdit = null, awayFilter = 'all';
 function awayDueFor(qt) { const d = (awayInfo().due || {})[qt.id]; return d || addDays(qt.start, -21); }
+function awayOpenFor(qt) { const d = (awayInfo().open || {})[qt.id] || addDays(qt.start, -42), due = awayDueFor(qt); return d > due ? addDays(due, -7) : d; }
 function awayAdminHtml() {
   const qs = futureQuarters(4);
   if (!qs.length) return '';
@@ -4539,7 +4540,8 @@ function awayAdminHtml() {
   const answered = people.filter((r) => (map[String(r.PlayerID)] || {}).done).length;
   const withAway = people.filter((r) => { const x = map[String(r.PlayerID)]; return x && x.weeks.size; }).length;
   const shown = people.filter((r) => { const x = map[String(r.PlayerID)] || {}; return awayFilter === 'all' || (awayFilter === 'no' ? !x.done : awayFilter === 'away' ? (x.weeks && x.weeks.size) || (x.auto && x.auto.size) : true); });
-  const due = awayDueFor(qt), custom = !!(awayInfo().due || {})[qt.id];
+  const due = awayDueFor(qt), opens = awayOpenFor(qt), custom = !!((awayInfo().due || {})[qt.id] || (awayInfo().open || {})[qt.id]);
+  const today = board.today, phase = today < opens ? `opens ${dateShort(opens)}` : today <= due ? '<b>open now</b>' : 'closed';
   const pill = (m, auto) => `<span class="aw-pill ${auto ? 'auto' : ''}" title="${auto ? `Had duty in ${escapeHtml(bl.prev)}` : 'Can\'t do this week'}">${escapeHtml(monDay(m))}${auto ? ' (auto)' : ''}</span>`;
   const rowHtml = (r) => {
     const id = String(r.PlayerID), x = map[id] || { weeks: new Set(), auto: new Set(), note: '', done: false };
@@ -4555,13 +4557,14 @@ function awayAdminHtml() {
   };
   return `<div class="card" id="awayAdminCard">
     <h2>Away weeks</h2>
-    <p class="hint">Weeks each member can't do tee time duty. Members tick their own on the Tee Time Duty tab (each sees only theirs) until the due date; you can enter or change anyone's here at any time. <b>Generate assignments</b> never puts anyone in one of these weeks. Anyone with duty in the last month of a quarter (e.g. December) is kept out of the next quarter's first month (shown as <i>auto</i>), so nobody has duty two months running.</p>
+    <p class="hint">Weeks each member can't do tee time duty. Members tick their own on the Tee Time Duty tab (each sees only theirs) between the two dates below; you can enter or change anyone's here at any time. <b>Generate assignments</b> never puts anyone in one of these weeks. Anyone with duty in the last month of a quarter (e.g. December) is kept out of the next quarter's first month (shown as <i>auto</i>), so nobody has duty two months running.</p>
     <div class="row" style="flex-wrap:wrap;align-items:flex-end;">
       <label class="hint">Quarter <select id="awQ">${qs.map((q) => `<option value="${q.id}" ${q.id === qt.id ? 'selected' : ''}>${q.label} (${escapeHtml(dateShortY(q.start))} – ${escapeHtml(dateShortY(q.end))})</option>`).join('')}</select></label>
+      <label class="hint">Members can answer starting <input type="date" id="awOpen" value="${opens}"></label>
       <label class="hint">Members can answer until <input type="date" id="awDue" value="${due}"></label>
-      <button class="secondary" id="awDueSave">Save due date</button>${custom ? '<button class="link" id="awDueReset">Use the usual date (3 weeks before)</button>' : ''}
+      <button class="secondary" id="awDueSave">Save dates</button>${custom ? '<button class="link" id="awDueReset">Use the usual dates (6 to 3 weeks before)</button>' : ''}
     </div>
-    <p class="hint" style="margin:6px 0;">The box opens for members 6 weeks before the quarter starts (${escapeHtml(dateShort(addDays(qt.start, -42)))}). <b>${answered} of ${people.length}</b> have answered; ${withAway} have away weeks.${bl.weeks.length && Object.keys(bl.by).length ? ` ${Object.keys(bl.by).length} had duty in ${escapeHtml(bl.prev)}.` : ''}</p>
+    <p class="hint" style="margin:6px 0;">Members see the box on the Tee Time Duty tab only between these dates (${phase}). <b>${answered} of ${people.length}</b> have answered; ${withAway} have away weeks.${bl.weeks.length && Object.keys(bl.by).length ? ` ${Object.keys(bl.by).length} had duty in ${escapeHtml(bl.prev)}.` : ''}</p>
     <div id="awStatus" class="status"></div>
     <div class="row"><label class="hint">Show <select id="awFilter"><option value="all" ${awayFilter === 'all' ? 'selected' : ''}>Everyone who does duty (${people.length})</option><option value="no" ${awayFilter === 'no' ? 'selected' : ''}>Not answered yet (${people.length - answered})</option><option value="away" ${awayFilter === 'away' ? 'selected' : ''}>With away weeks</option></select></label></div>
     <div class="tbl-wrap"><table class="ad" style="min-width:640px;"><thead><tr><th>Member</th><th>Answered</th><th>Can't do (week of)</th><th>Note</th></tr></thead><tbody>
@@ -4616,13 +4619,14 @@ function wireAwayAdmin(el) {
   card.querySelector('#awQ').onchange = (e) => { awayAdminQ = e.target.value; awayEdit = null; awayPasteItems = null; rerender(); };
   card.querySelector('#awFilter').onchange = (e) => { awayFilter = e.target.value; rerender(); };
   card.querySelector('#awDueSave').onclick = () => {
-    const v = card.querySelector('#awDue').value;
-    if (!v) { showStatus('awStatus', false, 'Choose a date.'); return; }
-    if (v >= qt.start) { showStatus('awStatus', false, `The due date must be before the quarter starts (${dateShort(qt.start)}).`); return; }
-    saveDutySetup({ awayDue: JSON.stringify(Object.assign({}, awayInfo().due || {}, { [qt.id]: v })) }, 'awStatus', `Members can answer for ${qt.label} until ${dateShortY(v)}.`);
+    const v = card.querySelector('#awDue').value, o = card.querySelector('#awOpen').value;
+    if (!v || !o) { showStatus('awStatus', false, 'Choose both dates.'); return; }
+    if (v >= qt.start) { showStatus('awStatus', false, `The "until" date must be before the quarter starts (${dateShort(qt.start)}).`); return; }
+    if (o > v) { showStatus('awStatus', false, 'The "starting" date must be on or before the "until" date.'); return; }
+    saveDutySetup({ awayOpen: JSON.stringify(Object.assign({}, awayInfo().open || {}, { [qt.id]: o })), awayDue: JSON.stringify(Object.assign({}, awayInfo().due || {}, { [qt.id]: v })) }, 'awStatus', `Members can answer for ${qt.label} from ${dateShortY(o)} until ${dateShortY(v)}.`);
   };
   const rs = card.querySelector('#awDueReset');
-  if (rs) rs.onclick = () => { const d = Object.assign({}, awayInfo().due || {}); delete d[qt.id]; saveDutySetup({ awayDue: JSON.stringify(d) }, 'awStatus', `Due date for ${qt.label} is back to ${dateShortY(addDays(qt.start, -21))}.`); };
+  if (rs) rs.onclick = () => { const d = Object.assign({}, awayInfo().due || {}), o = Object.assign({}, awayInfo().open || {}); delete d[qt.id]; delete o[qt.id]; saveDutySetup({ awayOpen: JSON.stringify(o), awayDue: JSON.stringify(d) }, 'awStatus', `${qt.label} is back to the usual dates: ${dateShortY(addDays(qt.start, -42))} until ${dateShortY(addDays(qt.start, -21))}.`); };
   card.querySelectorAll('[data-aw-edit]').forEach((b) => b.onclick = () => {
     const x = awayMap(qt)[b.dataset.awEdit] || { weeks: new Set(), note: '' };
     awayEdit = { id: b.dataset.awEdit, weeks: new Set(x.weeks), note: x.note || '' }; rerender();
