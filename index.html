@@ -238,6 +238,8 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .em-aud { display:block; margin:5px 0; font-size:.92rem; cursor:pointer; }
   .em-sub { margin-left:24px; width:calc(100% - 24px); }
   .em-field { display:block; margin:8px 0 3px; }
+  .aw-dates { display: grid; grid-template-columns: max-content 170px; gap: 6px 10px; align-items: center; margin-top: 10px; }
+  .aw-dates label { margin: 0; } .aw-dates-btns { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .sec-nav { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
   .sec-nav .subtab-btn { padding: 5px 11px; } .sec-nav-all { margin-left: auto; white-space: nowrap; font-size: .86rem; }
   .sec-card { scroll-margin-top: 70px; } .sec-h { cursor: pointer; display: flex; align-items: baseline; gap: 10px; } .sec-tg { font-size: .8rem; font-weight: 400; margin-left: auto; }
@@ -515,7 +517,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-22b';
+const APP_VERSION = '2026-11-22c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -4607,11 +4609,13 @@ function awayAdminHtml() {
     <p class="hint">Weeks each member can't do tee time duty. Members tick their own on the Tee Time Duty tab (each sees only theirs) between the two dates below; you can enter or change anyone's here at any time. <b>Generate assignments</b> never puts anyone in one of these weeks. Anyone with duty in the last month of a quarter (e.g. December) is kept out of the next quarter's first month (shown as <i>auto</i>), so nobody has duty two months running.</p>
     <div class="row" style="flex-wrap:wrap;align-items:flex-end;">
       <label class="hint">Quarter <select id="awQ">${qs.map((q) => `<option value="${q.id}" ${q.id === qt.id ? 'selected' : ''}>${q.label} (${escapeHtml(dateShortY(q.start))} – ${escapeHtml(dateShortY(q.end))})</option>`).join('')}</select></label>
-      <label class="hint">Members can answer starting <input type="date" id="awOpen" value="${opens}"></label>
-      <label class="hint">Members can answer until <input type="date" id="awDue" value="${due}"></label>
-      <button class="secondary" id="awDueSave">Save dates</button>${custom ? '<button class="link" id="awDueReset">Use the usual dates (6 to 3 weeks before)</button>' : ''}
     </div>
-    <p class="hint" style="margin:6px 0;">Members see the box on the Tee Time Duty tab only between these dates (${phase}). <b>${answered} of ${people.length}</b> have answered; ${withAway} have away weeks.${bl.weeks.length && Object.keys(bl.by).length ? ` ${Object.keys(bl.by).length} had duty in ${escapeHtml(bl.prev)}.` : ''}</p>
+    <div class="aw-dates">
+      <label class="hint" for="awOpen">Members can answer starting</label><input type="date" id="awOpen" value="${opens}">
+      <label class="hint" for="awDue">Members can answer until</label><input type="date" id="awDue" value="${due}">
+      <div class="aw-dates-btns"><button class="secondary" id="awDueSave">Save dates</button>${custom ? '<button class="link" id="awDueReset">Use the usual dates (6 to 3 weeks before)</button>' : ''}</div>
+    </div>
+    <p class="hint" style="margin:6px 0;">Members see the box on the Tee Time Duty tab only between these dates (${phase}). <b>${answered} of ${people.length}</b> have answered; ${withAway} ${withAway === 1 ? 'has' : 'have'} away weeks.${bl.weeks.length && Object.keys(bl.by).length ? ` ${Object.keys(bl.by).length} had duty in ${escapeHtml(bl.prev)}.` : ''}</p>
     <div id="awStatus" class="status"></div>
     <div class="row"><label class="hint">Show <select id="awFilter"><option value="all" ${awayFilter === 'all' ? 'selected' : ''}>Everyone who does duty (${people.length})</option><option value="no" ${awayFilter === 'no' ? 'selected' : ''}>Not answered yet (${people.length - answered})</option><option value="away" ${awayFilter === 'away' ? 'selected' : ''}>With away weeks</option></select></label></div>
     <div class="tbl-wrap"><table class="ad" style="min-width:640px;"><thead><tr><th>Member</th><th>Answered</th><th>Can't do (week of)</th><th>Note</th></tr></thead><tbody>
