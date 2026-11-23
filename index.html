@@ -353,6 +353,10 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .pin-yes { color: var(--ok); font-weight: 600; white-space: nowrap; }
   .pin-no { color: var(--muted); white-space: nowrap; }
   .dirty-note { color: #8a6300; font-weight: 600; font-size: 0.85rem; }
+  /* A Save button with changes waiting turns orange and pulses (Tom 2026-11-23). */
+  button.save-due { background: #c46a00 !important; color: #fff !important; border-color: #c46a00 !important; animation: saveDue 1.4s ease-in-out infinite; }
+  @keyframes saveDue { 0%, 100% { box-shadow: 0 0 0 0 rgba(196,106,0,.55); } 50% { box-shadow: 0 0 0 6px rgba(196,106,0,0); } }
+  @media (prefers-reduced-motion: reduce) { button.save-due { animation: none; box-shadow: 0 0 0 3px rgba(196,106,0,.35); } }
   .imp-ok { color: var(--ok); } .imp-bad { color: var(--error); font-weight: 600; } .imp-new { color: #1565c0; }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 14px; }
   .grid2 label { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
@@ -520,7 +524,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-23f';
+const APP_VERSION = '2026-11-23h';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1391,7 +1395,7 @@ function tournMyKinds() {
   if (!amLimited()) return Object.keys(TOURN_KINDS);
   return adminSession.role.slice(6).split(',').filter((k) => k.indexOf('tourn') === 0).map((k) => k.slice(5)).filter((k) => TOURN_KINDS[k]);
 }
-const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', tournten: 'Setup › Tournaments: $10', tournfive: 'Setup › Tournaments: Five Dollar', tournannual: 'Setup › Tournaments: Annual', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group', noshows: 'Pairings › No-shows' };
+const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', tournten: 'Setup › Tournaments: Ten Dollar', tournfive: 'Setup › Tournaments: Five Dollar', tournannual: 'Setup › Tournaments: Annual', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group', noshows: 'Pairings › No-shows' };
 function amViewOnly() { return !!adminSession && adminSession.role === 'View'; }
 
 // ====================== SIGN-UPS TAB ======================
@@ -1785,7 +1789,7 @@ function renderEvents() {
 // Rounds of golf members sign up for like regular play: shown under Sign-ups and My SUN Snapshot
 // (My Sign-ups), and on the Tournaments tab. Set up on Admin › Setup › Tournaments.
 // Sign-ups use group "tourn:<TournID>"; board.tournaments comes from laTournBoard_.
-const TOURN_KINDS = { ten: { title: '$10 Tournament', tee: 9, who: 'all' }, five: { title: 'Five Dollar Tournament', tee: 4, who: 'fun' }, annual: { title: 'Annual Tournament', tee: 9, who: 'all' } };
+const TOURN_KINDS = { ten: { title: 'Ten Dollar Tournament', tee: 9, who: 'all' }, five: { title: 'Five Dollar Tournament', tee: 4, who: 'fun' }, annual: { title: 'Annual Tournament', tee: 9, who: 'all' } };
 const TOURN_ABOUT = {
   ten: 'Uses all 9 Legends tee times, and Fun Group and Nassau Group players play together. Each one has its own format (for example Captain\'s Choice or the 1-2-3 Game), shown with its date. You choose Gold or Red tees when you sign up. Prizes for first, second and third place go by 18-hole net scores. Teams are made with an A, B, C and D player each (ranked by Handicap Index), so the teams come out about even. Usually the last Wednesday of each month, April through August. Sign-ups open two weeks before.',
   five: 'Usually the second Wednesday of each month, May through September, on 4 tee times in place of the Fun Group (the Nassau group plays as usual). Any member can sign up, but it\'s one round a day: someone signed up for Nassau that day can\'t also play the Five Dollar Tournament. Teams are made with an A, B, C and D player each (ranked by Handicap Index), so the teams come out about even. Sign-ups open two weeks before.',
@@ -2920,6 +2924,28 @@ document.querySelectorAll('#adminGroups [data-agroup]').forEach((b) => b.addEven
 let adminDirty = false;
 function markDirty() { adminDirty = true; const n = document.getElementById('adDirty'); if (n) n.hidden = false; }
 window.addEventListener('beforeunload', (e) => { if (adminDirty) { e.preventDefault(); e.returnValue = ''; } });
+// Typing in an admin field lights up the Save button that goes with it: the one in the same
+// table row (First Tee Time), else in the same email panel, else in the same card (Tom 2026-11-23).
+// Pickers, filters and the small add/remove/swap forms that have their own button.
+const SAVE_DUE_SKIP = '[data-nosave],#tnPick,#faWho,#faTee,#faHoles,#faTeam,#frWho,#frRec,#dSwapA,#dSwapB,#dqPick,#dqPickDel,#dlFilter,#awQ,#awFilter,#actWho,#dutyFilter,#schedFilter,#rosterSearch';
+function saveButtonFor(field) {
+  const isSave = (b) => !b.hidden && /^save\b/i.test((b.dataset.label || b.textContent || '').trim()) && !/save now/i.test(b.textContent || '');
+  for (const sel of ['tr', '.em-item', '.card']) {
+    const box = field.closest(sel);
+    if (!box) continue;
+    const btns = [...box.querySelectorAll('button')].filter(isSave);
+    if (btns.length) return btns;
+  }
+  return [];
+}
+function markSaveDue(e) {
+  const f = e.target;
+  if (!f || !f.matches || !f.matches('input, select, textarea') || f.matches(VIEW_OK_FIELDS + ',' + SAVE_DUE_SKIP) || f.type === 'file') return;
+  saveButtonFor(f).forEach((b) => { if (!b.dataset.label) b.dataset.label = b.textContent.trim(); b.classList.add('save-due'); b.title = 'You have changes that are not saved yet'; });
+}
+document.addEventListener('input', (e) => { if (e.target.closest && e.target.closest('#adminContent')) markSaveDue(e); }, true);
+document.addEventListener('change', (e) => { if (e.target.closest && e.target.closest('#adminContent')) markSaveDue(e); }, true);
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button.save-due'); if (b) { b.classList.remove('save-due'); b.title = ''; } }, true);
 
 // For view-only admins: after any admin page draws, hide the buttons that change
 // things and lock the fields (previews, date ranges and filters still work).
@@ -5200,7 +5226,7 @@ function renderEventsAdmin(el, rows) {
     { f: 'GuestPrompt', label: 'Ask for', ph: 'e.g. Spouse/guest name', w: '170px' },
     { f: 'Active', label: 'Show', type: 'check' },
   ];
-  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, divot filling day and anything else people sign up for (the $10, Five Dollar and Annual tournaments are set up on Setup › Tournaments). Events show on the Events tab in date order, and on everyone\'s My SUN Snapshot. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
+  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, divot filling day and anything else people sign up for (the Ten Dollar, Five Dollar and Annual tournaments are set up on Setup › Tournaments). Events show on the Events tab in date order, and on everyone\'s My SUN Snapshot. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
   wireListEditor(el, 'ev', rows, 'legendsSaveEvents', cols, (r) => renderEventsAdmin(el, r));
   // Picking an event date fills in "Sign-ups open" two weeks earlier (unless it was already set).
   el.querySelectorAll('[data-le="ev"][data-f="DateKey"]').forEach((inp) => inp.addEventListener('change', () => {
@@ -5246,12 +5272,12 @@ function renderTournAdmin(el, rows) {
     { f: 'SignupOpens', label: 'Sign-ups open', type: 'date', w: '145px' },
     { f: 'SignupCloses', label: 'Sign-ups close (11:59 PM)', type: 'date', w: '145px' },
     { f: 'TeeTimes', label: 'Tee times', type: 'number', w: '65px' },
-    { f: 'FirstTee', label: 'First tee time', ph: 'from First Tee Time', w: '120px' },
+    { f: 'FirstTee', label: 'First tee time', ph: 'from First Tee Time', w: '170px' },
     { f: 'Who', label: 'Who can play', type: 'select', opts: [['all', 'Fun and Nassau'], ['fun', 'Fun Group only']], w: '135px' },
     { f: 'Game', label: 'Format / game', ph: 'pick or type', w: '190px', list: 'tournGames' },
     { f: 'Prizes', label: 'Prizes', ph: '1st, 2nd, 3rd', w: '140px' },
     { f: 'Description', label: 'Details (fills in from the format)', ph: 'How it is played, anything else players should know', type: 'textarea', rows: 3, w: '320px' },
-    { f: 'Title', label: 'Name shown', ph: 'blank = $10 Tournament etc.', w: '150px' },
+    { f: 'Title', label: 'Name shown', ph: 'blank = Ten Dollar Tournament etc.', w: '150px' },
     { f: 'Active', label: 'Show', type: 'check' },
   ];
   // Regular sign-ups still on a day a tournament now takes over (made before it was set up).
@@ -5269,9 +5295,9 @@ function renderTournAdmin(el, rows) {
     warn.push(`The event “${escapeHtml(e.Title)}” (${escapeHtml(dateShort(e.DateKey))}) is on Setup › Events. Tournaments now belong here: add it below, then untick Show on Events once its players have signed up again.`);
   });
   const year = (() => { const t = keyDate(board.today); return t.getUTCMonth() >= 7 ? t.getUTCFullYear() + 1 : t.getUTCFullYear(); })();
-  el.innerHTML = listEditorHtml('tn', 'Tournaments', `Each tournament shows under <b>Sign-ups</b> on its date (and on the <b>Tournaments</b> tab), and members sign up like a regular round. On its date it takes the place of regular play: <b>Fun and Nassau</b> replaces both groups (for the $10 Tournament, all 9 tee times); <b>Fun Group only</b> replaces the Fun Group, and the Nassau group plays as usual. Sign-ups open on <b>Sign-ups open</b> (it fills in as two weeks before when you pick the date; set your own for the Annual Tournament) and close at 11:59 PM on <b>Sign-ups close</b>. The places are tee times × ${escapeHtml(board.settings.PlayersPerTeeTime || '4')}, then a standby list. Tee times start at <b>First tee time</b>, or if that's blank, at the day's time on Setup › First Tee Time. Untick Show to hide one without losing its sign-ups.`, cols, rows) +
+  el.innerHTML = listEditorHtml('tn', 'Tournaments', `Each tournament shows under <b>Sign-ups</b> on its date (and on the <b>Tournaments</b> tab), and members sign up like a regular round. On its date it takes the place of regular play: <b>Fun and Nassau</b> replaces both groups (for the Ten Dollar Tournament, all 9 tee times); <b>Fun Group only</b> replaces the Fun Group, and the Nassau group plays as usual. Sign-ups open on <b>Sign-ups open</b> (it fills in as two weeks before when you pick the date; set your own for the Annual Tournament) and close at 11:59 PM on <b>Sign-ups close</b>. The places are tee times × ${escapeHtml(board.settings.PlayersPerTeeTime || '4')}, then a standby list. Tee times start at <b>First tee time</b>, or if that's blank, at the day's time on Setup › First Tee Time. Untick Show to hide one without losing its sign-ups.`, cols, rows) +
     `<datalist id="tournGames">${fmts.map((f) => `<option value="${escapeHtml(f.Name)}">`).join('')}${games.filter((g) => !fmts.some((f) => f.Name.toLowerCase() === g.toLowerCase())).map((g) => `<option value="${escapeHtml(g)}">`).join('')}</datalist>
-    <div class="card" style="margin-top:-6px;"><div class="row"><button class="secondary" id="tnAddTen">+ Add the $10 Tournaments for ${year} (last Wednesday of April – August)</button>
+    <div class="card" style="margin-top:-6px;"><div class="row"><button class="secondary" id="tnAddTen">+ Add the Ten Dollar Tournaments for ${year} (last Wednesday of April – August)</button>
       <button class="secondary" id="tnAddFive">+ Add the Five Dollar Tournaments for ${year} (second Wednesday of May – September)</button></div>
       <p class="hint" style="margin:8px 0 0;">The Five Dollar Tournament takes the Fun Group's 4 tee times that Wednesday, starting at the day's time on Setup › First Tee Time, and the Nassau group keeps its usual times after them.</p>
       ${warn.length ? `<div class="status error" style="margin-top:10px;">${warn.map((w) => `<div>⚠️ ${w}</div>`).join('')}</div>` : ''}</div>
@@ -5317,6 +5343,16 @@ function renderTournAdmin(el, rows) {
   };
   document.getElementById('tnAddTen').onclick = () => addDates('ten', [4, 5, 6, 7, 8], lastWednesday);
   document.getElementById('tnAddFive').onclick = () => addDates('five', [5, 6, 7, 8, 9], secondWednesday);
+  // A blank First tee time shows the day's time from Setup › First Tee Time in grey (Tom 2026-11-23).
+  const teePh = () => el.querySelectorAll('[data-le="tn"][data-f="FirstTee"]').forEach((inp) => {
+    const d = el.querySelector(`[data-le="tn"][data-f="DateKey"][data-i="${inp.dataset.i}"]`);
+    const c = (board.dayConfig || []).find((x) => x.DateKey === (d ? d.value : ''));
+    const t = c && parseClock(c.LegendsFirst || '') !== null ? fmtClock(parseClock(c.LegendsFirst)) : '';
+    inp.placeholder = t ? t + ' (First Tee Time)' : 'TBD on First Tee Time';
+    inp.title = t ? `Blank uses ${t}, the day's first time on Setup › First Tee Time. Type a time only to start somewhere else.` : 'No first tee time on Setup › First Tee Time for this date yet.';
+  });
+  teePh();
+  el.querySelectorAll('[data-le="tn"][data-f="DateKey"]').forEach((d) => d.addEventListener('change', teePh));
 
   renderTournFmtCard();
   renderTournPairCard();
