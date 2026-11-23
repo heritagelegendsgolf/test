@@ -58,7 +58,8 @@
   .ts-duty-sort-btn.active { background:var(--green-dark); color:#fff; border-color:var(--green-dark); font-weight:600; }
   .ts-filter-row { margin:6px 0; } .ts-filter-row select { width:auto; max-width:260px; padding:5px 8px; font-size:.9rem; }
   .ts-card { background:#fff; border:1px solid #e3dfcf; border-radius:10px; margin-bottom:10px; overflow:hidden; }
-  .ts-card.closed { background:#fbf7f0; } .ts-card.event { border-left:4px solid var(--gold); }
+  .ts-card.closed { background:#fbf7f0; } .ts-card.event { border-left:4px solid var(--gold); } .ts-card.tourn { border-left:4px solid var(--green); }
+  .tourn-teams td { vertical-align:top; } .me-txt { font-weight:700; color:var(--green-dark); } .tn-p { padding:2px 0; white-space:nowrap; } .tn-p select { margin-left:6px; font-size:.85rem; }
   .ts-card-row { display:flex; align-items:center; gap:14px; padding:13px 15px; cursor:pointer; }
   .ts-card-row:hover { background:#fbfaf5; }
   .ts-date-block { font-family:ui-monospace,Menlo,Consolas,monospace; text-align:center; width:52px; flex-shrink:0; border-right:1px dashed #e3dfcf; padding-right:12px; }
@@ -388,7 +389,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
     <button data-tab="roster">Roster</button>
     <button data-tab="handicaps">Handicaps</button>
     <button data-tab="files">Related Files</button>
-    <button data-tab="tournament">Annual Tournament</button>
+    <button data-tab="tournament">Tournaments</button>
     <button data-tab="admin">Admin</button>
   </nav>
   <main>
@@ -434,7 +435,8 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
     </section>
 
     <section id="tab-tournament" class="tab-panel" hidden>
-      <div class="card">
+      <div id="tournBody"><div class="card hint">Loading…</div></div>
+      <div class="card" id="tournAnnualLinks" hidden>
         <h2>Heritage Legends Tournament</h2>
         <div class="row" style="align-items:stretch;">
           <a class="card" style="flex:1 1 240px; text-decoration:none; color:inherit; margin:0;" id="lnkLive" href="live.html" target="_blank" rel="noopener">
@@ -469,6 +471,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
           <button type="button" class="subtab-btn active" data-group="setup" data-asub="duty">Tee Time Duty</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="days">First Tee Time</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="events">Events</button>
+          <button type="button" class="subtab-btn" data-group="setup" data-asub="tournaments">Tournaments</button>
           <button type="button" class="subtab-btn" data-group="setup" data-asub="emails">Emails</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="members" hidden>Members</button>
           <button type="button" class="subtab-btn" data-group="info" data-asub="handicaps" hidden>Handicaps</button>
@@ -517,7 +520,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-22c';
+const APP_VERSION = '2026-11-23f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -542,7 +545,7 @@ async function apiGet(action, extra) {
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
 const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'getHandicaps', 'legendsGetBoard', 'legendsFileGet',
-  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet', 'legendsAttendanceGet'];
+  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet', 'legendsAttendanceGet', 'legendsTournPairGet', 'legendsTournEmailPreview'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
   if (/Import/.test(action)) return 'Importing…';
@@ -981,6 +984,7 @@ function renderCurrent() {
   if (currentTab === 'snapshot') renderSnapshot();
   else if (currentTab === 'signups') renderSignups();
   else if (currentTab === 'events') renderEvents();
+  else if (currentTab === 'tournament') renderTournaments();
   else if (currentTab === 'duty') renderDuty();
   else if (currentTab === 'files') renderFiles();
   else if (currentTab === 'roster') renderRoster();
@@ -1375,8 +1379,19 @@ function myId() { return session ? String(session.member.PlayerID) : null; }
 // change anything. Limited admins (role "Pages:days,events") see and save only those Admin pages.
 function amAdmin() { return !!adminSession && adminSession.role !== 'View' && !amLimited(); }
 function amLimited() { return !!adminSession && /^Pages:/.test(adminSession.role || ''); }
-function limitedPages() { return amLimited() ? adminSession.role.slice(6).split(',') : []; }
-const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group', noshows: 'Pairings › No-shows' };
+function limitedPages() {
+  if (!amLimited()) return [];
+  const p = adminSession.role.slice(6).split(',');
+  // a right for any one tournament ($10, $5, Annual) opens the Tournaments page (Tom 2026-11-23)
+  const t = p.filter((k) => TOURN_KINDS[k.slice(5)] && k.indexOf('tourn') === 0);
+  return t.length ? p.filter((k) => t.indexOf(k) === -1).concat(['tournaments']) : p;
+}
+// The tournament kinds this admin may change (all for a Full admin).
+function tournMyKinds() {
+  if (!amLimited()) return Object.keys(TOURN_KINDS);
+  return adminSession.role.slice(6).split(',').filter((k) => k.indexOf('tourn') === 0).map((k) => k.slice(5)).filter((k) => TOURN_KINDS[k]);
+}
+const LIMITED_PAGE_NAMES = { duty: 'Setup › Tee Time Duty', days: 'Setup › First Tee Time', events: 'Setup › Events', tournten: 'Setup › Tournaments: $10', tournfive: 'Setup › Tournaments: Five Dollar', tournannual: 'Setup › Tournaments: Annual', handicaps: 'Info › Handicaps', pairnassau: 'Pairings › Nassau', pairfun: 'Pairings › Fun Group', noshows: 'Pairings › No-shows' };
 function amViewOnly() { return !!adminSession && adminSession.role === 'View'; }
 
 // ====================== SIGN-UPS TAB ======================
@@ -1385,6 +1400,7 @@ let openForm = null; // { key, group, mode: 'join'|'edit', signupId? } — the o
 function groupList(key, group) { return (board.signups || []).filter((s) => s.DateKey === key && s.Group === group); }
 function detailText(s) {
   if (s.Group === 'nassau') return s.Tee || '';
+  if (String(s.Group).indexOf('tourn:') === 0) return [s.Tee, s.Riding === 'TRUE' ? 'Riding' : ''].filter(Boolean).join(' ');
   if (s.Group !== 'fun') return '';
   const holes = s.Holes === 'F9' ? 'Front 9' : s.Holes === 'B9' ? 'Back 9' : '18';
   return [s.Tee, holes, s.Riding === 'TRUE' ? 'Riding' : ''].filter(Boolean).join(' ');
@@ -1416,14 +1432,22 @@ function mySummaryHtml(items) {
           l2: `${!p.standby ? `<b>#${p.n} on the list</b>` : `<b class="standby-txt">#${p.n} on standby</b>`}${det ? ` · ${escapeHtml(det)}` : ''}` +
             (second ? ` · <span class="standby-txt">also ${second.Group === 'fun' ? 'Fun' : 'Nassau'} standby #${groupPos(d.DateKey, second).n}</span>` : '') };
       }
+      const tf = dayTourn(d, 'fun'), tn = dayTourn(d, 'nassau'); // a tournament takes the place of that group's round
       if (found) mine.push(row(d.DateKey, found.l1, found.l2, toggleHtml(d, state, true)));
+      else if (tf && tn) return; // the tournament has its own line
       else if (state === 'open') {
         const f = groupList(d.DateKey, 'fun').length, n = groupList(d.DateKey, 'nassau').length;
         const room = (c, slots) => (c < slots ? `${slots - c} open` : c < slots + d.standbySlots ? 'standby only' : 'full');
-        canJoin.push(row(d.DateKey, `Fun: ${room(f, d.funSlots)} · Nassau: ${room(n, d.nassauSlots)}`, `closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}`, toggleHtml(d, state, true)));
+        canJoin.push(row(d.DateKey, [tf ? '' : `Fun: ${room(f, d.funSlots)}`, tn ? '' : `Nassau: ${room(n, d.nassauSlots)}`].filter(Boolean).join(' · '), `closes ${escapeHtml(whenLabel(d.closesAt - clockSkew))}`, toggleHtml(d, state, true)));
       } else if (state === 'notyet') {
         soon.push(`${escapeHtml(dateShort(d.DateKey))} <span class="hint">(opens ${escapeHtml(whenLabel(d.opensAt - clockSkew).replace(/^[A-Za-z]+, /, ''))})</span>`);
       }
+    } else if (it.type === 'tourn') {
+      const t = it.t, m = tournMine(t), st = tournState(t), list = tournSignups(t);
+      const l1 = `${TOURN_ICON} ${escapeHtml(t.title)} · ${escapeHtml(tournTimes(t))}`;
+      if (m) mine.push(row(t.DateKey, l1, `${m.standby ? `<b class="standby-txt">#${m.n} on standby</b>` : '<b>Signed up</b>'}${detailText(m.s) ? ` · ${escapeHtml(detailText(m.s))}` : ''}`, tournToggleHtml(t, true)));
+      else if (st === 'notyet' && t.opens <= addDays(board.today, SIGNUP_DAYS)) soon.push(`${TOURN_ICON} ${escapeHtml(t.title)} <span class="hint">(opens ${escapeHtml(dateShort(t.opens))})</span>`);
+      else if (st === 'open' && tournMayJoin(t) && list.length < t.slots + t.standbySlots) canJoin.push(row(t.DateKey, l1, `${list.length < t.slots ? `${t.slots - list.length} of ${t.slots} places left` : 'standby only'} · closes ${escapeHtml(whenLabel(t.closesAt - clockSkew))}`, tournToggleHtml(t, true)));
     } else {
       const e = it.e, group = 'event:' + e.EventID;
       const list = (board.signups || []).filter((x) => x.Group === group);
@@ -1554,12 +1578,19 @@ function chipHtml(s, n, key) {
   return `<span class="name-chip ${String(s.PlayerID) === myId() ? 'me' : ''}"><span class="chip-n">${n}</span>${escapeHtml(displayName(s.Name))}${det ? `<span class="chip-det">${escapeHtml(det)}</span>` : ''}${s.Note ? `<span class="chip-note">${escapeHtml(s.Note)}</span>` : ''}${rm}</span>${amAdmin() && adminEditId === s.SignupID ? adminEditHtml(s) : ''}`;
 }
 function adminEditHtml(s) {
-  const hasTee = s.Group === 'fun' || s.Group === 'nassau', tees = TEE_LIST();
+  const hasTee = s.Group === 'fun' || s.Group === 'nassau' || String(s.Group).indexOf('tourn:') === 0, tees = String(s.Group).indexOf('tourn:') === 0 ? tournTees() : TEE_LIST();
   const teeSel = hasTee ? `<label class="hint">Tees</label><select data-admin-edit-tee>${tees.indexOf(s.Tee) === -1 ? '<option value="" selected>Tees…</option>' : ''}${tees.map((t) => `<option ${t === s.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>` : '';
   return `<div class="ts-note-edit admin-edit" data-admin-edit-form="${escapeHtml(s.SignupID)}">${teeSel}<label class="hint">Comment</label><input type="text" maxlength="120" data-admin-edit-note value="${escapeHtml(s.Note || '')}"><button class="secondary" data-admin-edit-save>Save</button><button class="link" data-admin-edit-cancel>Cancel</button></div>`;
 }
 function groupChipsHtml(d, g) {
   const list = groupList(d.DateKey, g), slots = g === 'fun' ? d.funSlots : d.nassauSlots;
+  const tt = dayTourn(d, g);
+  if (tt) {
+    // the tournament uses this group's tee times; anyone still on the list signed up before it was set up
+    return `<div class="grp2"><div class="ts-chip-group-label">${g === 'fun' ? 'Fun group' : 'Nassau group'}</div>
+      <span class="ts-empty">${TOURN_ICON} No ${g === 'fun' ? 'Fun Group' : 'Nassau'} round this day: it's the ${escapeHtml(tt)}. Sign up for the tournament instead.</span>
+      ${list.length ? `<div class="ts-chip-group-label standby">Signed up before the tournament was set up</div>${list.map((s, i) => chipHtml(s, i + 1, d.DateKey)).join('')}` : ''}</div>`;
+  }
   const inL = list.slice(0, slots), sb = list.slice(slots);
   const n = g === 'fun' ? d.funTeeTimes : d.nassauTeeTimes;
   return `<div class="grp2">
@@ -1598,12 +1629,14 @@ function toggleHtml(d, state, compact) {
   const full = (g) => groupList(d.DateKey, g).length >= (g === 'fun' ? d.funSlots : d.nassauSlots) + d.standbySlots;
   const wouldStandby = (g) => groupList(d.DateKey, g).length >= (g === 'fun' ? d.funSlots : d.nassauSlots);
   const label = (g) => (g === 'fun' ? 'Fun' : 'Nassau');
+  const myT = tournUpcoming().find((t) => t.DateKey === d.DateKey && tournSignups(t).some((s) => String(s.PlayerID) === myId()));
+  if (!mine && myT) return `<span class="ts-closed-toggle-label">In the ${escapeHtml(myT.title)}</span>`;
   if (!mine) {
     if (state === 'notyet') return `<span class="ts-closed-toggle-label">Opens ${escapeHtml(DOW[new Date(d.opensAt - clockSkew).getDay()])}</span>`;
     if (state === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
     return `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-signup-select="${d.DateKey}">
         <option value="out" selected>Click to sign up</option>
-        ${['fun', 'nassau'].map((g) => `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
+        ${['fun', 'nassau'].map((g) => dayTourn(d, g) ? `<option value="" disabled>${label(g)} — ${escapeHtml(dayTourn(d, g))}</option>` : `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
       </select></div>`;
   }
   if (mine.pending) return `<div class="ts-toggle-wrap"><span class="ts-saving"><span class="spin"></span>Signing up…</span></div>`;
@@ -1612,7 +1645,7 @@ function toggleHtml(d, state, compact) {
   const second = myOtherSignupOn(d.DateKey);
   const secondPos = second ? groupPos(d.DateKey, second) : null;
   // On standby in one group and a spot open in the other (or playing and the other is down to standby): offer both.
-  const alsoOpt = second || state !== 'open' || full(other) || pos.standby === wouldStandby(other) ? ''
+  const alsoOpt = second || state !== 'open' || full(other) || dayTourn(d, other) || pos.standby === wouldStandby(other) ? ''
     : `<option value="also:${other}">${pos.standby ? `Also play ${label(other)} now (keep my standby)` : `Also go on ${label(other)} standby`}</option>`;
   let extra = '';
   const teeSelect = `<select class="ts-tee-select" data-tee-set="${escapeHtml(mine.SignupID)}">${mine.Tee ? '' : '<option value="" selected>Tees…</option>'}${TEE_LIST().map((t) => `<option ${t === mine.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>`;
@@ -1629,7 +1662,7 @@ function toggleHtml(d, state, compact) {
   return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${pos.standby ? 'standby' : ''}" data-signup-select="${d.DateKey}" data-mine="${escapeHtml(mine.SignupID)}">
       <option value="${mine.Group}" selected>${inLabel}</option>
       ${alsoOpt}
-      ${state === 'open' && !full(other) && !second ? `<option value="${other}">Switch to ${label(other)}</option>` : ''}
+      ${state === 'open' && !full(other) && !second && !dayTourn(d, other) ? `<option value="${other}">Switch to ${label(other)}</option>` : ''}
       ${second ? `<option value="drop:${escapeHtml(second.SignupID)}">Leave the ${label(second.Group)} standby list</option>` : ''}
       <option value="out">${state === 'closed' ? 'Remove me (late)' : 'Remove me'}${second ? ` from ${label(mine.Group)}` : ''}</option>
     </select>${extra}</div>`;
@@ -1651,7 +1684,7 @@ function schedDayCardHtml(d) {
   const mid = d.closed
     ? `<div class="ts-closed-line"><span class="closed-flag">🚫</span><span class="closed-text">No Legends tee times — ${escapeHtml(d.closed)}</span></div>${notice ? `<div>${notice}</div>` : ''}`
     : `<div class="ts-card-mid-top">
-        <span class="ts-count">Fun ${Math.min(f.length, d.funSlots)}/${d.funSlots} · Nassau ${Math.min(n.length, d.nassauSlots)}/${d.nassauSlots}</span>
+        <span class="ts-count">${d.tournFun ? `Fun: ${TOURN_ICON} ${escapeHtml(d.tournFun)}` : `Fun ${Math.min(f.length, d.funSlots)}/${d.funSlots}`} · ${d.tournNassau ? `Nassau: ${TOURN_ICON} ${escapeHtml(d.tournNassau)}` : `Nassau ${Math.min(n.length, d.nassauSlots)}/${d.nassauSlots}`}</span>
         ${sbF + sbN ? `<span class="ts-standby-count">+${sbF + sbN} standby</span>` : ''}
         ${stateChipHtml(d, state)} ${notice}
       </div>`;
@@ -1714,9 +1747,12 @@ function schedEventCardHtml(e) {
 function schedItems() {
   const items = board.dates.map((d) => ({ key: d.DateKey, type: 'day', d }));
   (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE').forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
-  return items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : (a.type === 'event' ? 1 : -1)));
+  tournUpcoming().forEach((t) => items.push({ key: t.DateKey, type: 'tourn', t }));
+  const rank = { day: 0, tourn: 1, event: 2 };
+  return items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : rank[a.type] - rank[b.type]));
 }
 function personOn(it, pid) {
+  if (it.type === 'tourn') return tournSignups(it.t).some((s) => String(s.PlayerID) === String(pid));
   if (it.type === 'day') return ['fun', 'nassau'].some((g) => groupList(it.key, g).some((s) => String(s.PlayerID) === String(pid)));
   return (board.signups || []).some((s) => s.Group === 'event:' + it.e.EventID && String(s.PlayerID) === String(pid));
 }
@@ -1734,7 +1770,7 @@ function renderSnapshot() {
   wireSwaps(el);
   wireAway(el);
 }
-// Events tab: every upcoming event (banquet, $5 / $10 tournaments, divot day...), as cards.
+// Events tab: every upcoming event (banquet, divot day...), as cards. Tournaments have their own tab (Tom 2026-11-23).
 function renderEvents() {
   const el = document.getElementById('eventsBody');
   const items = schedItems().filter((it) => it.type === 'event');
@@ -1745,11 +1781,173 @@ function renderEvents() {
   wireSchedule(el);
   wireSignups(el);
 }
+// ====================== TOURNAMENTS ($10, $5 and Annual — Tom 2026-11-23) ======================
+// Rounds of golf members sign up for like regular play: shown under Sign-ups and My SUN Snapshot
+// (My Sign-ups), and on the Tournaments tab. Set up on Admin › Setup › Tournaments.
+// Sign-ups use group "tourn:<TournID>"; board.tournaments comes from laTournBoard_.
+const TOURN_KINDS = { ten: { title: '$10 Tournament', tee: 9, who: 'all' }, five: { title: 'Five Dollar Tournament', tee: 4, who: 'fun' }, annual: { title: 'Annual Tournament', tee: 9, who: 'all' } };
+const TOURN_ABOUT = {
+  ten: 'Uses all 9 Legends tee times, and Fun Group and Nassau Group players play together. Each one has its own format (for example Captain\'s Choice or the 1-2-3 Game), shown with its date. You choose Gold or Red tees when you sign up. Prizes for first, second and third place go by 18-hole net scores. Teams are made with an A, B, C and D player each (ranked by Handicap Index), so the teams come out about even. Usually the last Wednesday of each month, April through August. Sign-ups open two weeks before.',
+  five: 'Usually the second Wednesday of each month, May through September, on 4 tee times in place of the Fun Group (the Nassau group plays as usual). Any member can sign up, but it\'s one round a day: someone signed up for Nassau that day can\'t also play the Five Dollar Tournament. Teams are made with an A, B, C and D player each (ranked by Handicap Index), so the teams come out about even. Sign-ups open two weeks before.',
+  annual: 'The Heritage Legends two-day tournament. Sign-ups open on the date the admins set. Teams, live scoring and results are on the Scoreboard below.',
+};
+const TOURN_ICON = '🏌️';
+// The tees a tournament player chooses from (Tom 2026-11-23: Gold or Red), set on Admin › Setup › Tournaments.
+function tournTees() {
+  const all = TEE_LIST(), t = String(board.settings.TournTees || '').split(',').map((x) => x.trim()).filter((x) => all.indexOf(x) !== -1);
+  return t.length ? t : all;
+}
+function tournList() { return (board && board.tournaments) || []; }
+function tournById(id) { return tournList().find((t) => String(t.TournID) === String(id)) || null; }
+function tournOfGroup(g) { return String(g || '').indexOf('tourn:') === 0 ? tournById(String(g).slice(6)) : null; }
+function tournUpcoming() { return tournList().filter((t) => t.DateKey >= board.today && String(t.Active).toUpperCase() !== 'FALSE'); }
+function tournState(t) { const now = serverNow(); return now < t.opensAt ? 'notyet' : now > t.closesAt ? 'closed' : 'open'; }
+function tournSignups(t) { return (board.signups || []).filter((s) => s.Group === t.group); }
+function tournMine(t) {
+  const l = tournSignups(t), i = l.findIndex((s) => String(s.PlayerID) === myId());
+  return i === -1 ? null : { s: l[i], idx: i, standby: i >= t.slots, n: i >= t.slots ? i - t.slots + 1 : i + 1 };
+}
+function tournTimes(t) { return t.teeList && t.teeList.length ? `${t.teeList[0]} – ${t.teeList[t.teeList.length - 1]}` : 'times TBD'; }
+function tournWhoText(t) { return t.who === 'fun' ? 'Fun Group players' : 'Fun and Nassau players'; }
+// Any member may play (Tom 2026-11-23), but one round a day: not if already in that day's Fun or Nassau group (the server checks too).
+function tournMayJoin(t) { return !(board.signups || []).some((s) => s.DateKey === t.DateKey && (s.Group === 'fun' || s.Group === 'nassau') && String(s.PlayerID) === myId()); }
+// The tournament replacing a group on a play day ('' if none).
+function dayTourn(d, g) { return (g === 'fun' ? d.tournFun : d.tournNassau) || ''; }
+function tournStateChip(t) {
+  const st = tournState(t);
+  if (st === 'open') return `<span class="ts-win win-open">Open · closes ${escapeHtml(whenLabel(t.closesAt - clockSkew))}</span>`;
+  if (st === 'notyet') return `<span class="ts-win win-later">Opens ${escapeHtml(whenLabel(t.opensAt - clockSkew))}</span>`;
+  return '<span class="ts-win win-soon">Sign-ups closed</span>';
+}
+function tournToggleHtml(t, compact) {
+  if (!session) return '';
+  const st = tournState(t), m = tournMine(t), list = tournSignups(t);
+  if (m) {
+    if (m.s.pending) return '<div class="ts-toggle-wrap"><span class="ts-saving"><span class="spin"></span>Signing up…</span></div>';
+    const tees = tournTees();
+    const extra = !compact && st === 'open' ? `<div class="ts-holes-group"><select class="ts-tee-select" data-tee-set="${escapeHtml(m.s.SignupID)}">${m.s.Tee ? '' : '<option value="" selected>Tees…</option>'}${tees.map((x) => `<option ${x === m.s.Tee ? 'selected' : ''}>${escapeHtml(x)}</option>`).join('')}</select>
+        <select class="ts-tee-select" data-ride-set="${escapeHtml(m.s.SignupID)}"><option value="walking" ${m.s.Riding === 'TRUE' ? '' : 'selected'}>Walking</option><option value="riding" ${m.s.Riding === 'TRUE' ? 'selected' : ''}>Riding</option></select></div>` : '';
+    return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${m.standby ? 'standby' : ''}" data-tourn-select="${escapeHtml(t.TournID)}" data-mine="${escapeHtml(m.s.SignupID)}">
+        <option value="in" selected>${m.standby ? `Standby #${m.n}` : 'Signed up'} ✓</option><option value="out">${st === 'closed' ? 'Remove me (late)' : 'Remove me'}</option></select>${extra}</div>`;
+  }
+  if (st === 'notyet') { const o = keyDate(t.opens); return `<span class="ts-closed-toggle-label">Opens ${MON[o.getUTCMonth()]} ${o.getUTCDate()}</span>`; }
+  if (st === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
+  if (!tournMayJoin(t)) return '<span class="ts-closed-toggle-label">In Nassau that day</span>';
+  if (list.length >= t.slots + t.standbySlots) return '<span class="ts-closed-toggle-label">Full</span>';
+  return `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-tourn-select="${escapeHtml(t.TournID)}">
+      <option value="out" selected>Click to sign up</option><option value="in">${list.length >= t.slots ? 'Join standby' : `Sign up · ${escapeHtml(t.title)}`}</option></select></div>`;
+}
+// The teams (once made), for everyone to see: tee time, team, players (A to D).
+function tournPairsHtml(t) {
+  if (!t.pairings) return '';
+  const byId = {}; tournSignups(t).slice(0, t.slots).forEach((s) => { byId[String(s.PlayerID)] = s; });
+  const teams = t.pairings.teams.map((tm) => tm.filter((id) => byId[String(id)])).filter((tm) => tm.length);
+  if (!teams.length) return '';
+  return `<div class="ts-chip-group-label" style="margin-top:10px;">Teams</div><div class="tbl-wrap"><table class="ad tourn-teams"><thead><tr><th>Tee time</th><th>Team</th><th>Players (A, B, C, D)</th></tr></thead><tbody>
+    ${teams.map((tm, i) => `<tr><td><b>${escapeHtml((t.teeList || [])[i] || 'TBD')}</b></td><td>Team ${i + 1}</td><td>${tm.map((id) => `<span class="${String(id) === myId() ? 'me-txt' : ''}">${escapeHtml(displayName(byId[String(id)].Name))}</span>`).join(' · ')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+function schedTournCardHtml(t, withDuty) {
+  const key = 'tn-' + t.TournID, open = schedIsOpen(key), list = tournSignups(t), st = tournState(t);
+  const inL = list.slice(0, t.slots), sb = list.slice(t.slots), m = session ? tournMine(t) : null;
+  return `<div class="ts-card tourn" id="tourn-${escapeHtml(t.TournID)}">
+      <div class="ts-card-row" data-expand="${key}">
+        ${dateBlockHtml(t.DateKey)}
+        <div class="ts-card-mid"><div class="ts-card-mid-top"><span class="ts-count">${TOURN_ICON} ${escapeHtml(t.title)}</span><span class="ts-win win-later">${Math.min(list.length, t.slots)} of ${t.slots}${sb.length ? ` +${sb.length} standby` : ''}</span>${tournStateChip(t)}</div>
+          <div class="ts-duty">${escapeHtml(tournWhoText(t))} · ${t.teeTimes} tee times · ${escapeHtml(tournTimes(t))}${t.Game ? ` · Game: ${escapeHtml(t.Game)}` : ''}</div>
+          ${withDuty ? dutyLineHtml(t.DateKey) : ''}</div>
+        ${tournToggleHtml(t)}
+      </div>
+      <div class="ts-players ${open ? 'open' : ''}">${open ? `
+        ${t.Description ? `<p class="hint" style="margin:0 0 6px;white-space:pre-line;">${escapeHtml(t.Description)}</p>` : ''}
+        ${t.Prizes ? `<p class="hint" style="margin:0 0 6px;"><b>Prizes:</b> ${escapeHtml(t.Prizes)}</p>` : ''}
+        <div class="ts-chip-group-label">Signed up · ${inL.length} of ${t.slots}</div>
+        ${inL.map((s, i) => chipHtml(s, i + 1)).join('') || '<span class="ts-empty">No one signed up yet</span>'}
+        ${sb.length ? `<div class="ts-chip-group-label standby">Standby (${sb.length} of ${t.standbySlots})</div>${sb.map((s, i) => chipHtml(s, i + 1)).join('')}` : ''}
+        ${tournPairsHtml(t)}
+        ${m && st !== 'closed' ? myNoteEditorHtml(key, m.s) : ''}
+        ${amAdmin() ? adminAddHtml(t.DateKey, t.group) : ''}` : ''}
+      </div>
+    </div>`;
+}
+// Tees and walking/riding before a tournament sign-up is saved. Resolves { tee, riding } or null.
+function tournPick(t) {
+  return new Promise((resolve) => {
+    let box = document.getElementById('funPickBox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'funPickBox';
+      box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px;z-index:50;overflow:auto;';
+      document.body.appendChild(box);
+    }
+    const tees = tournTees(), df = myFunDefaults('nassau');
+    box.hidden = false;
+    box.innerHTML = `<div class="card" style="max-width:420px;width:100%;">
+        <h2 style="margin-top:0;">${escapeHtml(t.title)} · ${escapeHtml(dateShort(t.DateKey))}</h2>
+        <p class="hint">${escapeHtml(tournWhoText(t))} · 18 holes · ${escapeHtml(tournTimes(t))}. Choose your tees and walking or riding, then click <b>Sign up</b>.</p>
+        <label style="display:block;">Tees (${escapeHtml(tees.join(' or '))})</label><select id="tpTee"><option value="">Choose tees…</option>${tees.map((x) => `<option>${escapeHtml(x)}</option>`).join('')}</select>
+        <label style="display:block;margin-top:8px;">Walking or riding</label><select id="tpRide"><option value="">Choose…</option><option value="walking">Walking</option><option value="riding">Riding</option></select>
+        <div class="row" style="margin-top:12px;"><button class="primary" id="tpGo" disabled>Sign up</button><button class="link" id="tpCancel">Cancel</button></div>
+      </div>`;
+    const tee = document.getElementById('tpTee'), ride = document.getElementById('tpRide'), go = document.getElementById('tpGo');
+    const check = () => { go.disabled = !(tee.value && ride.value); };
+    [tee, ride].forEach((x) => x.onchange = check);
+    const done = (v) => { box.hidden = true; box.innerHTML = ''; resolve(v); };
+    document.getElementById('tpCancel').onclick = () => done(null);
+    box.onclick = (e) => { if (e.target === box) done(null); };
+    go.onclick = () => { if (!go.disabled) done({ tee: tee.value, riding: ride.value === 'riding' }); };
+  });
+}
+async function onTournSelect(sel) {
+  const t = tournById(sel.dataset.tournSelect), v = sel.value, mineId = sel.dataset.mine;
+  if (!t) return;
+  if (mineId && v === 'out') {
+    const before = (board.signups || []).length;
+    await leaveSignup(mineId, tournState(t) === 'closed', false);
+    if ((board.signups || []).length === before) renderCurrent();
+    return;
+  }
+  if (!mineId && v === 'in') {
+    if (busy) { renderCurrent(); return; }
+    const pick = await tournPick(t);
+    if (!pick) { renderCurrent(); return; }
+    const body = { signupId: newId('s'), dateKey: t.DateKey, group: t.group, tee: pick.tee, riding: pick.riding, note: '' };
+    board.signups = (board.signups || []).concat([{ SignupID: body.signupId, DateKey: t.DateKey, Group: t.group, PlayerID: myId(), Name: session.member.Name,
+      Tee: pick.tee, Holes: '', Riding: pick.riding ? 'TRUE' : '', Note: '', SignedUpAt: Date.now(), pending: true }]);
+    renderCurrent();
+    const ok = await act('legendsJoin', body, `Signed up for the ${t.title}.`);
+    if (!ok) { board.signups = (board.signups || []).filter((s) => s.SignupID !== body.signupId); renderCurrent(); }
+  }
+}
+// Tournaments tab: a button for each kind, what it is, and its upcoming dates.
+let tournKind = 'ten';
+try { tournKind = localStorage.getItem('legends_tourn_kind') || 'ten'; } catch (e) {}
+function renderTournaments() {
+  const el = document.getElementById('tournBody');
+  if (!TOURN_KINDS[tournKind]) tournKind = 'ten';
+  const ups = tournUpcoming().filter((t) => t.Kind === tournKind);
+  const k = TOURN_KINDS[tournKind];
+  el.innerHTML = `<div class="card">
+      <div class="ts-section-title-row" style="margin-top:0;"><h2 style="margin:0;">Tournaments</h2><button class="ts-print-btn no-print" data-print>🖨️ Print</button></div>
+      <div class="view-btns no-print" style="margin-top:10px;">${Object.keys(TOURN_KINDS).map((x) => `<button class="subtab-btn ${x === tournKind ? 'active' : ''}" data-tourn-kind="${x}">${escapeHtml(TOURN_KINDS[x].title)}</button>`).join('')}</div>
+      <h3 style="margin:12px 0 4px;">${escapeHtml(k.title)}</h3>
+      <p class="hint" style="margin:0;">${escapeHtml(TOURN_ABOUT[tournKind])} You sign up here or under <a href="#" data-goto-tab="signups">Sign-ups</a>, just like a regular round.</p>
+    </div>
+    ${ups.map((t) => schedTournCardHtml(t)).join('') || `<div class="card"><p class="hint" style="margin:0;">No ${escapeHtml(k.title)} dates are set up yet.${amAdmin() ? ' Add them on Admin › Setup › Tournaments.' : ''}</p></div>`}`;
+  document.getElementById('tournAnnualLinks').hidden = tournKind !== 'annual';
+  el.querySelectorAll('[data-tourn-kind]').forEach((b) => b.onclick = () => { tournKind = b.dataset.tournKind; try { localStorage.setItem('legends_tourn_kind', tournKind); } catch (e) {} renderTournaments(); });
+  wireSchedule(el);
+  wireSignups(el);
+}
 const SIGNUP_DAYS = 15; // the Sign-ups tab shows today through two weeks from today (Tom 2026-11-18)
 function renderSignups() {
   const el = document.getElementById('signupsBody');
   const lastKey = addDays(board.today, SIGNUP_DAYS - 1);
-  const items = schedItems().filter((it) => it.type === 'day' && it.key <= lastKey);
+  // tournaments too: within the two weeks, or further out once their sign-ups are open (e.g. the Annual Tournament)
+  const items = schedItems().filter((it) => (it.type === 'day' && it.key <= lastKey) || (it.type === 'tourn' && (it.key <= lastKey || tournState(it.t) !== 'notyet')));
+  // a day a tournament takes over completely shows as the tournament (unless regular sign-ups are still on it)
+  const takenOver = (d) => d.tournFun && d.tournNassau && tournById(d.tournId) && !groupList(d.DateKey, 'fun').length && !groupList(d.DateKey, 'nassau').length;
+  const onTakenDay = (t) => { const d = board.dates.find((x) => x.DateKey === t.DateKey); return !!(d && takenOver(d)); };
   const filterId = schedFilter === '__me__' ? myId() : schedFilter;
   const roster = (board.roster || []).filter((r) => r.Active !== 'FALSE').sort((a, b) => a.Name.localeCompare(b.Name));
   if (['calendar', 'date', 'person'].indexOf(schedView) === -1) schedView = 'date';
@@ -1765,13 +1963,13 @@ function renderSignups() {
   let body = '';
   if (schedView === 'date') {
     const shown = filterId ? items.filter((it) => personOn(it, filterId)) : items;
-    body = shown.map((it) => (it.type === 'day' ? schedDayCardHtml(it.d) : schedEventCardHtml(it.e))).join('') || '<p class="ts-empty">No dates match this filter.</p>';
+    body = shown.map((it) => (it.type === 'day' ? (takenOver(it.d) ? '' : schedDayCardHtml(it.d)) : it.type === 'tourn' ? schedTournCardHtml(it.t, onTakenDay(it.t)) : schedEventCardHtml(it.e))).join('') || '<p class="ts-empty">No dates match this filter.</p>';
   } else if (schedView === 'calendar') {
-    const days = items.map((it) => it.d);
+    const days = items.filter((it) => it.type === 'day').map((it) => it.d);
     const col = (k) => { const w = dowOf(k); return w === 1 ? 0 : w === 3 ? 1 : 2; };
     const pad = days.length ? col(days[0].DateKey) : 0;
     body = `<div class="ts-cal-grid"><div class="ts-cal-header">Monday</div><div class="ts-cal-header">Wednesday</div><div class="ts-cal-header">Friday</div>
-      ${'<div class="ts-cal-cell ts-cal-blank"></div>'.repeat(pad)}${days.map((d) => `<div class="ts-cal-cell">${schedDayCardHtml(d)}</div>`).join('')}</div>`;
+      ${'<div class="ts-cal-cell ts-cal-blank"></div>'.repeat(pad)}${days.map((d) => `<div class="ts-cal-cell">${takenOver(d) ? schedTournCardHtml(tournById(d.tournId), true) : schedDayCardHtml(d)}</div>`).join('')}</div>`;
   } else if (schedView === 'person') {
     const people = filterId ? roster.filter((r) => String(r.PlayerID) === String(filterId)) : roster;
     body = people.map((p) => {
@@ -1782,6 +1980,10 @@ function renderSignups() {
           if (!s) return;
           const pos = groupPos(it.key, s);
           rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${s.Group === 'fun' ? 'Fun' : 'Nassau'}${pos.standby ? ` <span class="ts-standby-count">standby #${pos.n}</span>` : ''}</td><td class="hint">${escapeHtml([detailText(s), s.Note].filter(Boolean).join(' · '))}</td></tr>`);
+        } else if (it.type === 'tourn') {
+          const l = tournSignups(it.t), i = l.findIndex((x) => String(x.PlayerID) === String(p.PlayerID));
+          if (i === -1) return;
+          rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${TOURN_ICON} ${escapeHtml(it.t.title)}${i >= it.t.slots ? ` <span class="ts-standby-count">standby #${i - it.t.slots + 1}</span>` : ''}</td><td class="hint">${escapeHtml([detailText(l[i]), l[i].Note].filter(Boolean).join(' · '))}</td></tr>`);
         } else if (personOn(it, p.PlayerID)) {
           const s = (board.signups || []).find((x) => x.Group === 'event:' + it.e.EventID && String(x.PlayerID) === String(p.PlayerID));
           rows.push(`<tr><td class="ts-person-date">${escapeHtml(dateShort(it.key))}</td><td>${escapeHtml(it.e.Title)}</td><td class="hint">${escapeHtml(s.Note || '')}</td></tr>`);
@@ -1791,7 +1993,7 @@ function renderSignups() {
       return `<div class="ts-person-group"><div class="ts-person-name">${escapeHtml(displayName(p.Name))}</div>${rows.length ? `<table class="ts-person-table"><tbody>${rows.join('')}</tbody></table>` : '<p class="ts-empty">Not signed up for anything yet.</p>'}</div>`;
     }).join('') || '<p class="ts-empty">No one is signed up yet.</p>';
   }
-  el.innerHTML = controls + `<div id="schedBody">${body}</div><p class="hint no-print" style="margin-top:12px;">Events are on the <a href="#" data-goto-tab="events">Events</a> tab. Your own duty, sign-ups and events are on <a href="#" data-goto-tab="snapshot">My SUN Snapshot</a>.</p>`;
+  el.innerHTML = controls + `<div id="schedBody">${body}</div><p class="hint no-print" style="margin-top:12px;">Tournaments are here on their dates, and all of them are on the <a href="#" data-goto-tab="tournament">Tournaments</a> tab. Events are on the <a href="#" data-goto-tab="events">Events</a> tab. Your own duty, sign-ups and events are on <a href="#" data-goto-tab="snapshot">My SUN Snapshot</a>.</p>`;
   wireSchedule(el);
   wireSignups(el);
 }
@@ -1809,6 +2011,7 @@ function wireSchedule(el) {
   }));
   el.querySelectorAll('[data-signup-select]').forEach((s) => s.onchange = () => onSignupSelect(s));
   el.querySelectorAll('[data-event-select]').forEach((s) => s.onchange = () => onEventSelect(s));
+  el.querySelectorAll('[data-tourn-select]').forEach((s) => s.onchange = () => onTournSelect(s));
   el.querySelectorAll('[data-holes-set]').forEach((b) => b.onclick = () => { const [id, h] = b.dataset.holesSet.split('|'); act('legendsUpdate', { signupId: id, holes: h }, 'Saved.'); });
   el.querySelectorAll('[data-tee-set]').forEach((s) => s.onchange = () => act('legendsUpdate', { signupId: s.dataset.teeSet, tee: s.value }, 'Saved.'));
   el.querySelectorAll('[data-ride-set]').forEach((b) => b.onchange = () => act('legendsUpdate', { signupId: b.dataset.rideSet, riding: b.value === 'riding' }, 'Saved.'));
@@ -1952,7 +2155,7 @@ function joinFormHtml(d, group) {
 }
 
 function adminAddHtml(key, group) {
-  const taken = new Set((board.signups || []).filter((s) => s.DateKey === key && (group.indexOf('event:') === 0 ? s.Group === group : (s.Group === 'fun' || s.Group === 'nassau'))).map((s) => String(s.PlayerID)));
+  const taken = new Set((board.signups || []).filter((s) => s.DateKey === key && (group.indexOf(':') !== -1 ? s.Group === group : (s.Group === 'fun' || s.Group === 'nassau'))).map((s) => String(s.PlayerID)));
   const opts = (board.roster || []).filter((r) => r.Active !== 'FALSE' && !taken.has(String(r.PlayerID)))
     .sort((a, b) => a.Name.localeCompare(b.Name))
     .map((r) => `<option value="${escapeHtml(r.PlayerID)}">${escapeHtml(r.Name)}</option>`).join('');
@@ -2101,7 +2304,7 @@ async function leaveSignup(signupId, late, asAdmin) {
   const who = asAdmin ? displayName(s.Name) : 'yourself';
   const msg = late
     ? 'Sign-ups for this date are closed. Remove yourself anyway? The admin will be emailed so the pro shop can be told, and the first person on standby moves up.'
-    : `Remove ${who} from the ${s.Group === 'fun' ? 'Fun group' : s.Group === 'nassau' ? 'Nassau group' : 'event'} on ${dateShort(s.DateKey)}?`;
+    : `Remove ${who} from the ${s.Group === 'fun' ? 'Fun group' : s.Group === 'nassau' ? 'Nassau group' : tournOfGroup(s.Group) ? tournOfGroup(s.Group).title : 'event'} on ${dateShort(s.DateKey)}?`;
   if (!confirm(msg)) return;
   await act('legendsLeave', { signupId, asAdmin: asAdmin || !session }, asAdmin ? `${displayName(s.Name)} removed.` : 'Removed.');
 }
@@ -2121,8 +2324,8 @@ async function switchGroup(signupId, key, toGroup) {
 async function adminAdd(key, group, playerId) {
   const r = rosterById(playerId);
   const body = { signupId: newId('a'), dateKey: key, group, playerId, asAdmin: true };
-  if (group === 'fun' || group === 'nassau') {
-    const tees = String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
+  if (group === 'fun' || group === 'nassau' || group.indexOf('tourn:') === 0) {
+    const tees = group.indexOf('tourn:') === 0 ? tournTees() : String(board.settings.TeeOptions || '').split(',').map((t) => t.trim());
     body.tee = prefTee(r, tees.filter(Boolean));
     if (group === 'fun') body.holes = '18';
   }
@@ -2685,6 +2888,7 @@ function showAdminSub(sub) {
     const inGroup = limitedPages().find((k) => { const x = document.querySelector(`#adminSubtabs [data-asub="${k}"]`); return x && btn0 && x.dataset.group === btn0.dataset.group; });
     sub = inGroup || limitedPages()[0];
   }
+  if (sub !== adminSub) { tournAdm.rows = null; tournAdm.fmt = null; } // Tournaments lists start fresh each visit
   adminSub = sub;
   setTimeout(() => adminPresencePing(), 0);
   const btn = document.querySelector(`#adminSubtabs [data-asub="${sub}"]`);
@@ -2846,6 +3050,7 @@ function renderAdminSub() {
   if (adminSub === 'closures') return renderClosuresAdmin(el);
   if (adminSub === 'teetimes') return renderTeeTimesAdmin(el);
   if (adminSub === 'events') return renderEventsAdmin(el);
+  if (adminSub === 'tournaments') return renderTournAdmin(el);
   if (adminSub === 'rules') return renderRulesAdmin(el);
   if (adminSub === 'activity') return renderActivityAdmin(el);
   if (adminSub === 'sugimport') return renderSugImportAdmin(el);
@@ -4939,7 +5144,9 @@ function listEditorHtml(id, title, hint, cols, rows) {
     <div class="tbl-wrap"><table class="ad"><thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead><tbody id="${id}Body">
     ${rows.map((r, i) => `<tr>${cols.map((c) => `<td>${c.type === 'check'
         ? `<input type="checkbox" data-le="${id}" data-i="${i}" data-f="${c.f}" ${(c.off ? String(r[c.f]).toUpperCase() === 'TRUE' : String(r[c.f]).toUpperCase() !== 'FALSE') ? 'checked' : ''}>`
-        : `<input type="${c.type || 'text'}" data-le="${id}" data-i="${i}" data-f="${c.f}" value="${escapeHtml(r[c.f] || '')}" placeholder="${escapeHtml(c.ph || '')}" style="${c.w ? 'width:' + c.w : 'width:100%'}">`}</td>`).join('')}
+        : c.type === 'textarea' ? `<textarea data-le="${id}" data-i="${i}" data-f="${c.f}" rows="${c.rows || 2}" placeholder="${escapeHtml(c.ph || '')}" style="${c.w ? 'width:' + c.w : 'width:100%'}">${escapeHtml(r[c.f] || '')}</textarea>`
+        : c.type === 'select' ? `<select data-le="${id}" data-i="${i}" data-f="${c.f}" style="${c.w ? 'width:' + c.w : ''}">${c.opts.map(([v, l]) => `<option value="${escapeHtml(v)}" ${String(r[c.f] || c.opts[0][0]) === v ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select>`
+        : `<input type="${c.type || 'text'}" data-le="${id}" data-i="${i}" data-f="${c.f}" value="${escapeHtml(r[c.f] || '')}" placeholder="${escapeHtml(c.ph || '')}" ${c.list ? `list="${c.list}"` : ''} style="${c.w ? 'width:' + c.w : 'width:100%'}">`}</td>`).join('')}
       <td><button class="link danger" data-le-rm="${id}" data-i="${i}">Remove</button></td></tr>`).join('') || `<tr><td colspan="${cols.length + 1}" class="hint">None yet.</td></tr>`}
     </tbody></table></div>
     <div class="row" style="margin-top:10px;"><button class="secondary" data-le-add="${id}">+ Add</button><button class="primary" data-le-save="${id}">Save</button>${dirtyNote}</div>
@@ -4948,7 +5155,7 @@ function listEditorHtml(id, title, hint, cols, rows) {
 const listEdits = {};
 function wireListEditor(el, id, rows, action, cols, rerender) {
   listEdits[id] = rows;
-  el.querySelectorAll(`[data-le="${id}"]`).forEach((inp) => inp.addEventListener(inp.type === 'checkbox' ? 'change' : 'input', () => {
+  el.querySelectorAll(`[data-le="${id}"]`).forEach((inp) => inp.addEventListener(inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input', () => {
     rows[Number(inp.dataset.i)][inp.dataset.f] = inp.type === 'checkbox' ? (inp.checked ? 'TRUE' : 'FALSE') : inp.value;
     markDirty();
   }));
@@ -4993,7 +5200,7 @@ function renderEventsAdmin(el, rows) {
     { f: 'GuestPrompt', label: 'Ask for', ph: 'e.g. Spouse/guest name', w: '170px' },
     { f: 'Active', label: 'Show', type: 'check' },
   ];
-  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, $5 / $10 tournaments, divot filling day and anything else people sign up for. Events show on the Events tab in date order, and on everyone\'s My SUN Snapshot. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
+  el.innerHTML = listEditorHtml('ev', 'Other events', 'Banquet, divot filling day and anything else people sign up for (the $10, Five Dollar and Annual tournaments are set up on Setup › Tournaments). Events show on the Events tab in date order, and on everyone\'s My SUN Snapshot. Sign-ups open on the <b>Sign-ups open</b> date — it fills in as two weeks before the event when you pick the event date, and you can change it. Leave Limit blank for no limit; "Ask for" adds a box to each sign-up (e.g. a spouse or guest name). Untick Show to hide an event without deleting it and its sign-ups.', cols, rows);
   wireListEditor(el, 'ev', rows, 'legendsSaveEvents', cols, (r) => renderEventsAdmin(el, r));
   // Picking an event date fills in "Sign-ups open" two weeks earlier (unless it was already set).
   el.querySelectorAll('[data-le="ev"][data-f="DateKey"]').forEach((inp) => inp.addEventListener('change', () => {
@@ -5004,6 +5211,239 @@ function renderEventsAdmin(el, rows) {
     }
   }));
   el.querySelectorAll('[data-le="ev"][data-f="SignupOpens"]').forEach((inp) => inp.addEventListener('input', () => { rows[Number(inp.dataset.i)]._autoOpens = false; }));
+}
+// ---------------- Admin › Setup › Tournaments (Tom 2026-11-23) ----------------
+// The list of tournaments ($10, $5, Annual), then pairings and the email for one of them,
+// then the email's settings.
+const tournAdm = { id: '', view: null, edit: null, rows: null, fmt: null, fmtOpen: false };
+// The last Wednesday of a month (month 1-12).
+function lastWednesday(year, month) {
+  const d = new Date(Date.UTC(year, month, 0, 12));
+  while (d.getUTCDay() !== 3) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+// The second Wednesday of a month (month 1-12): the Five Dollar Tournament (Tom 2026-11-23).
+function secondWednesday(year, month) {
+  const d = new Date(Date.UTC(year, month - 1, 1, 12));
+  while (d.getUTCDay() !== 3) d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCDate(d.getUTCDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
+function tournAutoDates(r) {
+  if (!r.DateKey) return;
+  if (!r.SignupOpens || r._autoOpens) { r.SignupOpens = addDays(r.DateKey, -14); r._autoOpens = true; }
+  if (!r.SignupCloses || r._autoCloses) { r.SignupCloses = addDays(r.DateKey, -(Number(board.settings.TournCloseDaysBefore) || 3)); r._autoCloses = true; }
+}
+function renderTournAdmin(el, rows) {
+  // blank open/close dates show as the dates they work out to (two weeks before, TournCloseDaysBefore before)
+  const myKinds = tournMyKinds();
+  rows = rows || tournAdm.rows || copyRows(tournList()).filter((r) => myKinds.indexOf(r.Kind || 'ten') !== -1).map((r) => Object.assign(r, { SignupOpens: r.SignupOpens || r.opens || '', SignupCloses: r.SignupCloses || r.closes || '' })).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
+  tournAdm.rows = rows;
+  const games = (board.games || []), fmts = (board.tournFormats || []);
+  const cols = [
+    { f: 'Kind', label: 'Tournament', type: 'select', opts: myKinds.map((k) => [k, TOURN_KINDS[k].title]), w: '150px' },
+    { f: 'DateKey', label: 'Date', type: 'date', w: '145px' },
+    { f: 'SignupOpens', label: 'Sign-ups open', type: 'date', w: '145px' },
+    { f: 'SignupCloses', label: 'Sign-ups close (11:59 PM)', type: 'date', w: '145px' },
+    { f: 'TeeTimes', label: 'Tee times', type: 'number', w: '65px' },
+    { f: 'FirstTee', label: 'First tee time', ph: 'from First Tee Time', w: '120px' },
+    { f: 'Who', label: 'Who can play', type: 'select', opts: [['all', 'Fun and Nassau'], ['fun', 'Fun Group only']], w: '135px' },
+    { f: 'Game', label: 'Format / game', ph: 'pick or type', w: '190px', list: 'tournGames' },
+    { f: 'Prizes', label: 'Prizes', ph: '1st, 2nd, 3rd', w: '140px' },
+    { f: 'Description', label: 'Details (fills in from the format)', ph: 'How it is played, anything else players should know', type: 'textarea', rows: 3, w: '320px' },
+    { f: 'Title', label: 'Name shown', ph: 'blank = $10 Tournament etc.', w: '150px' },
+    { f: 'Active', label: 'Show', type: 'check' },
+  ];
+  // Regular sign-ups still on a day a tournament now takes over (made before it was set up).
+  const warn = [];
+  tournUpcoming().forEach((t) => {
+    const d = (board.dates || []).find((x) => x.DateKey === t.DateKey);
+    if (!d) return;
+    ['fun', 'nassau'].forEach((g) => {
+      const n = groupList(t.DateKey, g).length;
+      if (n && dayTourn(d, g)) warn.push(`${escapeHtml(dateShort(t.DateKey))}: ${n} ${g === 'fun' ? 'Fun Group' : 'Nassau'} sign-up${n === 1 ? ' is' : 's are'} still on the list from before the ${escapeHtml(t.title)} was set up. Ask them to sign up for the tournament, then remove them on Sign-ups (× on their name).`);
+    });
+  });
+  // An old "event" for a tournament (set up on Events before this page existed).
+  (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE' && /\$\s*(5|10)\b|tournament/i.test(e.Title || '')).forEach((e) => {
+    warn.push(`The event “${escapeHtml(e.Title)}” (${escapeHtml(dateShort(e.DateKey))}) is on Setup › Events. Tournaments now belong here: add it below, then untick Show on Events once its players have signed up again.`);
+  });
+  const year = (() => { const t = keyDate(board.today); return t.getUTCMonth() >= 7 ? t.getUTCFullYear() + 1 : t.getUTCFullYear(); })();
+  el.innerHTML = listEditorHtml('tn', 'Tournaments', `Each tournament shows under <b>Sign-ups</b> on its date (and on the <b>Tournaments</b> tab), and members sign up like a regular round. On its date it takes the place of regular play: <b>Fun and Nassau</b> replaces both groups (for the $10 Tournament, all 9 tee times); <b>Fun Group only</b> replaces the Fun Group, and the Nassau group plays as usual. Sign-ups open on <b>Sign-ups open</b> (it fills in as two weeks before when you pick the date; set your own for the Annual Tournament) and close at 11:59 PM on <b>Sign-ups close</b>. The places are tee times × ${escapeHtml(board.settings.PlayersPerTeeTime || '4')}, then a standby list. Tee times start at <b>First tee time</b>, or if that's blank, at the day's time on Setup › First Tee Time. Untick Show to hide one without losing its sign-ups.`, cols, rows) +
+    `<datalist id="tournGames">${fmts.map((f) => `<option value="${escapeHtml(f.Name)}">`).join('')}${games.filter((g) => !fmts.some((f) => f.Name.toLowerCase() === g.toLowerCase())).map((g) => `<option value="${escapeHtml(g)}">`).join('')}</datalist>
+    <div class="card" style="margin-top:-6px;"><div class="row"><button class="secondary" id="tnAddTen">+ Add the $10 Tournaments for ${year} (last Wednesday of April – August)</button>
+      <button class="secondary" id="tnAddFive">+ Add the Five Dollar Tournaments for ${year} (second Wednesday of May – September)</button></div>
+      <p class="hint" style="margin:8px 0 0;">The Five Dollar Tournament takes the Fun Group's 4 tee times that Wednesday, starting at the day's time on Setup › First Tee Time, and the Nassau group keeps its usual times after them.</p>
+      ${warn.length ? `<div class="status error" style="margin-top:10px;">${warn.map((w) => `<div>⚠️ ${w}</div>`).join('')}</div>` : ''}</div>
+    <div id="tnFmtCard"></div>
+    <div id="tnPairCard"></div>
+    <div id="tnMailCard"></div>`;
+  wireListEditor(el, 'tn', rows, 'legendsSaveTournaments', cols, (r) => renderTournAdmin(el, r));
+  el.querySelector('[data-le-save="tn"]').onclick = async () => {
+    const out = rows.map((r) => { const o = Object.assign({}, r); delete o._autoOpens; delete o._autoCloses; ['TournID', 'Kind', 'Title', 'DateKey', 'SignupOpens', 'SignupCloses', 'TeeTimes', 'FirstTee', 'Who', 'Game', 'Prizes', 'Description', 'Active'].forEach((k) => { if (o[k] === undefined) o[k] = ''; }); return o; });
+    tournAdm.rows = null;
+    if (!(await adminSave('legendsSaveTournaments', { rows: JSON.stringify(out) }, 'tnStatus', 'Tournaments saved.'))) tournAdm.rows = rows;
+  };
+  const onChange = (f, fn) => el.querySelectorAll(`[data-le="tn"][data-f="${f}"]`).forEach((inp) => inp.addEventListener('change', () => fn(rows[Number(inp.dataset.i)], inp)));
+  onChange('Kind', (r) => {
+    const k = TOURN_KINDS[r.Kind] || TOURN_KINDS.ten;
+    r.TeeTimes = String(k.tee); r.Who = k.who;
+    renderTournAdmin(el, rows); markDirty();
+  });
+  onChange('DateKey', (r) => { tournAutoDates(r); renderTournAdmin(el, rows); markDirty(); });
+  // picking a format fills in Details with its write-up (unless Details has your own wording)
+  onChange('Game', (r) => {
+    const f = fmts.find((x) => x.Name.toLowerCase() === String(r.Game || '').trim().toLowerCase());
+    if (f && (!String(r.Description || '').trim() || fmts.some((x) => x.Description === r.Description))) { r.Description = f.Description; renderTournAdmin(el, rows); }
+    markDirty();
+  });
+  ['SignupOpens', 'SignupCloses'].forEach((f) => el.querySelectorAll(`[data-le="tn"][data-f="${f}"]`).forEach((inp) => inp.addEventListener('input', () => { rows[Number(inp.dataset.i)][f === 'SignupOpens' ? '_autoOpens' : '_autoCloses'] = false; })));
+  // a new row starts as a $10 Tournament
+  el.querySelector('[data-le-add="tn"]').onclick = () => { const k = myKinds[0] || 'ten'; rows.push({ Kind: k, TeeTimes: String(TOURN_KINDS[k].tee), Who: TOURN_KINDS[k].who, Active: 'TRUE' }); markDirty(); renderTournAdmin(el, rows); };
+  if (myKinds.indexOf('ten') === -1) document.getElementById('tnAddTen').hidden = true;
+  if (myKinds.indexOf('five') === -1) document.getElementById('tnAddFive').hidden = true;
+  const addDates = (kind, months, dateOf) => {
+    const k = TOURN_KINDS[kind];
+    let added = 0;
+    months.forEach((m) => {
+      const key = dateOf(year, m);
+      if (key < board.today || rows.some((r) => r.DateKey === key && r.Kind === kind)) return;
+      const r = { Kind: kind, DateKey: key, TeeTimes: String(k.tee), Who: k.who, Active: 'TRUE' };
+      tournAutoDates(r); rows.push(r); added++;
+    });
+    rows.sort((a, b) => (String(a.DateKey) < String(b.DateKey) ? -1 : 1));
+    markDirty(); renderTournAdmin(el, rows);
+    showStatus('tnStatus', true, added ? `${added} ${k.title} date${added === 1 ? '' : 's'} added. Check them, then click Save.` : 'Those dates are already on the list.');
+  };
+  document.getElementById('tnAddTen').onclick = () => addDates('ten', [4, 5, 6, 7, 8], lastWednesday);
+  document.getElementById('tnAddFive').onclick = () => addDates('five', [5, 6, 7, 8, 9], secondWednesday);
+
+  renderTournFmtCard();
+  renderTournPairCard();
+  renderTournMailCard();
+}
+// The tournament formats (name + how it's played) offered in the Format / game box.
+function renderTournFmtCard(rows) {
+  const box = document.getElementById('tnFmtCard');
+  if (!box) return;
+  rows = rows || tournAdm.fmt || copyRows(board.tournFormats || []);
+  tournAdm.fmt = rows;
+  const cols = [{ f: 'Name', label: 'Format', ph: "e.g. Four Man Captain's Choice", w: '200px' }, { f: 'Description', label: 'How it is played (goes into the tournament\'s Details)', type: 'textarea', rows: 4 }];
+  box.innerHTML = listEditorHtml('tf', 'Tournament formats', 'The formats offered in the <b>Format / game</b> box above (Larry\'s games are offered too). Picking one fills in the tournament\'s Details, which players see on Sign-ups and the Tournaments tab and in the pairings email; you can then change the wording for that day.', cols, rows).replace('<div class="card">', '<div class="card"><details' + (tournAdm.fmtOpen ? ' open' : '') + ' id="tfDetails"><summary style="cursor:pointer;font-weight:600;">Tournament formats (' + rows.length + ')</summary>') .replace(/<\/div>$/, '</details></div>').replace('<h2>Tournament formats</h2>', '');
+  wireListEditor(box, 'tf', rows, 'legendsTournFormatsSave', cols, (r) => { tournAdm.fmtOpen = true; renderTournFmtCard(r); });
+  box.querySelector('#tfDetails').addEventListener('toggle', (e) => { tournAdm.fmtOpen = e.target.open; });
+  box.querySelector('[data-le-save="tf"]').onclick = async () => { const keep = tournAdm.rows; tournAdm.fmt = null; tournAdm.fmtOpen = true; if (await adminSave('legendsTournFormatsSave', { rows: JSON.stringify(rows) }, 'tfStatus', 'Formats saved.')) tournAdm.rows = keep; else tournAdm.fmt = rows; };
+}
+// Pairings and the email for one tournament.
+function renderTournPairCard() {
+  const box = document.getElementById('tnPairCard');
+  if (!box) return;
+  const list = tournList().filter((t) => t.DateKey >= addDays(board.today, -7) && tournMyKinds().indexOf(t.Kind || 'ten') !== -1).sort((a, b) => (a.DateKey < b.DateKey ? -1 : 1));
+  if (!list.length) { box.innerHTML = ''; return; }
+  if (!list.some((t) => t.TournID === tournAdm.id)) { tournAdm.id = (list.find((t) => t.DateKey >= board.today) || list[0]).TournID; tournAdm.view = null; }
+  const v = tournAdm.view && tournAdm.view.tourn && tournAdm.view.tourn.TournID === tournAdm.id ? tournAdm.view : null;
+  const sel = `<select id="tnPick">${list.map((t) => `<option value="${escapeHtml(t.TournID)}" ${t.TournID === tournAdm.id ? 'selected' : ''}>${escapeHtml(t.title)} · ${escapeHtml(dateShort(t.DateKey))}</option>`).join('')}</select>`;
+  let body = '<p class="hint">Loading…</p>';
+  if (v) {
+    const t = v.tourn, byId = {};
+    v.players.concat(v.standby).forEach((p) => { byId[p.PlayerID] = p; });
+    const e = tournAdm.edit || { teams: v.teams.map((tm) => tm.slice()) };
+    tournAdm.edit = e;
+    const placed = {}; e.teams.forEach((tm) => tm.forEach((id) => { placed[id] = true; }));
+    const unplaced = v.players.filter((p) => !placed[p.PlayerID]);
+    const nm = (p) => `${escapeHtml(displayName(p.Name))} <span class="hint">${escapeHtml(p.HI || '–')}${p.Tee ? ' · ' + escapeHtml(p.Tee) : ''}</span>`;
+    const moveSel = (id, at) => `<select data-tn-move="${escapeHtml(id)}">${e.teams.map((_, i) => `<option value="${i}" ${i === at ? 'selected' : ''}>Team ${i + 1}</option>`).join('')}<option value="new">New team</option><option value="out" ${at === -1 ? 'selected' : ''}>Not on a team</option></select>`;
+    const hiNum = (p) => { const h = cleanHi(p && p.HI); return h ? (h[0] === '+' ? -Number(h.slice(1)) : Number(h)) : null; };
+    const mean = (tm) => { const xs = tm.map((id) => hiNum(byId[id])).filter((x) => x !== null); return xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : '–'; };
+    const teamRows = e.teams.map((tm, i) => {
+      const hs = (id) => { const h = hiNum(byId[id]); return h === null ? 99 : h; };
+      const ids = tm.slice().sort((a, b) => hs(a) - hs(b));
+      return `<tr><td><b>${escapeHtml((t.teeList || [])[i] || 'TBD')}</b></td><td>Team ${i + 1}</td><td>${ids.map((id, k) => byId[id] ? `<div class="tn-p"><b>${'ABCDE'[k]}</b> ${nm(byId[id])} ${moveSel(id, i)}</div>` : '').join('')}</td><td>${mean(tm)}</td></tr>`;
+    }).join('');
+    body = `<p class="hint">${v.players.length} signed up of ${t.slots} places${v.standby.length ? `, ${v.standby.length} on standby` : ''} · ${escapeHtml(tournWhoText(t))} · ${t.teeTimes} tee times · ${escapeHtml(tournTimes(t))} · sign-ups ${tournState(t) === 'closed' ? 'closed' : 'close'} ${escapeHtml(dateShort(t.closes))} at 11:59 PM.</p>
+      <p class="hint">Teams are made by ranking the players by Handicap Index into A, B, C and D players and giving each team one of each, trying thousands of mixes and keeping the one with the closest team averages (and the fewest partners from the last tournament). They're made automatically when sign-ups close, or click <b>Make teams</b> any time. Use the menus to move a player, then <b>Save teams</b>.</p>
+      <div class="row"><button class="primary" id="tnMake">${e.teams.length ? 'Redo teams' : 'Make teams'}</button>${e.teams.length ? '<button class="secondary" id="tnSave">Save teams</button>' : ''}</div>
+      ${v.gone.length ? `<p class="status error">No longer signed up (left out): ${v.gone.map((g) => escapeHtml(displayName(g.Name || g.PlayerID))).join(', ')}</p>` : ''}
+      ${e.teams.length ? `<div class="tbl-wrap"><table class="ad"><thead><tr><th>Tee time</th><th>Team</th><th>Players (index · tees)</th><th>Avg index</th></tr></thead><tbody>${teamRows}</tbody></table></div>` : '<p class="hint">No teams yet.</p>'}
+      ${unplaced.length ? `<p><b>Not on a team yet:</b></p>${unplaced.map((p) => `<div class="tn-p">${nm(p)} ${e.teams.length ? moveSel(p.PlayerID, -1) : ''}</div>`).join('')}` : ''}
+      ${v.standby.length ? `<p class="hint"><b>Standby:</b> ${v.standby.map((p) => escapeHtml(displayName(p.Name))).join(', ')}</p>` : ''}
+      <h3>Pairings email</h3>
+      <p class="hint">To everyone signed up (and standby), with ${board.settings.TournEmailProShop === 'TRUE' ? 'the pro shop and ' : ''}the admin copied. ${v.emailSent ? `Last sent ${escapeHtml(whenLabel(Date.parse(v.emailSent)))}; sending again marks it UPDATED.` : 'Not sent yet.'}</p>
+      <div class="row"><button class="secondary" id="tnPreview">Preview</button><button class="primary" id="tnSend">Send now</button></div>
+      <div id="tnMail"></div>`;
+  }
+  box.innerHTML = `<div class="card"><h2>Teams and email</h2><div class="row">${sel}</div><div id="tnPairStatus" class="status"></div>${body}</div>`;
+  document.getElementById('tnPick').onchange = (ev) => { if (!leaveAdminPageOk()) { ev.target.value = tournAdm.id; return; } adminDirty = false; tournAdm.id = ev.target.value; tournAdm.view = null; tournAdm.edit = null; renderTournPairCard(); };
+  if (!v) { tournLoad('legendsTournPairGet'); return; }
+  box.querySelectorAll('[data-tn-move]').forEach((s) => s.onchange = () => {
+    const id = s.dataset.tnMove, e = tournAdm.edit;
+    e.teams = e.teams.map((tm) => tm.filter((x) => x !== id));
+    if (s.value === 'new') e.teams.push([id]); else if (s.value !== 'out') e.teams[Number(s.value)].push(id);
+    e.teams = e.teams.filter((tm) => tm.length);
+    markDirty(); renderTournPairCard();
+  });
+  document.getElementById('tnMake').onclick = () => {
+    if (tournAdm.edit.teams.length && !confirm('Make new teams? Any changes you made by hand will be lost.')) return;
+    tournLoad('legendsTournPairMake', 'New teams made.');
+  };
+  const sv = document.getElementById('tnSave'); if (sv) sv.onclick = () => tournLoad('legendsTournPairSave', 'Teams saved.', { teams: JSON.stringify(tournAdm.edit.teams) });
+  document.getElementById('tnPreview').onclick = async () => {
+    if (adminDirty) { showStatus('tnPairStatus', false, 'Save your changes first, so the email shows them.'); return; }
+    const mb = document.getElementById('tnMail'); mb.innerHTML = '<p class="hint">Loading preview…</p>';
+    try {
+      const res = await apiPost('legendsTournEmailPreview', { id: tournAdm.id, settings: JSON.stringify(tournMailValues()) });
+      if (!res.success) { if (!handleAdminRejected(res.error)) mb.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
+      const m = res.data;
+      mb.innerHTML = `<div class="preview-box"><div class="hint"><b>${m.total} recipient${m.total === 1 ? '' : 's'}</b><br><b>To:</b> ${escapeHtml(m.to || '(nobody)')}${m.cc ? `<br><b>Cc:</b> ${escapeHtml(m.cc)}` : ''}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div><hr>${m.html}</div>`;
+    } catch (er) { mb.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
+  };
+  document.getElementById('tnSend').onclick = () => {
+    if (adminDirty) { showStatus('tnPairStatus', false, 'Save your changes first.'); return; }
+    if (!confirm(`Send the ${v.tourn.title} email for ${dateShort(v.tourn.DateKey)}${v.emailSent ? ' again' : ''}? Use Preview first to check who gets it.`)) return;
+    tournLoad('legendsTournEmailSend', 'Sent.');
+  };
+}
+async function tournLoad(action, okMsg, extra) {
+  showStatus('tnPairStatus', true, action === 'legendsTournPairGet' ? 'Loading…' : action === 'legendsTournEmailSend' ? 'Sending…' : 'Saving…');
+  try {
+    const res = await apiPost(action, Object.assign({ id: tournAdm.id }, extra || {}));
+    if (!res.success) { if (!handleAdminRejected(res.error)) showStatus('tnPairStatus', false, cleanError(res.error)); return; }
+    tournAdm.view = res.data; tournAdm.edit = null; adminDirty = false;
+    const dn = document.getElementById('adDirty'); if (dn) dn.hidden = true;
+    // keep the board's copy of the teams in step (Sign-ups and the Tournaments tab show them)
+    const t = tournById(tournAdm.id);
+    if (t && res.data.tourn) t.pairings = res.data.tourn.pairings;
+    if (adminSub === 'tournaments') renderTournPairCard();
+    if (okMsg) showStatus('tnPairStatus', true, okMsg);
+  } catch (e) { showStatus('tnPairStatus', false, 'Could not reach the server — try again.'); }
+}
+function tournMailValues() {
+  const g = (id) => document.getElementById(id);
+  if (!g('tmOn')) return {};
+  return { TournEmailOn: g('tmOn').checked ? 'TRUE' : 'FALSE', TournEmailHour: g('tmHour').value, TournEmailProShop: g('tmShop').checked ? 'TRUE' : 'FALSE',
+    TournEmailExtraEmails: g('tmExtra').value, TournEmailMessage: g('tmMsg').value, TournEmailFooterText: g('tmFoot').value, TournCloseDaysBefore: g('tmClose').value, TournTees: g('tmTees').value.split(',').map((x) => x.trim()).filter(Boolean).join(',') };
+}
+function renderTournMailCard() {
+  const box = document.getElementById('tnMailCard');
+  if (!box) return;
+  if (!amAdmin() && !amViewOnly()) { box.innerHTML = '<div class="card"><p class="hint" style="margin:0;">The tournament email settings (send automatically, message, who is copied) are changed by a Full admin. You can preview and send your tournament\'s email above.</p></div>'; return; }
+  const s = board.settings;
+  box.innerHTML = `<div class="card"><h2>Tournament settings and email</h2>
+    <p class="hint">The <b>pairings email</b> lists the date, tee times, game, prizes and the teams (A, B, C, D players with their index), and goes to everyone signed up and on standby${s.TournEmailProShop === 'TRUE' ? ', with the pro shop' : ''} and the admin copied. With it <b>On</b>, it goes automatically the morning after sign-ups close (teams are made then if there aren't any). With it Off, it only goes when you click <b>Send now</b> above.</p>
+    <label class="em-switch"><input type="checkbox" id="tmOn" ${s.TournEmailOn === 'TRUE' ? 'checked' : ''}> <b>Send automatically</b></label>
+    <div class="row" style="margin-top:8px;"><label>at <select id="tmHour">${emHourOpts(String(s.TournEmailHour || '9'))}</select> the morning after sign-ups close</label></div>
+    <div class="row" style="margin-top:8px;"><label>New tournaments: sign-ups close <input type="number" id="tmClose" min="0" max="14" style="width:60px;" value="${escapeHtml(s.TournCloseDaysBefore || '3')}"> days before (you can change any tournament's date in the list)</label></div>
+    <label style="display:block;margin-top:8px;">Tees players choose from (comma-separated)</label><input type="text" id="tmTees" value="${escapeHtml(String(s.TournTees || 'Gold,Red').split(',').join(', '))}" placeholder="Gold, Red">
+    <label style="display:block;margin-top:8px;"><input type="checkbox" id="tmShop" ${s.TournEmailProShop === 'TRUE' ? 'checked' : ''}> Copy the pro shop (${escapeHtml(s.ProShopEmails || 'not set')})</label>
+    <label style="display:block;margin-top:8px;">Also send to (other addresses, comma-separated)</label><input type="text" id="tmExtra" value="${escapeHtml(s.TournEmailExtraEmails || '')}" placeholder="e.g. name@theheritageclub.net">
+    <label style="display:block;margin-top:8px;">Message at the top (optional)</label><textarea id="tmMsg" rows="2" placeholder="e.g. Please check in at the pro shop by 7:45 and pay your $10.">${escapeHtml(s.TournEmailMessage || '')}</textarea>
+    <label style="display:block;margin-top:8px;">Closing line</label><input type="text" id="tmFoot" value="${escapeHtml(s.TournEmailFooterText || '')}">
+    <div class="row" style="margin-top:10px;"><button class="primary" id="tmSave">Save settings</button></div><div id="tmStatus" class="status"></div></div>`;
+  box.querySelectorAll('input, textarea, select').forEach((x) => x.addEventListener('input', markDirty));
+  document.getElementById('tmSave').onclick = async () => {
+    const keepRows = tournAdm.rows;
+    if (await adminSave('legendsTournSettings', { settings: JSON.stringify(tournMailValues()) }, 'tmStatus', 'Settings saved.')) tournAdm.rows = keepRows;
+  };
 }
 function eventOpensKey(e) { return e.SignupOpens || addDays(e.DateKey, -14); }
 function eventState(e) { return board.today < eventOpensKey(e) ? 'notyet' : 'open'; }
