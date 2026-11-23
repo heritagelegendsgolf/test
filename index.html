@@ -524,7 +524,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-23h';
+const APP_VERSION = '2026-11-23j';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1586,13 +1586,24 @@ function adminEditHtml(s) {
   const teeSel = hasTee ? `<label class="hint">Tees</label><select data-admin-edit-tee>${tees.indexOf(s.Tee) === -1 ? '<option value="" selected>Tees…</option>' : ''}${tees.map((t) => `<option ${t === s.Tee ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>` : '';
   return `<div class="ts-note-edit admin-edit" data-admin-edit-form="${escapeHtml(s.SignupID)}">${teeSel}<label class="hint">Comment</label><input type="text" maxlength="120" data-admin-edit-note value="${escapeHtml(s.Note || '')}"><button class="secondary" data-admin-edit-save>Save</button><button class="link" data-admin-edit-cancel>Cancel</button></div>`;
 }
+// Who's in the tournament that replaces this group (Tom 2026-11-23: show the players on the day card).
+function tournChipsHtml(d, g) {
+  const t = dayTournObj(d, g);
+  if (!t || (g === 'nassau' && dayTournObj(d, 'fun') === t)) return ''; // a Fun-and-Nassau tournament is listed once, under Fun
+  const list = tournSignups(t), inL = list.slice(0, t.slots), sb = list.slice(t.slots);
+  return `<span class="ts-empty">${TOURN_ICON} The ${escapeHtml(t.title)} plays in place of the ${g === 'fun' && t.who === 'fun' ? 'Fun Group' : 'Fun and Nassau groups'} this day.</span>
+      <div class="ts-chip-group-label">${TOURN_ICON} ${escapeHtml(t.title)} · ${escapeHtml(tournTimes(t))} · ${t.teeTimes} tee times · ${inL.length} of ${t.slots}</div>
+      ${inL.map((s, i) => chipHtml(s, i + 1)).join('') || '<span class="ts-empty">No one signed up yet</span>'}
+      ${sb.length ? `<div class="ts-chip-group-label standby">Standby (${sb.length} of ${t.standbySlots})</div>${sb.map((s, i) => chipHtml(s, i + 1)).join('')}` : ''}
+      ${amAdmin() && !d.closed ? adminAddHtml(t.DateKey, t.group) : ''}`;
+}
 function groupChipsHtml(d, g) {
   const list = groupList(d.DateKey, g), slots = g === 'fun' ? d.funSlots : d.nassauSlots;
   const tt = dayTourn(d, g);
   if (tt) {
     // the tournament uses this group's tee times; anyone still on the list signed up before it was set up
     return `<div class="grp2"><div class="ts-chip-group-label">${g === 'fun' ? 'Fun group' : 'Nassau group'}</div>
-      <span class="ts-empty">${TOURN_ICON} No ${g === 'fun' ? 'Fun Group' : 'Nassau'} round this day: it's the ${escapeHtml(tt)}. Sign up for the tournament instead.</span>
+      ${tournChipsHtml(d, g) || `<span class="ts-empty">${TOURN_ICON} No ${g === 'fun' ? 'Fun Group' : 'Nassau'} round this day: it's the ${escapeHtml(tt)}.</span>`}
       ${list.length ? `<div class="ts-chip-group-label standby">Signed up before the tournament was set up</div>${list.map((s, i) => chipHtml(s, i + 1, d.DateKey)).join('')}` : ''}</div>`;
   }
   const inL = list.slice(0, slots), sb = list.slice(slots);
@@ -1634,13 +1645,26 @@ function toggleHtml(d, state, compact) {
   const wouldStandby = (g) => groupList(d.DateKey, g).length >= (g === 'fun' ? d.funSlots : d.nassauSlots);
   const label = (g) => (g === 'fun' ? 'Fun' : 'Nassau');
   const myT = tournUpcoming().find((t) => t.DateKey === d.DateKey && tournSignups(t).some((s) => String(s.PlayerID) === myId()));
-  if (!mine && myT) return `<span class="ts-closed-toggle-label">In the ${escapeHtml(myT.title)}</span>`;
+  if (!mine && myT) return tournToggleHtml(myT, compact, true);
+  // The tournament that replaces a group this day goes in the same "Click to sign up" list (Tom 2026-11-23).
+  const tOpts = [];
+  ['fun', 'nassau'].forEach((g) => {
+    const t = dayTournObj(d, g);
+    if (!t || tOpts.some((o) => o.t === t)) return;
+    const tl = tournSignups(t), ok = tournState(t) === 'open' && tournMayJoin(t), fullT = tl.length >= t.slots + t.standbySlots;
+    tOpts.push({ t, html: ok ? `<option value="tourn:${escapeHtml(t.TournID)}" ${fullT ? 'disabled' : ''}>${fullT ? `${escapeHtml(t.title)} — full` : tl.length >= t.slots ? `Standby · ${escapeHtml(t.title)}` : `Sign up · ${escapeHtml(t.title)}`}</option>` : '' });
+  });
+  const tOptFor = (g) => { const t = dayTournObj(d, g), o = t && tOpts.find((x) => x.t === t); if (!o) return `<option value="" disabled>${label(g)} — ${escapeHtml(dayTourn(d, g))}</option>`; const h = o.html; o.html = ''; return h; };
+  if (!mine && state !== 'open' && tOpts.some((o) => o.html)) {
+    return `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-signup-select="${d.DateKey}">
+        <option value="out" selected>Click to sign up</option>${tOpts.map((o) => o.html).join('')}</select></div>`;
+  }
   if (!mine) {
     if (state === 'notyet') return `<span class="ts-closed-toggle-label">Opens ${escapeHtml(DOW[new Date(d.opensAt - clockSkew).getDay()])}</span>`;
     if (state === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
     return `<div class="ts-toggle-wrap"><select class="ts-signup-select" data-signup-select="${d.DateKey}">
         <option value="out" selected>Click to sign up</option>
-        ${['fun', 'nassau'].map((g) => dayTourn(d, g) ? `<option value="" disabled>${label(g)} — ${escapeHtml(dayTourn(d, g))}</option>` : `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
+        ${['fun', 'nassau'].map((g) => dayTourn(d, g) ? tOptFor(g) : `<option value="${g}" ${full(g) ? 'disabled' : ''}>${full(g) ? `${label(g)} — full` : wouldStandby(g) ? `Standby · ${label(g)}` : `Sign up · ${label(g)}`}</option>`).join('')}
       </select></div>`;
   }
   if (mine.pending) return `<div class="ts-toggle-wrap"><span class="ts-saving"><span class="spin"></span>Signing up…</span></div>`;
@@ -1688,7 +1712,7 @@ function schedDayCardHtml(d) {
   const mid = d.closed
     ? `<div class="ts-closed-line"><span class="closed-flag">🚫</span><span class="closed-text">No Legends tee times — ${escapeHtml(d.closed)}</span></div>${notice ? `<div>${notice}</div>` : ''}`
     : `<div class="ts-card-mid-top">
-        <span class="ts-count">${d.tournFun ? `Fun: ${TOURN_ICON} ${escapeHtml(d.tournFun)}` : `Fun ${Math.min(f.length, d.funSlots)}/${d.funSlots}`} · ${d.tournNassau ? `Nassau: ${TOURN_ICON} ${escapeHtml(d.tournNassau)}` : `Nassau ${Math.min(n.length, d.nassauSlots)}/${d.nassauSlots}`}</span>
+        <span class="ts-count">${d.tournFun ? `Fun: ${TOURN_ICON} ${escapeHtml(d.tournFun)}${dayTournCount(d, 'fun')}` : `Fun ${Math.min(f.length, d.funSlots)}/${d.funSlots}`} · ${d.tournNassau ? `Nassau: ${TOURN_ICON} ${escapeHtml(d.tournNassau)}${d.tournNassau === d.tournFun ? '' : dayTournCount(d, 'nassau')}` : `Nassau ${Math.min(n.length, d.nassauSlots)}/${d.nassauSlots}`}</span>
         ${sbF + sbN ? `<span class="ts-standby-count">+${sbF + sbN} standby</span>` : ''}
         ${stateChipHtml(d, state)} ${notice}
       </div>`;
@@ -1817,13 +1841,20 @@ function tournWhoText(t) { return t.who === 'fun' ? 'Fun Group players' : 'Fun a
 function tournMayJoin(t) { return !(board.signups || []).some((s) => s.DateKey === t.DateKey && (s.Group === 'fun' || s.Group === 'nassau') && String(s.PlayerID) === myId()); }
 // The tournament replacing a group on a play day ('' if none).
 function dayTourn(d, g) { return (g === 'fun' ? d.tournFun : d.tournNassau) || ''; }
+// The tournament itself that replaces a group on a play day (null if none).
+function dayTournObj(d, g) {
+  const tt = dayTourn(d, g);
+  if (!tt) return null;
+  return (d.tournId && tournById(d.tournId)) || tournList().find((t) => t.DateKey === d.DateKey && t.title === tt && (g === 'fun' || t.who !== 'fun')) || null;
+}
+function dayTournCount(d, g) { const t = dayTournObj(d, g); return t ? ` ${Math.min(tournSignups(t).length, t.slots)}/${t.slots}` : ''; }
 function tournStateChip(t) {
   const st = tournState(t);
   if (st === 'open') return `<span class="ts-win win-open">Open · closes ${escapeHtml(whenLabel(t.closesAt - clockSkew))}</span>`;
   if (st === 'notyet') return `<span class="ts-win win-later">Opens ${escapeHtml(whenLabel(t.opensAt - clockSkew))}</span>`;
   return '<span class="ts-win win-soon">Sign-ups closed</span>';
 }
-function tournToggleHtml(t, compact) {
+function tournToggleHtml(t, compact, named) {
   if (!session) return '';
   const st = tournState(t), m = tournMine(t), list = tournSignups(t);
   if (m) {
@@ -1832,7 +1863,7 @@ function tournToggleHtml(t, compact) {
     const extra = !compact && st === 'open' ? `<div class="ts-holes-group"><select class="ts-tee-select" data-tee-set="${escapeHtml(m.s.SignupID)}">${m.s.Tee ? '' : '<option value="" selected>Tees…</option>'}${tees.map((x) => `<option ${x === m.s.Tee ? 'selected' : ''}>${escapeHtml(x)}</option>`).join('')}</select>
         <select class="ts-tee-select" data-ride-set="${escapeHtml(m.s.SignupID)}"><option value="walking" ${m.s.Riding === 'TRUE' ? '' : 'selected'}>Walking</option><option value="riding" ${m.s.Riding === 'TRUE' ? 'selected' : ''}>Riding</option></select></div>` : '';
     return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${m.standby ? 'standby' : ''}" data-tourn-select="${escapeHtml(t.TournID)}" data-mine="${escapeHtml(m.s.SignupID)}">
-        <option value="in" selected>${m.standby ? `Standby #${m.n}` : 'Signed up'} ✓</option><option value="out">${st === 'closed' ? 'Remove me (late)' : 'Remove me'}</option></select>${extra}</div>`;
+        <option value="in" selected>${m.standby ? `Standby #${m.n}` : 'Signed up'}${named ? ` · ${escapeHtml(t.title)}` : ''} ✓</option><option value="out">${st === 'closed' ? 'Remove me (late)' : 'Remove me'}</option></select>${extra}</div>`;
   }
   if (st === 'notyet') { const o = keyDate(t.opens); return `<span class="ts-closed-toggle-label">Opens ${MON[o.getUTCMonth()]} ${o.getUTCDate()}</span>`; }
   if (st === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
@@ -2028,6 +2059,7 @@ async function onSignupSelect(sel) {
   const key = sel.dataset.signupSelect, v = sel.value, mineId = sel.dataset.mine;
   const d = board.dates.find((x) => x.DateKey === key);
   const restore = () => renderCurrent();
+  if (v.indexOf('tourn:') === 0) { await onTournSelect({ dataset: { tournSelect: v.slice(6) }, value: 'in' }); return; }
   if (v.indexOf('drop:') === 0) {
     const before = (board.signups || []).length;
     await leaveSignup(v.slice(5), dayState(d) === 'closed', false);
