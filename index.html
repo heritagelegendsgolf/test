@@ -296,6 +296,8 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .seg button.on { background: var(--green); color: #fff; font-weight: 600; }
   .admin-add { margin-top: 6px; }
   .admin-add select { max-width: 220px; font-size: 0.85rem; padding: 5px 6px; }
+  .admin-add-queue { margin-top: 6px; }
+  .name-chip.pending-add { border-style: dashed; opacity: .85; }
   .duty-instr { background: #f4f1e6; border-radius: 8px; padding: 10px 12px; margin: 4px 0 12px; font-size: 0.92rem; line-height: 1.45; } .duty-instr div + div { margin-top: 6px; } .duty-instr b { color: var(--green-dark); }
   .duty-box { background: #f4f1e6; border-radius: 8px; padding: 9px 11px; margin-top: 10px; font-size: 0.88rem; }
   .duty-box b { color: var(--green-dark); }
@@ -524,7 +526,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-23j';
+const APP_VERSION = '2026-11-23k';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2190,12 +2192,18 @@ function joinFormHtml(d, group) {
     </div>`;
 }
 
+// Admins pick several names, then add them all at once (Tom 2026-11-23). Picked names wait here until "Add".
+const adminAddQueue = {};
 function adminAddHtml(key, group) {
+  const qk = key + '|' + group, queued = adminAddQueue[qk] || [];
   const taken = new Set((board.signups || []).filter((s) => s.DateKey === key && (group.indexOf(':') !== -1 ? s.Group === group : (s.Group === 'fun' || s.Group === 'nassau'))).map((s) => String(s.PlayerID)));
+  queued.forEach((id) => taken.add(String(id)));
+  const picked = queued.length ? `<div class="admin-add-queue">${queued.map((id) => { const r = rosterById(id); return `<span class="name-chip pending-add">${escapeHtml(displayName(r ? r.Name : id))}<button class="chip-remove" title="Take off the list" data-admin-unq="${escapeHtml(qk)}|${escapeHtml(id)}">×</button></span>`; }).join('')}
+    <div class="row" style="margin-top:6px;"><button class="primary save-due" data-admin-add-go="${escapeHtml(qk)}">Add ${queued.length} player${queued.length === 1 ? '' : 's'}</button><button class="link" data-admin-add-clear="${escapeHtml(qk)}">Cancel</button></div></div>` : '';
   const opts = (board.roster || []).filter((r) => r.Active !== 'FALSE' && !taken.has(String(r.PlayerID)))
     .sort((a, b) => a.Name.localeCompare(b.Name))
     .map((r) => `<option value="${escapeHtml(r.PlayerID)}">${escapeHtml(r.Name)}</option>`).join('');
-  return `<div class="admin-add"><select data-admin-add="${key}" data-group="${escapeHtml(group)}"><option value="">+ Admin: add a player…</option>${opts}</select></div>`;
+  return `<div class="admin-add"><select data-admin-add="${key}" data-group="${escapeHtml(group)}"><option value="">${queued.length ? '+ pick another player…' : '+ Admin: add players…'}</option>${opts}</select>${picked}</div>`;
 }
 
 function dutyForDay(key) { return (board.duty || []).filter((x) => x.DateKey === key); }
@@ -2279,7 +2287,10 @@ function wireSignups(el) {
     f.querySelector('[data-admin-edit-cancel]').onclick = () => { adminEditId = null; renderCurrent(); };
   });
   el.querySelectorAll('[data-switch]').forEach((b) => b.onclick = () => switchGroup(b.dataset.switch, b.dataset.key, b.dataset.group));
-  el.querySelectorAll('[data-admin-add]').forEach((s) => s.onchange = () => { if (s.value) adminAdd(s.dataset.adminAdd, s.dataset.group, s.value); });
+  el.querySelectorAll('[data-admin-add]').forEach((s) => s.onchange = () => { if (!s.value) return; const qk = s.dataset.adminAdd + '|' + s.dataset.group; (adminAddQueue[qk] = adminAddQueue[qk] || []).push(s.value); renderCurrent(); });
+  el.querySelectorAll('[data-admin-unq]').forEach((b) => b.onclick = () => { const p = b.dataset.adminUnq, i = p.lastIndexOf('|'), qk = p.slice(0, i), id = p.slice(i + 1); adminAddQueue[qk] = (adminAddQueue[qk] || []).filter((x) => String(x) !== id); renderCurrent(); });
+  el.querySelectorAll('[data-admin-add-clear]').forEach((b) => b.onclick = () => { delete adminAddQueue[b.dataset.adminAddClear]; renderCurrent(); });
+  el.querySelectorAll('[data-admin-add-go]').forEach((b) => b.onclick = () => adminAddMany(b.dataset.adminAddGo));
   const form = document.getElementById('joinForm');
   if (form && openForm) {
     form.querySelectorAll('#jfHoles button').forEach((b) => b.onclick = () => {
@@ -2357,7 +2368,22 @@ async function switchGroup(signupId, key, toGroup) {
   if (pick) { body.tee = pick.tee; body.holes = pick.holes; body.riding = pick.riding; }
   await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group${toGroup === 'fun' ? '.' : ' — check your tees.'}`);
 }
-async function adminAdd(key, group, playerId) {
+// Adds the picked players one after another, in the order they were picked.
+async function adminAddMany(qk) {
+  const ids = (adminAddQueue[qk] || []).slice(), i = qk.indexOf('|'), key = qk.slice(0, i), group = qk.slice(i + 1);
+  if (!ids.length || busy) return;
+  delete adminAddQueue[qk];
+  let ok = 0;
+  for (let n = 0; n < ids.length; n++) {
+    toast(`Adding ${n + 1} of ${ids.length}…`);
+    if (await adminAdd(key, group, ids[n], true)) ok++;
+    else { adminAddQueue[qk] = ids.slice(n + 1); break; } // keep the rest on the list to try again
+  }
+  renderCurrent();
+  if (ok === ids.length) toast(`${ok} player${ok === 1 ? '' : 's'} added.`);
+  else toast(`${ok} of ${ids.length} added. The rest are still on the list.`, true);
+}
+async function adminAdd(key, group, playerId, quiet) {
   const r = rosterById(playerId);
   const body = { signupId: newId('a'), dateKey: key, group, playerId, asAdmin: true };
   if (group === 'fun' || group === 'nassau' || group.indexOf('tourn:') === 0) {
@@ -2365,7 +2391,7 @@ async function adminAdd(key, group, playerId) {
     body.tee = prefTee(r, tees.filter(Boolean));
     if (group === 'fun') body.holes = '18';
   }
-  await act('legendsJoin', body, `${displayName(r ? r.Name : '')} added.`);
+  return act('legendsJoin', body, quiet ? '' : `${displayName(r ? r.Name : '')} added.`);
 }
 
 // ====================== TEE TIME DUTY TAB ======================
