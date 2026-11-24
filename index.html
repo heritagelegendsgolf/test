@@ -526,7 +526,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-24a';
+const APP_VERSION = '2026-11-24b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -5469,7 +5469,7 @@ function renderTournPairCard() {
       ${unplaced.length ? `<p><b>Not on a team yet:</b></p>${unplaced.map((p) => `<div class="tn-p">${nm(p)} ${e.teams.length ? moveSel(p.PlayerID, -1) : ''}</div>`).join('')}` : ''}
       ${v.standby.length ? `<p class="hint"><b>Standby:</b> ${v.standby.map((p) => escapeHtml(displayName(p.Name))).join(', ')}</p>` : ''}
       <h3>Pairings email</h3>
-      <p class="hint">To everyone signed up (and standby), with ${board.settings.TournEmailProShop === 'TRUE' ? 'the pro shop and ' : ''}the admin copied. ${v.emailSent ? `Last sent ${escapeHtml(whenLabel(Date.parse(v.emailSent)))}; sending again marks it UPDATED.` : 'Not sent yet.'}</p>
+      <p class="hint">To ${escapeHtml(tournSendWords(board.settings))}. ${v.emailSent ? `Last sent ${escapeHtml(whenLabel(Date.parse(v.emailSent)))}; sending again marks it UPDATED.` : 'Not sent yet.'}</p>
       <div class="row"><button class="secondary" id="tnPreview">Preview</button><button class="primary" id="tnSend">Send now</button></div>
       <div id="tnMail"></div>`;
   }
@@ -5495,7 +5495,7 @@ function renderTournPairCard() {
       const res = await apiPost('legendsTournEmailPreview', { id: tournAdm.id, settings: JSON.stringify(tournMailValues()) });
       if (!res.success) { if (!handleAdminRejected(res.error)) mb.innerHTML = `<p class="status error">${escapeHtml(cleanError(res.error))}</p>`; return; }
       const m = res.data;
-      mb.innerHTML = `<div class="preview-box"><div class="hint"><b>${m.total} recipient${m.total === 1 ? '' : 's'}</b><br><b>To:</b> ${escapeHtml(m.to || '(nobody)')}${m.cc ? `<br><b>Cc:</b> ${escapeHtml(m.cc)}` : ''}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div><hr>${m.html}</div>`;
+      mb.innerHTML = `<div class="preview-box"><div class="hint"><b>${m.total} recipient${m.total === 1 ? '' : 's'}</b>${m.viaGroup ? ` (the Google Group ${escapeHtml(m.viaGroup)} counts as 1)` : ''}<br><b>To:</b> ${escapeHtml(m.to || '(nobody)')}${m.cc ? `<br><b>Cc:</b> ${escapeHtml(m.cc)}` : ''}<br><b>Subject:</b> ${escapeHtml(m.subject)}</div><hr>${m.html}</div>`;
     } catch (er) { mb.innerHTML = '<p class="status error">Could not reach the server — try again.</p>'; }
   };
   document.getElementById('tnSend').onclick = () => {
@@ -5518,10 +5518,21 @@ async function tournLoad(action, okMsg, extra) {
     if (okMsg) showStatus('tnPairStatus', true, okMsg);
   } catch (e) { showStatus('tnPairStatus', false, 'Could not reach the server — try again.'); }
 }
+// Who gets the tournament email (Tom 2026-11-24: through the Legends Google Group to save the daily limit).
+const TOURN_SEND_OPTS = [['legends', 'All Legends'], ['players', 'Players signed up (and standby), each by name'], ['proshop', 'Pro shop'], ['admin', 'Admin'], ['extra', 'Also send to (below)']];
+function tournSendTo(s) { return String(s.TournEmailSendTo == null ? 'legends,proshop,admin,extra' : s.TournEmailSendTo).split(/[,\s]+/).filter(Boolean); }
+function tournSendWords(s) {
+  const to = tournSendTo(s), grp = String(s.DailyGroupEmail || '').trim(), w = [];
+  if (to.indexOf('legends') !== -1) w.push(grp ? `all the Legends through the Google Group (${grp})` : 'everyone signed up and on standby (no Legends Google Group is set under Sign-up summary)');
+  if (to.indexOf('players') !== -1 && !(to.indexOf('legends') !== -1 && !grp)) w.push(grp && to.indexOf('legends') !== -1 ? 'players not in the group, by name' : 'everyone signed up and on standby');
+  ['proshop', 'admin'].forEach((k) => { if (to.indexOf(k) !== -1) w.push(k === 'proshop' ? 'the pro shop' : 'the admin'); });
+  if (to.indexOf('extra') !== -1 && String(s.TournEmailExtraEmails || '').trim()) w.push('the extra addresses');
+  return w.length ? w.join(', ').replace(/, ([^,]*)$/, ' and $1') : 'nobody (tick who gets it under Tournament settings and email)';
+}
 function tournMailValues() {
   const g = (id) => document.getElementById(id);
   if (!g('tmOn')) return {};
-  return { TournEmailOn: g('tmOn').checked ? 'TRUE' : 'FALSE', TournEmailHour: g('tmHour').value, TournEmailProShop: g('tmShop').checked ? 'TRUE' : 'FALSE',
+  return { TournEmailOn: g('tmOn').checked ? 'TRUE' : 'FALSE', TournEmailHour: g('tmHour').value, TournEmailSendTo: [...document.querySelectorAll('[data-tm-to]')].filter((x) => x.checked).map((x) => x.dataset.tmTo).join(','),
     TournEmailExtraEmails: g('tmExtra').value, TournEmailMessage: g('tmMsg').value, TournEmailFooterText: g('tmFoot').value, TournCloseDaysBefore: g('tmClose').value, TournTees: g('tmTees').value.split(',').map((x) => x.trim()).filter(Boolean).join(',') };
 }
 function renderTournMailCard() {
@@ -5530,12 +5541,13 @@ function renderTournMailCard() {
   if (!amAdmin() && !amViewOnly()) { box.innerHTML = '<div class="card"><p class="hint" style="margin:0;">The tournament email settings (send automatically, message, who is copied) are changed by a Full admin. You can preview and send your tournament\'s email above.</p></div>'; return; }
   const s = board.settings;
   box.innerHTML = `<div class="card"><h2>Tournament settings and email</h2>
-    <p class="hint">The <b>pairings email</b> lists the date, tee times, game, prizes and the teams (A, B, C, D players with their index), and goes to everyone signed up and on standby${s.TournEmailProShop === 'TRUE' ? ', with the pro shop' : ''} and the admin copied. With it <b>On</b>, it goes automatically the morning after sign-ups close (teams are made then if there aren't any). With it Off, it only goes when you click <b>Send now</b> above.</p>
+    <p class="hint">The <b>pairings email</b> lists the date, tee times, game, prizes and the teams (A, B, C, D players with their index), and goes to ${escapeHtml(tournSendWords(s))}. Gmail allows about 100 recipients a day, so sending through the Legends Google Group (1 recipient) is much cheaper than sending to each player. With it <b>On</b>, it goes automatically the morning after sign-ups close (teams are made then if there aren't any). With it Off, it only goes when you click <b>Send now</b> above.</p>
     <label class="em-switch"><input type="checkbox" id="tmOn" ${s.TournEmailOn === 'TRUE' ? 'checked' : ''}> <b>Send automatically</b></label>
     <div class="row" style="margin-top:8px;"><label>at <select id="tmHour">${emHourOpts(String(s.TournEmailHour || '9'))}</select> the morning after sign-ups close</label></div>
     <div class="row" style="margin-top:8px;"><label>New tournaments: sign-ups close <input type="number" id="tmClose" min="0" max="14" style="width:60px;" value="${escapeHtml(s.TournCloseDaysBefore || '3')}"> days before (you can change any tournament's date in the list)</label></div>
     <label style="display:block;margin-top:8px;">Tees players choose from (comma-separated)</label><input type="text" id="tmTees" value="${escapeHtml(String(s.TournTees || 'Gold,Red').split(',').join(', '))}" placeholder="Gold, Red">
-    <label style="display:block;margin-top:8px;"><input type="checkbox" id="tmShop" ${s.TournEmailProShop === 'TRUE' ? 'checked' : ''}> Copy the pro shop (${escapeHtml(s.ProShopEmails || 'not set')})</label>
+    <label style="display:block;margin-top:8px;"><b>Send to</b></label>
+    ${TOURN_SEND_OPTS.map(([k, l]) => `<label style="display:block;margin-left:4px;"><input type="checkbox" data-tm-to="${k}" ${tournSendTo(s).indexOf(k) !== -1 ? 'checked' : ''}> ${escapeHtml(l)}${k === 'legends' ? ` <span class="hint">(${s.DailyGroupEmail ? 'the Google Group ' + escapeHtml(s.DailyGroupEmail) + ': counts as 1 toward the daily limit' : 'no Google Group set under Admin › Setup › Emails › Sign-up summary, so it goes to the players by name'})</span>` : k === 'proshop' ? ` <span class="hint">(${escapeHtml(s.ProShopEmails || 'not set')})</span>` : k === 'players' ? ' <span class="hint">(each one counts toward the daily limit)</span>' : ''}</label>`).join('')}
     <label style="display:block;margin-top:8px;">Also send to (other addresses, comma-separated)</label><input type="text" id="tmExtra" value="${escapeHtml(s.TournEmailExtraEmails || '')}" placeholder="e.g. name@theheritageclub.net">
     <label style="display:block;margin-top:8px;">Message at the top (optional)</label><textarea id="tmMsg" rows="2" placeholder="e.g. Please check in at the pro shop by 7:45 and pay your $10.">${escapeHtml(s.TournEmailMessage || '')}</textarea>
     <label style="display:block;margin-top:8px;">Closing line</label><input type="text" id="tmFoot" value="${escapeHtml(s.TournEmailFooterText || '')}">
@@ -6289,6 +6301,7 @@ function renderEmailsAdmin(el) {
     ${EMAIL_TYPES.map(emPanelHtml).join('')}
     ${emStandbyHtml()}
     ${emSimpleHtml()}
+    <div id="tnMailCard"></div>
     <div class="card"><h2>All emails</h2>
       <label>App link in emails</label><input type="text" data-emset="SiteUrl" value="${escapeHtml(st.SiteUrl || '')}">
       <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Fun Group players for tomorrow” uses one per player.</p>
@@ -6328,6 +6341,7 @@ function renderEmailsAdmin(el) {
   });
   el.querySelectorAll('[data-em-save]').forEach((b) => b.onclick = () => adminSave('legendsSaveAppSettings', { settings: JSON.stringify(emCollect(el)) }, 'emStatus-' + b.dataset.emSave));
   const sbp = el.querySelector('[data-sb-preview]'); if (sbp) sbp.onclick = () => emStandbyPreview(el);
+  renderTournMailCard(); // the tournament pairings email, also on Setup › Tournaments (Tom 2026-11-24)
   el.querySelectorAll('[data-rem-preview]').forEach((b) => b.onclick = () => emPreview(el, b.dataset.remPreview, el.querySelector(`[data-rem-date="${b.dataset.remPreview}"]`).value));
   el.querySelectorAll('[data-rem-date]').forEach((i) => i.addEventListener('change', () => {
     const s = el.querySelector(`[data-em-sent="${i.dataset.remDate}"]`);
