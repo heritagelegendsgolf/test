@@ -186,7 +186,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
   @media (max-width:760px) { .snap-cols { grid-template-columns:1fr; } }
   .snap-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 10px; }
-  .snap-head h2 { margin:0; color:var(--green-dark); } .snap-head .ts-print-btn { white-space:nowrap; flex-shrink:0; }
+  .snap-head h2 { margin:0; color:var(--green-dark); } .snap-head h2 .snap-who { font-size:0.75em; font-weight:400; color:var(--muted); } .snap-head .ts-print-btn { white-space:nowrap; flex-shrink:0; }
   .snap-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap:0 22px; } .snap-grid .snap-row, .snap-grid .snap-row:last-child { border-bottom:1px dashed #e7dfc9; } .snap-grid .snap-l1 { font-size:.88rem; } .snap-grid .ts-signup-select { max-width:130px; } @media print { .snap-grid { grid-template-columns:repeat(3, 1fr); } }
   @media print { .my-summary .snap-banner { background:none !important; color:var(--green-dark) !important; border-bottom:2px solid var(--gold) !important; border-radius:0 !important; } .snap-row { break-inside:avoid; } }
   @media (max-width:560px) { .snap-duty { grid-template-columns:1fr; } .duty-cell { border-bottom:1px dashed #e7dfc9; } }
@@ -526,7 +526,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-24b';
+const APP_VERSION = '2026-11-24d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1790,7 +1790,7 @@ function personOn(it, pid) {
 function renderSnapshot() {
   const el = document.getElementById('snapshotBody');
   const who = session ? displayName(session.member.Name) : '';
-  const head = `<div class="snap-head"><h2>My SUN Snapshot${who ? ` <span class="hint" style="font-weight:400;">· ${escapeHtml(who)}</span>` : ''}</h2><button class="ts-print-btn no-print" data-print>🖨️ Print</button></div>`;
+  const head = `<div class="snap-head"><h2>My SUN Snapshot${who ? ` <span class="snap-who">· ${escapeHtml(who)}</span>` : ''}</h2><button class="ts-print-btn no-print" data-print>🖨️ Print</button></div>`;
   const body = session ? mySummaryHtml(schedItems())
     : '<div class="card"><p class="hint" style="margin:0;">You are signed in as an admin only, so there is no personal snapshot. Sign in with your member PIN to see your tee time duty, sign-ups and events here.</p></div>';
   el.innerHTML = awayBannerHtml() + swapIncomingHtml() + newsCardHtml() + head + body;
