@@ -526,7 +526,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-23k';
+const APP_VERSION = '2026-11-24a';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -2368,20 +2368,27 @@ async function switchGroup(signupId, key, toGroup) {
   if (pick) { body.tee = pick.tee; body.holes = pick.holes; body.riding = pick.riding; }
   await act('legendsJoin', body, `Switched to the ${toGroup === 'fun' ? 'Fun' : 'Nassau'} group${toGroup === 'fun' ? '.' : ' — check your tees.'}`);
 }
-// Adds the picked players one after another, in the order they were picked.
+// Adds all the picked players in one save, in the order they were picked (Tom 2026-11-24).
 async function adminAddMany(qk) {
   const ids = (adminAddQueue[qk] || []).slice(), i = qk.indexOf('|'), key = qk.slice(0, i), group = qk.slice(i + 1);
   if (!ids.length || busy) return;
-  delete adminAddQueue[qk];
-  let ok = 0;
-  for (let n = 0; n < ids.length; n++) {
-    toast(`Adding ${n + 1} of ${ids.length}…`);
-    if (await adminAdd(key, group, ids[n], true)) ok++;
-    else { adminAddQueue[qk] = ids.slice(n + 1); break; } // keep the rest on the list to try again
-  }
-  renderCurrent();
-  if (ok === ids.length) toast(`${ok} player${ok === 1 ? '' : 's'} added.`);
-  else toast(`${ok} of ${ids.length} added. The rest are still on the list.`, true);
+  const tees = group.indexOf('tourn:') === 0 ? tournTees() : String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
+  const hasTee = group === 'fun' || group === 'nassau' || group.indexOf('tourn:') === 0;
+  const many = ids.map((id) => ({ signupId: newId('a'), playerId: id, tee: hasTee ? prefTee(rosterById(id), tees) : '', holes: group === 'fun' ? '18' : '' }));
+  busy = true;
+  toast(`Adding ${ids.length} player${ids.length === 1 ? '' : 's'}…`);
+  try {
+    const res = await apiPost('legendsJoin', { dateKey: key, group, asAdmin: true, many: JSON.stringify(many) }, true);
+    if (!res.success) { if (!handleSignedOut(res.error)) toast(cleanError(res.error), true); return; }
+    const r = res.data.addResult || { added: ids, failed: [] };
+    adminAddQueue[qk] = r.failed.map((f) => f.playerId); // anyone who couldn't be added stays on the list
+    if (!adminAddQueue[qk].length) delete adminAddQueue[qk];
+    adoptBoard(res.data);
+    if (!r.failed.length) toast(`${r.added.length} player${r.added.length === 1 ? '' : 's'} added.`);
+    else toast(`${r.added.length} of ${ids.length} added. ${r.failed.map((f) => { const p = rosterById(f.playerId); return displayName(p ? p.Name : f.playerId) + ': ' + cleanError(f.error); }).join(' ')}`, true);
+  } catch (e) {
+    toast('Could not reach the server — check your connection and try again.', true);
+  } finally { busy = false; renderCurrent(); }
 }
 async function adminAdd(key, group, playerId, quiet) {
   const r = rosterById(playerId);
