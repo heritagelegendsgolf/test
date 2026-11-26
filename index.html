@@ -185,7 +185,6 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .duty-date { font-weight:800; color:var(--green-dark); font-size:1rem; margin-bottom:2px; }
   .ts-duty.duty-full { display:flex; align-items:flex-start; gap:6px; } .ts-duty.duty-full div div { margin-top:3px; }
   @media (max-width:760px) { .snap-cols { grid-template-columns:1fr; } }
-  .signup-restroom { text-align:center; font-weight:700; margin:0 0 10px; }
   .snap-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 10px; }
   .snap-head h2 { margin:0; color:var(--green-dark); } .snap-head h2 .snap-who { font-size:0.75em; font-weight:400; color:var(--muted); } .snap-head .ts-print-btn { white-space:nowrap; flex-shrink:0; }
   .snap-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap:0 22px; } .snap-grid .snap-row, .snap-grid .snap-row:last-child { border-bottom:1px dashed #e7dfc9; } .snap-grid .snap-l1 { font-size:.88rem; } .snap-grid .ts-signup-select { max-width:130px; } @media print { .snap-grid { grid-template-columns:repeat(3, 1fr); } }
@@ -527,7 +526,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-24e';
+const APP_VERSION = '2026-11-24d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1991,7 +1990,6 @@ function renderSignups() {
   if (['calendar', 'date', 'person'].indexOf(schedView) === -1) schedView = 'date';
   const views = [['calendar', 'Calendar view'], ['date', 'List by date'], ['person', 'List by person']];
   const controls = `
-    <p class="signup-restroom">Restroom Passcode - 0918</p>
     <div class="ts-section-title-row no-print"><h2 class="ts-section-title">Upcoming Dates <span>next 2 weeks</span></h2>
       <button class="ts-print-btn" id="schedPrint">🖨️ Print</button></div>
     <div class="ts-duty-sort no-print">${views.map(([v, l]) => `<button class="ts-duty-sort-btn ${schedView === v ? 'active' : ''}" data-sched-view="${v}">${l}</button>`).join('')}</div>
