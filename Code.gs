@@ -66,7 +66,7 @@ function checkSetup() {
 // Bumped by hand every time this file changes. Fetch it via the getVersion
 // action (index.html shows it in the header as "Backend: ...") to check
 // whether what's pasted into Apps Script is actually the latest copy.
-const BACKEND_VERSION = '2026-11-24b';
+const BACKEND_VERSION = '2026-11-26a';
 
 const SHEETS = {
   SETTINGS: 'Settings',

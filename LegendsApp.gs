@@ -3281,7 +3281,7 @@ const LA_PAIR_ORDER_ = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6'];
 // Avoid blinds where we can (Tom 2026-11-04): when the players split into equal threesomes
 // that fit the day's tee times, use them instead of foursomes with blinds (15 = five threesomes).
 // Version of this file; Code.gs reports it beside BACKEND_VERSION so a missed paste shows on the page.
-const LA_VERSION = '2026-11-24b';
+const LA_VERSION = '2026-11-26a';
 const LA_MAX_TEE_TIMES_ = 9; // Fun + Nassau tee times in a day (Tom 2026-11-07)
 function laPairBase_(n, maxGroups) {
   if (n < 6 || n > maxGroups * 4) return null;
@@ -4112,7 +4112,7 @@ function laPairBody_(ss, key, st) {
   const idxTable = laIdxTable_(byIdx, (x) => laEsc_(short(x)), chTxt);
   const html = '<div>' + laMsg_(st.PairingsMessage, 'font-family:Arial,sans-serif;font-size:14px;') + grid + notes + idxTable +
     (laIsTrue_(st.PairingsAppLink, true) && st.SiteUrl ? '<p style="font-family:Arial,sans-serif;font-size:13px;margin-top:16px;"><a href="' + laEsc_(st.SiteUrl) + '">Open the Legends app</a></p>' : '') + '</div>';
-  return { subject: 'Nassau Game-day Pairings and Larry\'s Game for ' + laLongDate_(key), html: html }; // Tom 2026-11-20
+  return { subject: 'Nassau Game-day Pairings for ' + laLongDate_(key), html: html }; // Tom 2026-11-20; "and Larry's Game" dropped from the subject 2026-11-26
 }
 function laPairingsPreview_(ss, p) {
   laRequireAdmin_(ss, p);
