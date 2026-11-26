@@ -297,6 +297,19 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .seg button.on { background: var(--green); color: #fff; font-weight: 600; }
   .admin-add { margin-top: 6px; }
   .admin-add select { max-width: 220px; font-size: 0.85rem; padding: 5px 6px; }
+  .le-cards { display:flex; flex-direction:column; gap:8px; }
+  .le-card { border:1px solid #d7dccf; border-radius:8px; background:#fafbf7; }
+  .le-card > summary { cursor:pointer; padding:9px 12px; display:flex; align-items:center; gap:10px; font-weight:600; list-style:none; }
+  .le-card > summary::-webkit-details-marker { display:none; }
+  .le-card > summary::before { content:'▸'; color:var(--green); transition:transform .15s; }
+  .le-card[open] > summary::before { transform:rotate(90deg); }
+  .le-card-title { flex:1; min-width:0; }
+  .le-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:10px 14px; padding:4px 12px 12px; }
+  .le-f label { display:block; font-size:.8rem; color:var(--muted); margin-bottom:3px; }
+  .le-f input:not([type=checkbox]), .le-f select, .le-f textarea { width:100% !important; box-sizing:border-box; }
+  .le-f.le-wide { grid-column:1 / -1; }
+  .le-f.le-check { display:flex; align-items:center; gap:6px; flex-direction:row-reverse; justify-content:flex-end; }
+  .le-f.le-check label { margin:0; }
   .admin-add-queue { margin-top: 6px; }
   .name-chip.pending-add { border-style: dashed; opacity: .85; }
   .duty-instr { background: #f4f1e6; border-radius: 8px; padding: 10px 12px; margin: 4px 0 12px; font-size: 0.92rem; line-height: 1.45; } .duty-instr div + div { margin-top: 6px; } .duty-instr b { color: var(--green-dark); }
@@ -527,7 +540,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-26a';
+const APP_VERSION = '2026-11-26b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -552,7 +565,7 @@ async function apiGet(action, extra) {
 // at the top of the screen, and the button that started it is disabled with a
 // spinner until the server answers, so it's always clear something is happening.
 const READ_ACTIONS = ['memberCheckEmail', 'memberLogin', 'verifyAdminPin', 'memberGetContact', 'memberRoster', 'getHandicaps', 'legendsGetBoard', 'legendsFileGet',
-  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet', 'legendsAttendanceGet', 'legendsTournPairGet', 'legendsTournEmailPreview'];
+  'getMembersAdmin', 'legendsReminderPreview', 'getAdmins', 'getActivityLog', 'adminPresence', 'legendsPairingsGet', 'legendsFunGet', 'legendsAttendanceGet', 'legendsTournPairGet', 'legendsEmailForecast', 'legendsTournEmailPreview'];
 function savingLabel(action) {
   if (/Upload/.test(action)) return 'Uploading…';
   if (/Import/.test(action)) return 'Importing…';
@@ -871,6 +884,7 @@ function signOut() {
   if (currentTab === 'admin') adminPresencePing(true);
   saveSession(null);
   saveAdminSession(null);
+  boardCacheClear();
   board = null;
   gate.step = 'email'; gate.email = ''; gate.err = '';
   showGate();
@@ -905,22 +919,27 @@ async function openMyInfo(askGroup) {
       <label>Email</label><input type="email" id="miEmail" value="${escapeHtml(c.Email)}" autocapitalize="off">
       <label style="margin-top:8px;display:block;">Mobile phone</label><input type="tel" id="miMobile" value="${escapeHtml(c.MobilePhone)}">
       <label style="margin-top:8px;display:block;">Home phone</label><input type="tel" id="miHome" value="${escapeHtml(c.HomePhone)}">
-      <label style="margin-top:8px;display:block;">Emergency contact</label><input type="text" id="miEmergency" maxlength="200" value="${escapeHtml(c.EmergencyContact || '')}" placeholder="Name (relationship) phone — e.g. Sue Smith (wife) 919-555-1234">
+      ${emergencyBoxesHtml(c.EmergencyContact)}
       <label style="margin-top:8px;display:block;">Preferred tees</label><select id="miTee" style="width:auto;"><option value="">Not chosen${c.UsualTee ? ` (you usually play ${escapeHtml(c.UsualTee)})` : ''}</option>${HCP_TEES.map((t) => `<option ${t.tee === c.PreferredTee ? 'selected' : ''}>${t.tee}</option>`).join('')}</select>
       <div class="hint">New sign-ups start on these tees (you can still pick others for a day), and the Handicaps tab uses them for your course handicap.</div>
       <div class="row" style="margin-top:12px;"><button class="primary" id="miSave">Save</button><button class="link" id="miCancel">Cancel</button></div>
       <div id="miStatus" class="status"></div>
     </div>`;
   document.getElementById('miCancel').onclick = () => { box.hidden = true; };
+  const ec2 = document.getElementById('miEc2Add');
+  if (ec2) ec2.onclick = () => { document.getElementById('miEc2').hidden = false; ec2.hidden = true; document.getElementById('miEc2Name').focus(); };
   box.onclick = (e) => { if (e.target === box) box.hidden = true; };
   document.getElementById('miSave').onclick = async () => {
     const email = document.getElementById('miEmail').value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus('miStatus', false, 'Enter a valid email address.'); return; }
     const grp = (document.querySelector('input[name="miGroup"]:checked') || {}).value || '';
     if (!grp) { showStatus('miStatus', false, 'Please choose which Legends email list you would like to be on.'); document.getElementById('miGroupBox').scrollIntoView({ block: 'center' }); return; }
+    const ec = emergencyFromBoxes();
+    if (ec.error) { showStatus('miStatus', false, ec.error); return; }
+    const ecVal = ec.text;
     const btn = document.getElementById('miSave'); btn.disabled = true;
     try {
-      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim(), emergencyContact: tidyEmergency(document.getElementById('miEmergency').value), preferredTee: document.getElementById('miTee').value, playGroup: grp });
+      const res = await apiPost('memberSaveContact', { email, homePhone: document.getElementById('miHome').value.trim(), mobilePhone: document.getElementById('miMobile').value.trim(), emergencyContact: ecVal, preferredTee: document.getElementById('miTee').value, playGroup: grp });
       if (!res.success) { if (!handleSignedOut(res.error)) showStatus('miStatus', false, cleanError(res.error)); return; }
       saveSession({ token: session.token, member: res.data.member });
       box.hidden = true;
@@ -972,8 +991,12 @@ function showApp(tab, preloaded) {
   document.getElementById('lnkLive').href = 'live.html' + location.search;
   document.getElementById('lnkTAdmin').href = 'tournament-admin.html' + location.search;
   if (preloaded) adoptBoard(preloaded); // already fetched with the sign-in — no second wait
+  let kept = null;
+  if (!preloaded && !board && !adminSession) { kept = boardCacheGet(); if (kept) adoptBoard(kept.b, kept.at); }
   selectTab(tab || currentTab || 'snapshot');
-  if (!preloaded) loadBoard();
+  if (!preloaded) {
+    if (kept) { savingStart('Updating…'); loadBoard().finally(savingEnd); } else loadBoard();
+  }
 }
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 function selectTab(tab) {
@@ -1000,6 +1023,46 @@ function renderCurrent() {
 }
 
 // ====================== ROSTER TAB ======================
+// My info's emergency contacts (Tom 2026-11-26): separate boxes for name, relationship and mobile
+// phone, and a second contact if needed. Still saved as one EmergencyContact text in the house
+// style, "Sue Smith (wife) 919-555-1234; Tom Smith (son) 919-555-0000", so the Roster, Members
+// page and imports keep working unchanged.
+function parseEmergency(text) {
+  return tidyEmergency(text).split(/\s*;\s*/).filter(Boolean).map((part) => {
+    const m = part.match(/^(.*?)\s*(\d{3}-\d{3}-\d{4})?\s*$/);
+    let name = (m ? m[1] : part).trim(), rel = '';
+    const r = name.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+    if (r) { name = r[1].trim(); rel = r[2].trim(); }
+    return { name, rel, phone: m && m[2] ? m[2] : '' };
+  });
+}
+function emergencyBoxesHtml(text) {
+  const list = parseEmergency(text), a = list[0] || {}, b = list[1] || {};
+  const extra = list.slice(2).map((x) => `${x.name}${x.rel ? ` (${x.rel})` : ''}${x.phone ? ' ' + x.phone : ''}`).join('; ');
+  const boxes = (n, x) => `<div class="row" style="gap:6px;flex-wrap:wrap;">
+      <div style="flex:2 1 150px;"><label class="hint" style="display:block;">Name</label><input type="text" id="miEc${n}Name" maxlength="50" value="${escapeHtml(x.name || '')}" placeholder="e.g. Sue Smith"></div>
+      <div style="flex:1 1 100px;"><label class="hint" style="display:block;">Relationship</label><input type="text" id="miEc${n}Rel" maxlength="30" value="${escapeHtml(x.rel || '')}" placeholder="e.g. wife"></div>
+      <div style="flex:1 1 130px;"><label class="hint" style="display:block;">Mobile phone</label><input type="tel" id="miEc${n}Phone" maxlength="20" value="${escapeHtml(x.phone || '')}" placeholder="919-555-1234"></div></div>`;
+  return `<fieldset style="margin-top:10px;border:1px solid var(--line, #ddd);border-radius:8px;padding:6px 10px 10px;"><legend style="font-weight:600;padding:0 4px;">Emergency contact</legend>
+      ${boxes(1, a)}
+      <div id="miEc2" ${b.name || b.phone ? '' : 'hidden'} style="margin-top:8px;"><div class="hint" style="font-weight:600;">Second emergency contact</div>${boxes(2, b)}</div>
+      ${b.name || b.phone ? '' : '<button type="button" class="link" id="miEc2Add" style="margin-top:6px;">+ Add a second emergency contact</button>'}
+      <input type="hidden" id="miEcExtra" value="${escapeHtml(extra)}"></fieldset>`;
+}
+function emergencyFromBoxes() {
+  const g = (id) => (document.getElementById(id) || { value: '' }).value.replace(/\s+/g, ' ').trim();
+  const out = [];
+  for (const n of [1, 2]) {
+    const name = g(`miEc${n}Name`).replace(/[;()]/g, ''), rel = g(`miEc${n}Rel`).replace(/[;()]/g, ''), phoneRaw = g(`miEc${n}Phone`);
+    if (!name && !rel && !phoneRaw) continue;
+    const digits = phoneRaw.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+    if (phoneRaw && digits.length !== 10) return { error: `Enter the ${n === 2 ? 'second ' : ''}emergency contact's mobile phone like 919-555-1234.` };
+    if (!name) return { error: `Enter the ${n === 2 ? 'second ' : ''}emergency contact's name.` };
+    out.push(`${name}${rel ? ` (${rel})` : ''}${digits ? ` ${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}` : ''}`);
+  }
+  const extra = g('miEcExtra'); if (extra) out.push(extra);
+  return { text: out.join('; ').slice(0, 200) };
+}
 // Active Legends with email, phones and emergency contact — one line each, A-Z by
 // last name. Scrolls in its own box on screen; prints landscape.
 let rosterData = null, rosterLoading = false, rosterQuery = '';
@@ -1335,9 +1398,26 @@ let clockSkew = 0;         // server time minus this device's time
 let boardLoading = false;
 function serverNow() { return Date.now() + clockSkew; }
 let askedGroup = false;
-function adoptBoard(b) {
+// The last Sign-ups data is kept on this device, so the app opens straight away with it while
+// fresh data loads (Tom 2026-11-26: the app was slow to open, worse away from wi-fi). Members
+// only (never an admin's data), at most 6 hours old, and cleared on sign-out.
+const BOARD_CACHE_KEY = SESSION_KEY + '_board';
+function boardCacheSave(b) {
+  if (!session || !b || (b.viewer && b.viewer.isAdmin)) return;
+  try { const t = JSON.stringify({ at: Date.now(), pid: String(session.member.PlayerID), b }); if (t.length < 1500000) localStorage.setItem(BOARD_CACHE_KEY, t); } catch (e) {}
+}
+function boardCacheGet() {
+  try {
+    const c = JSON.parse(localStorage.getItem(BOARD_CACHE_KEY) || 'null');
+    if (!c || !session || c.pid !== String(session.member.PlayerID) || Date.now() - c.at > 6 * 3600000) return null;
+    return c;
+  } catch (e) { return null; }
+}
+function boardCacheClear() { try { localStorage.removeItem(BOARD_CACHE_KEY); } catch (e) {} }
+function adoptBoard(b, cachedAt) {
   board = b;
-  clockSkew = b.now - Date.now();
+  clockSkew = cachedAt ? 0 : b.now - Date.now(); // a kept copy's server time is old: trust this device's clock until fresh data arrives
+  if (!cachedAt) boardCacheSave(b);
   renderCurrent();
   // Members who haven't chosen their Legends email list are asked once per visit (Tom 2026-11-01).
   if (!askedGroup && session && session.member) {
@@ -3135,6 +3215,7 @@ function renderTestCopyCard() {
 function renderAdminSub() {
   const el = document.getElementById('adminContent');
   renderEmailLimitBanner();
+  if (Date.now() - emailForecastAt > 5 * 60000) loadEmailForecast(adminSub === 'emails');
   renderTestCopyCard();
   if (adminSub === 'members') return renderMembersAdmin(el);
   if (!board) { el.innerHTML = '<div class="card hint">Loading…</div>'; return; }
@@ -3160,9 +3241,23 @@ const dirtyNote = '<span class="dirty-note" id="adDirty" hidden>Unsaved changes<
 // Top of every admin page: a warning when the automatic emails due on a day would go
 // over Gmail's daily limit (board.emailForecast — see laEmailForecast_ in LegendsApp.gs).
 function emDayLabel(day) { return day === board.today ? 'today' : dateShort(day); }
+// The forecast loads on its own after the admin page opens, so signing in as an admin is quicker (Tom 2026-11-26).
+let emailForecast = null, emailForecastAt = 0, emailForecastLoading = false;
+async function loadEmailForecast(fresh) {
+  if (!adminSession || emailForecastLoading) return;
+  emailForecastLoading = true;
+  try {
+    const res = await apiPost('legendsEmailForecast', fresh ? { fresh: 'true' } : {});
+    if (res.success && res.data) {
+      emailForecast = res.data; emailForecastAt = Date.now();
+      renderEmailLimitBanner();
+      const fb = document.getElementById('emForecastBox'); if (fb) fb.innerHTML = emForecastHtml();
+    }
+  } catch (e) { /* the banner just stays as it was */ } finally { emailForecastLoading = false; }
+}
 function renderEmailLimitBanner() {
   const b = document.getElementById('emailLimitBanner');
-  const f = board && board.emailForecast;
+  const f = emailForecast;
   const over = f ? f.days.filter((d) => d.over) : [];
   b.hidden = !over.length;
   if (!over.length) return;
@@ -5232,14 +5327,33 @@ function renderDaysAdmin(el) {
 }
 
 // ---------------- simple list editors (closures, notices, club tee times, events) ----------------
-function listEditorHtml(id, title, hint, cols, rows) {
-  return `<div class="card"><h2>${title}</h2><p class="hint">${hint}</p>
-    <div class="tbl-wrap"><table class="ad"><thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead><tbody id="${id}Body">
-    ${rows.map((r, i) => `<tr>${cols.map((c) => `<td>${c.type === 'check'
+// One field of a list editor row (shared by the table and the card layouts).
+function leFieldHtml(id, c, r, i) {
+  return c.type === 'check'
         ? `<input type="checkbox" data-le="${id}" data-i="${i}" data-f="${c.f}" ${(c.off ? String(r[c.f]).toUpperCase() === 'TRUE' : String(r[c.f]).toUpperCase() !== 'FALSE') ? 'checked' : ''}>`
         : c.type === 'textarea' ? `<textarea data-le="${id}" data-i="${i}" data-f="${c.f}" rows="${c.rows || 2}" placeholder="${escapeHtml(c.ph || '')}" ${c.grow ? 'data-grow="1"' : ''} style="${c.w ? 'width:' + c.w : 'width:100%'}${c.grow ? ';overflow:hidden;resize:none' : ''}">${escapeHtml(r[c.f] || '')}</textarea>`
         : c.type === 'select' ? `<select data-le="${id}" data-i="${i}" data-f="${c.f}" style="${c.w ? 'width:' + c.w : ''}">${c.opts.map(([v, l]) => `<option value="${escapeHtml(v)}" ${String(r[c.f] || c.opts[0][0]) === v ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select>`
-        : `<input type="${c.type || 'text'}" data-le="${id}" data-i="${i}" data-f="${c.f}" value="${escapeHtml(r[c.f] || '')}" placeholder="${escapeHtml(c.ph || '')}" ${c.list ? `list="${c.list}"` : ''} style="${c.w ? 'width:' + c.w : 'width:100%'}">`}</td>`).join('')}
+        : `<input type="${c.type || 'text'}" data-le="${id}" data-i="${i}" data-f="${c.f}" value="${escapeHtml(r[c.f] || '')}" placeholder="${escapeHtml(c.ph || '')}" ${c.list ? `list="${c.list}"` : ''} style="${c.w ? 'width:' + c.w : 'width:100%'}">`;
+}
+// opts.cards (Tom 2026-11-26, Setup › Tournaments): each row is its own box that opens and closes,
+// with its fields laid out in a grid, instead of one wide table row. opts.summary(r, i) is the
+// box's title line; opts.isOpen(r, i) says which boxes start open.
+function listEditorHtml(id, title, hint, cols, rows, opts) {
+  opts = opts || {};
+  if (opts.cards) {
+    return `<div class="card"><h2>${title}</h2><p class="hint">${hint}</p>
+    <div id="${id}Body" class="le-cards">
+    ${rows.map((r, i) => `<details class="le-card" data-le-card="${id}" data-i="${i}" ${opts.isOpen && opts.isOpen(r, i) ? 'open' : ''}>
+      <summary><span class="le-card-title">${opts.summary ? opts.summary(r, i) : 'Row ' + (i + 1)}</span><button class="link danger" data-le-rm="${id}" data-i="${i}">Remove</button></summary>
+      <div class="le-grid">${cols.map((c) => `<div class="le-f ${c.type === 'textarea' ? 'le-wide' : ''} ${c.type === 'check' ? 'le-check' : ''}"><label>${c.label}</label>${leFieldHtml(id, c, r, i)}</div>`).join('')}</div>
+    </details>`).join('') || '<p class="hint">None yet.</p>'}
+    </div>
+    <div class="row" style="margin-top:10px;"><button class="secondary" data-le-add="${id}">+ Add</button><button class="primary" data-le-save="${id}">Save</button>${dirtyNote}</div>
+    <div id="${id}Status" class="status"></div></div>`;
+  }
+  return `<div class="card"><h2>${title}</h2><p class="hint">${hint}</p>
+    <div class="tbl-wrap"><table class="ad"><thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead><tbody id="${id}Body">
+    ${rows.map((r, i) => `<tr>${cols.map((c) => `<td>${leFieldHtml(id, c, r, i)}</td>`).join('')}
       <td><button class="link danger" data-le-rm="${id}" data-i="${i}">Remove</button></td></tr>`).join('') || `<tr><td colspan="${cols.length + 1}" class="hint">None yet.</td></tr>`}
     </tbody></table></div>
     <div class="row" style="margin-top:10px;"><button class="secondary" data-le-add="${id}">+ Add</button><button class="primary" data-le-save="${id}">Save</button>${dirtyNote}</div>
@@ -5253,6 +5367,7 @@ function wireListEditor(el, id, rows, action, cols, rerender) {
   const grow = Array.from(el.querySelectorAll(`textarea[data-le="${id}"][data-grow]`));
   grow.forEach((t) => t.addEventListener('input', () => growBox(t)));
   grow.forEach(growBox); setTimeout(() => grow.forEach(growBox), 0); // again once the page has laid out
+  el.querySelectorAll(`[data-le-card="${id}"]`).forEach((d) => d.addEventListener('toggle', () => { d.querySelectorAll('textarea[data-grow]').forEach(growBox); }));
   el.querySelectorAll(`[data-le="${id}"]`).forEach((inp) => inp.addEventListener(inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input', () => {
     rows[Number(inp.dataset.i)][inp.dataset.f] = inp.type === 'checkbox' ? (inp.checked ? 'TRUE' : 'FALSE') : inp.value;
     markDirty();
@@ -5332,6 +5447,23 @@ function tournAutoDates(r) {
   if (!r.SignupOpens || r._autoOpens) { r.SignupOpens = addDays(r.DateKey, -14); r._autoOpens = true; }
   if (!r.SignupCloses || r._autoCloses) { r.SignupCloses = addDays(r.DateKey, -(Number(board.settings.TournCloseDaysBefore) || 3)); r._autoCloses = true; }
 }
+// Setup › Tournaments shows each tournament in its own box (Tom 2026-11-26). New ones start open,
+// saved ones closed; what's open is remembered while the page is redrawn.
+let tnKey = 0;
+function tnCardOpts(rows) {
+  const open = tournAdm.open || (tournAdm.open = {});
+  rows.forEach((r) => { if (!r._k) r._k = r.TournID || 'new' + (++tnKey); if (!(r._k in open)) open[r._k] = !r.TournID; });
+  return {
+    cards: true,
+    isOpen: (r) => !!open[r._k],
+    summary: (r) => {
+      const k = TOURN_KINDS[r.Kind || 'ten'] || TOURN_KINDS.ten, t = r.TournID ? tournById(r.TournID) : null;
+      const n = t ? tournSignups(t).length : 0;
+      return `${TOURN_ICON} ${escapeHtml(r.Title || k.title)} · ${r.DateKey ? escapeHtml(dateShort(r.DateKey)) : '<span class="hint">no date yet</span>'}` +
+        `<span class="hint" style="font-weight:400;"> · ${t ? `${n} signed up` : 'not saved yet'}${String(r.Active).toUpperCase() === 'FALSE' ? ' · hidden' : ''}${r.Game ? ' · ' + escapeHtml(r.Game) : ''}</span>`;
+    },
+  };
+}
 function renderTournAdmin(el, rows) {
   // blank open/close dates show as the dates they work out to (two weeks before, TournCloseDaysBefore before)
   const myKinds = tournMyKinds();
@@ -5367,7 +5499,7 @@ function renderTournAdmin(el, rows) {
     warn.push(`The event “${escapeHtml(e.Title)}” (${escapeHtml(dateShort(e.DateKey))}) is on Setup › Events. Tournaments now belong here: add it below, then untick Show on Events once its players have signed up again.`);
   });
   const year = (() => { const t = keyDate(board.today); return t.getUTCMonth() >= 7 ? t.getUTCFullYear() + 1 : t.getUTCFullYear(); })();
-  el.innerHTML = listEditorHtml('tn', 'Tournaments', `Each tournament shows under <b>Sign-ups</b> on its date (and on the <b>Tournaments</b> tab), and members sign up like a regular round. On its date it takes the place of regular play: <b>Fun and Nassau</b> replaces both groups (for the Ten Dollar Tournament, all 9 tee times); <b>Fun Group only</b> replaces the Fun Group, and the Nassau group plays as usual. Sign-ups open on <b>Sign-ups open</b> (it fills in as two weeks before when you pick the date; set your own for the Annual Tournament) and close at 11:59 PM on <b>Sign-ups close</b>. The places are tee times × ${escapeHtml(board.settings.PlayersPerTeeTime || '4')}, then a standby list. Tee times start at <b>First tee time</b>, or if that's blank, at the day's time on Setup › First Tee Time. Untick Show to hide one without losing its sign-ups.`, cols, rows) +
+  el.innerHTML = listEditorHtml('tn', 'Tournaments', `Each tournament shows under <b>Sign-ups</b> on its date (and on the <b>Tournaments</b> tab), and members sign up like a regular round. On its date it takes the place of regular play: <b>Fun and Nassau</b> replaces both groups (for the Ten Dollar Tournament, all 9 tee times); <b>Fun Group only</b> replaces the Fun Group, and the Nassau group plays as usual. Sign-ups open on <b>Sign-ups open</b> (it fills in as two weeks before when you pick the date; set your own for the Annual Tournament) and close at 11:59 PM on <b>Sign-ups close</b>. The places are tee times × ${escapeHtml(board.settings.PlayersPerTeeTime || '4')}, then a standby list. Tee times start at <b>First tee time</b>, or if that's blank, at the day's time on Setup › First Tee Time. Untick Show to hide one without losing its sign-ups.`, cols, rows, tnCardOpts(rows)) +
     `<datalist id="tournGames">${fmts.map((f) => `<option value="${escapeHtml(f.Name)}">`).join('')}${games.filter((g) => !fmts.some((f) => f.Name.toLowerCase() === g.toLowerCase())).map((g) => `<option value="${escapeHtml(g)}">`).join('')}</datalist>
     <div class="card" style="margin-top:-6px;"><div class="row"><button class="secondary" id="tnAddTen">+ Add the Ten Dollar Tournaments for ${year} (last Wednesday of April – August)</button>
       <button class="secondary" id="tnAddFive">+ Add the Five Dollar Tournaments for ${year} (second Wednesday of May – September)</button></div>
@@ -5377,8 +5509,9 @@ function renderTournAdmin(el, rows) {
     <div id="tnPairCard"></div>
     <div id="tnMailCard"></div>`;
   wireListEditor(el, 'tn', rows, 'legendsSaveTournaments', cols, (r) => renderTournAdmin(el, r));
+  el.querySelectorAll('[data-le-card="tn"]').forEach((d) => d.addEventListener('toggle', () => { const r = rows[Number(d.dataset.i)]; if (r) tournAdm.open[r._k] = d.open; }));
   el.querySelector('[data-le-save="tn"]').onclick = async () => {
-    const out = rows.map((r) => { const o = Object.assign({}, r); delete o._autoOpens; delete o._autoCloses; ['TournID', 'Kind', 'Title', 'DateKey', 'SignupOpens', 'SignupCloses', 'TeeTimes', 'FirstTee', 'Who', 'Game', 'Prizes', 'Description', 'Active'].forEach((k) => { if (o[k] === undefined) o[k] = ''; }); return o; });
+    const out = rows.map((r) => { const o = Object.assign({}, r); delete o._k; delete o._autoOpens; delete o._autoCloses; ['TournID', 'Kind', 'Title', 'DateKey', 'SignupOpens', 'SignupCloses', 'TeeTimes', 'FirstTee', 'Who', 'Game', 'Prizes', 'Description', 'Active'].forEach((k) => { if (o[k] === undefined) o[k] = ''; }); return o; });
     tournAdm.rows = null;
     if (!(await adminSave('legendsSaveTournaments', { rows: JSON.stringify(out) }, 'tnStatus', 'Tournaments saved.'))) tournAdm.rows = rows;
   };
@@ -6288,8 +6421,9 @@ async function emPreview(el, type, key) {
 }
 // Expected recipients for each of the next 14 days, from today's sign-ups and settings.
 function emForecastHtml(typeTitle) {
-  const f = board.emailForecast;
-  if (!f) return '';
+  typeTitle = typeTitle || ((type) => (EMAIL_TYPES.find((t) => t.type === type) || { title: type }).title);
+  const f = emailForecast;
+  if (!f) return '<p class="hint">Working out the emails expected each day…</p>';
   const rows = f.days.filter((d) => d.total).map((d) => `<tr${d.over ? ' class="imp-bad"' : ''}><td><b>${escapeHtml(emDayLabel(d.day))}</b></td>
     <td>${d.total}${d.day === board.today ? ` of ${d.limit} left` : ''}${d.over ? ' ⚠️ over' : ''}</td>
     <td>${d.items.map((x) => `${escapeHtml(typeTitle(x.type))} for ${escapeHtml(dateShort(x.key))} (${x.count})`).join('<br>')}</td></tr>`).join('');
@@ -6314,7 +6448,7 @@ function renderEmailsAdmin(el) {
       <p class="hint">The automatic emails go out from the hourly job, once per date. Gmail allows about 100 recipients a day in total — “Fun Group players for tomorrow” uses one per player.</p>
       <label>Daily email limit (recipients)</label><input type="number" min="1" data-emset="EmailDailyLimit" value="${escapeHtml(st.EmailDailyLimit || '100')}" style="max-width:120px;">
       <p class="hint">100 for a free Gmail account, 1500 for Google Workspace. Every To, Cc and Bcc address counts, so splitting an email into parts doesn't help.</p>
-      ${emForecastHtml(typeTitle)}
+      <div id="emForecastBox">${emForecastHtml(typeTitle)}</div>
       <h3 style="margin:16px 0 4px;">Google Groups</h3>
       <label class="hint em-field">Note added at the bottom of any email that goes to a Google Group (an @googlegroups.com address in any email's recipients, or the Legends group address under Sign-up summary) — {group} the address, {count} how many Legends, {names} their names, {link} a “click here” link that opens an email to all of them. Leave blank for no note.</label><textarea data-emset="DailyGroupNoteText" rows="3">${escapeHtml(st.DailyGroupNoteText || '')}</textarea>
       <label class="hint em-field">Group members Google can't show the app — the app reads each group's members itself, but Google hides addresses with no Google account (such as aol.com or nc.rr.com). List those here, one line per group, like <i>legends-fun@googlegroups.com: jane@aol.com, bob@nc.rr.com</i>. <b>Check the group</b> shows who the app sees in each group.</label><textarea data-emset="DailyGroupMembers" rows="3" placeholder="group@googlegroups.com: someone@aol.com, other@nc.rr.com">${escapeHtml(st.DailyGroupMembers || '')}</textarea>
