@@ -557,7 +557,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-27f';
+const APP_VERSION = '2026-11-27g';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1541,6 +1541,25 @@ function mySummaryHtml(items) {
             (second ? ` · <span class="standby-txt">also ${second.Group === 'fun' ? 'Fun' : 'Nassau'} standby #${groupPos(d.DateKey, second).n}</span>` : '') };
       }
       const tf = dayTourn(d, 'fun'), tn = dayTourn(d, 'nassau'); // a tournament takes the place of that group's round
+      // (Tom 2026-11-27) A Fun-only tournament (the Five Dollar) shares the day's box: "Fun $5: 3 open · Nassau: 14 open".
+      const tF = tf && !tn ? dayTournObj(d, 'fun') : null;
+      if (tF) {
+        const tm = tournMine(tF), tst = tournState(tF), tl = tournSignups(tF);
+        if (found) { mine.push(row(d.DateKey, found.l1, found.l2, toggleHtml(d, state, true))); return; }
+        if (tm) { mine.push(row(d.DateKey, `${TOURN_ICON} ${escapeHtml(tournShort(tF))} · ${escapeHtml(tournTimes(tF))}`, `${tm.standby ? `<b class="standby-txt">#${tm.n} on standby</b>` : '<b>Signed up</b>'}${detailText(tm.s) ? ` · ${escapeHtml(detailText(tm.s))}` : ''}`, toggleHtml(d, state, true))); return; }
+        if (state !== 'open' && tst !== 'open') {
+          if (state === 'notyet') soon.push(`${escapeHtml(dateShort(d.DateKey))} <span class="hint">(opens ${escapeHtml(whenLabel(d.opensAt - clockSkew).replace(/^[A-Za-z]+, /, ''))})</span>`);
+          return;
+        }
+        const room = (c, slots, sb) => (c < slots ? `${slots - c} open` : c < slots + sb ? 'standby only' : 'full');
+        const nN = groupList(d.DateKey, 'nassau').length;
+        const funTxt = tst === 'open' ? room(tl.length, tF.slots, tF.standbySlots) : tst === 'closed' ? 'closed' : `opens ${escapeHtml(dateShort(tF.opens))}`;
+        const nasTxt = state === 'open' ? room(nN, d.nassauSlots, d.standbySlots) : state === 'closed' ? 'closed' : 'not open yet';
+        const cT = tst === 'open' ? whenLabel(tF.closesAt - clockSkew) : '', cN = state === 'open' ? whenLabel(d.closesAt - clockSkew) : '';
+        const closes = cT && cN && cT !== cN ? `Fun $5 closes ${escapeHtml(cT)} · Nassau closes ${escapeHtml(cN)}` : `closes ${escapeHtml(cT || cN)}`;
+        canJoin.push(row(d.DateKey, `${TOURN_ICON} Fun $5: ${funTxt} · Nassau: ${nasTxt}`, closes, toggleHtml(d, state, true)));
+        return;
+      }
       if (found) mine.push(row(d.DateKey, found.l1, found.l2, toggleHtml(d, state, true)));
       else if (tf && tn) return; // the tournament has its own line
       else if (state === 'open') {
@@ -1552,6 +1571,8 @@ function mySummaryHtml(items) {
       }
     } else if (it.type === 'tourn') {
       const t = it.t, m = tournMine(t), st = tournState(t), list = tournSignups(t);
+      const dd = t.who === 'fun' && (board.dates || []).find((x) => x.DateKey === t.DateKey && !x.closed);
+      if (dd && dayTournObj(dd, 'fun') === t) return; // shown in that day's box (Tom 2026-11-27)
       const l1 = `${TOURN_ICON} ${escapeHtml(t.title)} · ${escapeHtml(tournTimes(t))}`;
       if (m) mine.push(row(t.DateKey, l1, `${m.standby ? `<b class="standby-txt">#${m.n} on standby</b>` : '<b>Signed up</b>'}${detailText(m.s) ? ` · ${escapeHtml(detailText(m.s))}` : ''}`, tournToggleHtml(t, true)));
       else if (st === 'notyet' && t.opens <= addDays(board.today, SIGNUP_DAYS)) soon.push(`${TOURN_ICON} ${escapeHtml(t.title)} <span class="hint">(opens ${escapeHtml(dateShort(t.opens))})</span>`);
@@ -1781,7 +1802,7 @@ function toggleHtml(d, state, compact) {
     const t = dayTournObj(d, g);
     if (!t || tOpts.some((o) => o.t === t)) return;
     const tl = tournSignups(t), ok = tournState(t) === 'open' && tournMayJoin(t), fullT = tl.length >= t.slots + t.standbySlots;
-    tOpts.push({ t, html: ok ? `<option value="tourn:${escapeHtml(t.TournID)}" ${fullT ? 'disabled' : ''}>${fullT ? `${escapeHtml(t.title)} — full` : tl.length >= t.slots ? `Standby · ${escapeHtml(t.title)}` : `Sign up · ${escapeHtml(t.title)}`}</option>` : '' });
+    tOpts.push({ t, html: ok ? `<option value="tourn:${escapeHtml(t.TournID)}" ${fullT ? 'disabled' : ''}>${fullT ? `${escapeHtml(tournShort(t))} — full` : tl.length >= t.slots ? `Standby · ${escapeHtml(tournShort(t))}` : `Sign up · ${escapeHtml(tournShort(t))}`}</option>` : '' });
   });
   const tOptFor = (g) => { const t = dayTournObj(d, g), o = t && tOpts.find((x) => x.t === t); if (!o) return `<option value="" disabled>${label(g)} — ${escapeHtml(dayTourn(d, g))}</option>`; const h = o.html; o.html = ''; return h; };
   if (!mine && state !== 'open' && tOpts.some((o) => o.html)) {
@@ -1966,6 +1987,8 @@ function tournMine(t) {
   return i === -1 ? null : { s: l[i], idx: i, standby: i >= t.slots, n: i >= t.slots ? i - t.slots + 1 : i + 1 };
 }
 function tournTimes(t) { return t.teeList && t.teeList.length ? `${t.teeList[0]} – ${t.teeList[t.teeList.length - 1]}` : 'times TBD'; }
+// Short name where space is tight (Tom 2026-11-27): "Fun $5 Tournament" for the Five Dollar Tournament.
+function tournShort(t) { return t && String(t.Kind) === 'five' ? 'Fun $5 Tournament' : (t ? t.title : ''); }
 function tournWhoText(t) { return t.who === 'fun' ? 'Fun Group players' : 'Fun and Nassau players'; }
 // Any member may play (Tom 2026-11-23), but one round a day: not if already in that day's Fun or Nassau group (the server checks too).
 function tournMayJoin(t) { return !(board.signups || []).some((s) => s.DateKey === t.DateKey && (s.Group === 'fun' || s.Group === 'nassau') && String(s.PlayerID) === myId()); }
@@ -1993,7 +2016,7 @@ function tournToggleHtml(t, compact, named) {
     const extra = !compact && st === 'open' ? `<div class="ts-holes-group"><select class="ts-tee-select" data-tee-set="${escapeHtml(m.s.SignupID)}">${m.s.Tee ? '' : '<option value="" selected>Tees…</option>'}${tees.map((x) => `<option ${x === m.s.Tee ? 'selected' : ''}>${escapeHtml(x)}</option>`).join('')}</select>
         <select class="ts-tee-select" data-ride-set="${escapeHtml(m.s.SignupID)}"><option value="walking" ${m.s.Riding === 'TRUE' ? '' : 'selected'}>Walking</option><option value="riding" ${m.s.Riding === 'TRUE' ? 'selected' : ''}>Riding</option></select></div>` : '';
     return `<div class="ts-toggle-wrap"><select class="ts-signup-select in ${m.standby ? 'standby' : ''}" data-tourn-select="${escapeHtml(t.TournID)}" data-mine="${escapeHtml(m.s.SignupID)}">
-        <option value="in" selected>${m.standby ? `Standby #${m.n}` : 'Signed up'}${named ? ` · ${escapeHtml(t.title)}` : ''} ✓</option><option value="out">${st === 'closed' ? 'Remove me (late)' : 'Remove me'}</option></select>${extra}</div>`;
+        <option value="in" selected>${m.standby ? `Standby #${m.n}` : 'Signed up'}${named ? ` · ${escapeHtml(tournShort(t))}` : ''} ✓</option><option value="out">${st === 'closed' ? 'Remove me (late)' : 'Remove me'}</option></select>${extra}</div>`;
   }
   if (st === 'notyet') { const o = keyDate(t.opens); return `<span class="ts-closed-toggle-label">Opens ${MON[o.getUTCMonth()]} ${o.getUTCDate()}</span>`; }
   if (st === 'closed') return '<span class="ts-closed-toggle-label">Closed</span>';
