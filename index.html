@@ -194,6 +194,8 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .snap-cal-c { border-bottom:1px dashed #e7dfc9; padding:2px 0; min-height:8px; }
   .snap-cal-c .snap-row { flex-wrap:wrap; border-bottom:none; padding:6px 0; }
   .snap-cal-c .snap-row + .snap-row { border-top:1px dotted #e7dfc9; }
+  .snap-cal-c .snap-row.snap-mine { background:#e8f3ea; border-left:4px solid var(--green-dark); border-radius:6px; padding-left:6px; margin:3px 0; }
+  .snap-key { margin:6px 0 4px; display:flex; align-items:center; gap:6px; } .snap-key-box { display:inline-block; width:14px; height:14px; background:#e8f3ea; border-left:4px solid var(--green-dark); border-radius:3px; }
   .snap-cal-c .snap-row .snap-text { flex:1; min-width:0; }
   .snap-cal-c .snap-row .ts-toggle-wrap { width:100%; padding-left:46px; box-sizing:border-box; }
   .snap-cal-c .snap-row .ts-toggle-wrap .ts-signup-select { width:100%; max-width:none; }
@@ -554,7 +556,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-27b';
+const APP_VERSION = '2026-11-27c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1577,6 +1579,16 @@ function mySummaryHtml(items) {
   // "Signed up" on top, "Available" under it, each laid out as a calendar (Tom 2026-11-27).
   const cols = (a, b, emptyA, emptyB, extra) => `<h3>Signed up</h3>${a.length ? snapCalHtml(a) : `<p class="hint">${emptyA}</p>`}
       <h3>Available</h3>${b.length ? snapCalHtml(b) : `<p class="hint">${emptyB}</p>`}${extra || ''}`;
+  // My Sign-ups and My Events: signed up and available in one calendar, at most four weeks (Tom 2026-11-27).
+  // Signed-up dates are shaded green; anything further out is listed under it.
+  const mergedCal = (a, b, extra, none) => {
+    const all = a.map((x) => ({ key: x.key, html: x.html.replace('class="snap-row ', 'class="snap-row snap-mine ') })).concat(b);
+    if (!all.length) return `<p class="hint">${none || 'Nothing signed up and nothing open right now.'}</p>${extra || ''}`;
+    const wk0 = addDays(board.today, -keyDate(board.today).getUTCDay()), end = addDays(wk0, 28);
+    const inCal = all.filter((x) => x.key < end), later = all.filter((x) => x.key >= end).sort((x, y) => (x.key < y.key ? -1 : 1));
+    const laterTxt = later.length ? `<p class="snap-soon"><b>Later:</b> ${later.map((x) => { const t = x.html.match(/<div class="snap-l1">([\s\S]*?)<\/div>/); return `${escapeHtml(dateShort(x.key))} ${t ? t[1] : ''}${x.html.indexOf('snap-mine') !== -1 ? ' (signed up)' : ''}`; }).join(' · ')}</p>` : '';
+    return `<p class="hint snap-key"><span class="snap-key-box"></span> Signed up</p>${snapCalHtml(inCal)}${laterTxt}${extra || ''}`;
+  };
   const dutyItems = duty.map((x, i) => ({ key: x.DateKey, html: dutyRows[i] }));
   const soonDays = soon.filter((t) => t.indexOf('🏆') === -1), soonEv = soon.filter((t) => t.indexOf('🏆') !== -1);
   const soonHtml = (arr) => (arr.length ? `<p class="snap-soon"><b>Opening soon:</b> ${arr.join(' · ')}</p>` : '');
@@ -1584,9 +1596,9 @@ function mySummaryHtml(items) {
       <h2 class="snap-title snap-banner">My Tee Time Duty</h2>
       ${dutyRows.length ? snapCalHtml(dutyItems) : '<p class="hint">No upcoming tee time duty.</p>'}
       <h2 class="snap-title snap-banner snap-title-2">My Sign-ups</h2>
-      ${cols(mine.filter((x) => !isEv(x)), canJoin.filter((x) => !isEv(x)), 'Nothing yet.', 'Nothing open right now.', soonHtml(soonDays))}
+      ${mergedCal(mine.filter((x) => !isEv(x)), canJoin.filter((x) => !isEv(x)), soonHtml(soonDays))}
       <h2 class="snap-title snap-banner snap-title-2">My Events</h2>
-      ${cols(mine.filter(isEv), canJoin.filter(isEv), 'No events yet.', 'No events open right now.', soonHtml(soonEv))}
+      ${mergedCal(mine.filter(isEv), canJoin.filter(isEv), soonHtml(soonEv), 'No events signed up and none open right now.')}
     </div>`;
 }
 // Items ({ key, html }) as a calendar: a Monday, Wednesday and Friday column, one row per week
