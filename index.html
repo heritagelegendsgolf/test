@@ -195,6 +195,7 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .snap-cal-c .snap-row { flex-wrap:wrap; border-bottom:none; padding:6px 0; }
   .snap-cal-c .snap-row + .snap-row { border-top:1px dotted #e7dfc9; }
   .snap-cal-c .snap-row.snap-mine { background:#e8f3ea; border-left:4px solid var(--green-dark); border-radius:6px; padding-left:6px; margin:3px 0; }
+  tr.adm-new td { background:#fff6d6; } tr.adm-new td:first-child { box-shadow:inset 4px 0 0 var(--gold); }
   .snap-key { margin:6px 0 4px; display:flex; align-items:center; gap:6px; } .snap-key-box { display:inline-block; width:14px; height:14px; background:#e8f3ea; border-left:4px solid var(--green-dark); border-radius:3px; }
   .snap-cal-c .snap-row .snap-text { flex:1; min-width:0; }
   .snap-cal-c .snap-row .ts-toggle-wrap { width:100%; padding-left:46px; box-sizing:border-box; }
@@ -556,7 +557,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-27d';
+const APP_VERSION = '2026-11-27f';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -5326,12 +5327,12 @@ function renderDaysAdmin(el) {
   el.innerHTML = `
     <div class="card">
       <h2>First Tee Time <span class="hint" style="font-weight:400;">— the Legends tee times for each day</span></h2>
-      <p class="hint">The <b>first Legends tee time</b> is normally ${escapeHtml(board.settings.LegendsFirstOffsetMin || 48)} minutes after the club's first tee time, shown in grey, so you don't need to enter it. Type a time only when a day is different. The number of <b>Fun tee times</b> works the same way. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — following the club's pattern: six ${escapeHtml(board.settings.TeeIntervalMin)}-minute steps, then a 12-minute step to the top of the hour (10:00, 10:08, 10:16, 10:24, 10:32, 10:40, 10:48, 11:00). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. At most 9 tee times a day in all (Fun + Nassau), split however you enter them. Each row saves on its own.</p>
+      <p class="hint">The <b>first Legends tee time</b> is normally ${escapeHtml(board.settings.LegendsFirstOffsetMin || 48)} minutes after the club's first tee time and is filled in for you, so you don't need to enter it. Type a time only when a day is different. The number of <b>Fun tee times</b> works the same way. The Nassau tee times (the rest of the ${total}) and both groups' times fill in by themselves — following the club's pattern: six ${escapeHtml(board.settings.TeeIntervalMin)}-minute steps, then a 12-minute step to the top of the hour (10:00, 10:08, 10:16, 10:24, 10:32, 10:40, 10:48, 11:00). You can still change the Nassau number if the day had more or fewer tee times. Blank boxes use the usual setup shown in grey. Each tee time is ${escapeHtml(board.settings.PlayersPerTeeTime || 4)} players, which sets the sign-up slots. At most 9 tee times a day in all (Fun + Nassau), split however you enter them. Each row saves on its own.</p>
       <div class="tbl-wrap"><table class="ad" style="min-width:760px;"><thead><tr><th>Date</th><th>First Legends time</th><th>Fun tee times</th><th>Nassau tee times</th><th>Fun times</th><th>Nassau times</th><th></th></tr></thead><tbody>
       ${keys.map((k) => { const c = cfgBy[k] || {}; const closed = (board.closures || []).find((x) => x.DateKey === k); if (closed) return `<tr class="closed-day">
         <td><b>${escapeHtml(dateShort(k))}</b></td><td colspan="6" class="hint" style="color:var(--error)">No Legends tee times — ${escapeHtml(closed.Reason || 'closed')}</td></tr>`; return `<tr>
         <td><b>${escapeHtml(dateShort(k))}</b></td>
-        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || '')}" placeholder="${escapeHtml(defaultLegendsFirst(k))}" title="Blank uses ${escapeHtml(defaultLegendsFirst(k))}, ${escapeHtml(board.settings.LegendsFirstOffsetMin || 48)} minutes after the club's first tee time" style="width:95px;"></td>
+        <td><input type="text" data-c="LegendsFirst" data-k="${k}" value="${escapeHtml(c.LegendsFirst || defaultLegendsFirst(k))}" placeholder="${escapeHtml(defaultLegendsFirst(k))}" title="Blank uses ${escapeHtml(defaultLegendsFirst(k))}, ${escapeHtml(board.settings.LegendsFirstOffsetMin || 48)} minutes after the club's first tee time" style="width:95px;"></td>
         <td><input type="number" min="0" max="9" data-c="FunTeeTimes" data-k="${k}" value="${escapeHtml(c.FunTeeTimes || '')}" placeholder="${escapeHtml(board.settings.FunTeeTimes)}" style="width:60px;"></td>
         <td><input type="number" min="0" max="9" data-c="NassauTeeTimes" data-k="${k}" value="${escapeHtml(c.NassauTeeTimes || '')}" placeholder="${escapeHtml(board.settings.NassauTeeTimes)}" style="width:60px;"></td>
         <td data-show="fun" data-k="${k}" style="white-space:nowrap;"></td>
@@ -5385,6 +5386,8 @@ function renderDaysAdmin(el) {
     const row = { DateKey: k, FunSlots: '', NassauSlots: '', FunTimes: touched[k] ? '' : (c.FunTimes || ''), NassauTimes: touched[k] ? '' : (c.NassauTimes || ''), OpenEarly: '' };
     el.querySelectorAll(`input[data-k="${k}"]`).forEach((i) => { row[i.dataset.c] = i.type === 'checkbox' ? (i.checked ? 'TRUE' : '') : i.value.trim(); });
     if (row.LegendsFirst) row.LegendsFirst = fmtClock(parseClock(row.LegendsFirst));
+    // the usual time (club's first + 48) is kept blank, so it follows any change to the club's time (Tom 2026-11-27)
+    if (row.LegendsFirst && parseClock(row.LegendsFirst) === defaultLegendsFirstMin(k)) row.LegendsFirst = '';
     adminSave('legendsSaveDayConfig', { row: JSON.stringify(row) }, 'daysStatus', `Saved ${dateShort(k)}.`);
   });
 }
@@ -6656,14 +6659,24 @@ async function renderAdminsAdmin(el) {
   });
   el.querySelectorAll('[data-arm]').forEach((b) => b.onclick = () => { adminUsers.splice(Number(b.dataset.arm), 1); markDirty(); renderAdminsAdmin(el); });
   el.querySelectorAll('[data-akeep]').forEach((b) => b.onclick = () => { const a = adminUsers[Number(b.dataset.akeep)]; a.CancelRemoval = !a.CancelRemoval; markDirty(); renderAdminsAdmin(el); });
-  document.getElementById('admAdd').onclick = () => { adminUsers.push({ Name: '', PIN: '', Active: 'TRUE', Role: 'Full', _pick: true }); markDirty(); renderAdminsAdmin(el); };
+  // (Tom 2026-11-27) go straight to the new row's "Choose a Legend…" box and open its list
+  document.getElementById('admAdd').onclick = () => {
+    adminUsers.push({ Name: '', PIN: '', Active: 'TRUE', Role: 'Full', _pick: true }); markDirty(); renderAdminsAdmin(el);
+    const sel = el.querySelector(`[data-apick="${adminUsers.length - 1}"]`);
+    if (!sel) return;
+    const tr = sel.closest('tr');
+    tr.classList.add('adm-new');
+    tr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    sel.focus({ preventScroll: true });
+    try { if (sel.showPicker) sel.showPicker(); } catch (e) { /* some browsers only open it on a real click */ }
+  };
   el.querySelectorAll('[data-apick]').forEach((sel) => sel.onchange = () => {
     const a = adminUsers[Number(sel.dataset.apick)];
     delete a._pick;
     if (sel.value !== '__other__') a.Name = sel.value;
     renderAdminsAdmin(el);
-    if (sel.value === '__other__') { const inp = el.querySelector(`[data-ai="${sel.dataset.apick}"][data-f="Name"]`); if (inp) inp.focus(); }
-    else { const pin = el.querySelector(`[data-ai="${sel.dataset.apick}"][data-f="PIN"]`); if (pin) pin.focus(); }
+    const next = el.querySelector(`[data-ai="${sel.dataset.apick}"][data-f="${sel.value === '__other__' ? 'Name' : 'PIN'}"]`);
+    if (next) { next.closest('tr').classList.add('adm-new'); next.scrollIntoView({ block: 'center' }); next.focus({ preventScroll: true }); }
   });
   document.getElementById('admSave').onclick = async () => {
     const bad = adminUsers.find((a) => (a.Name || a.PIN) && !(a.OrigName && !a.PIN) && !/^\d{4,8}$/.test(String(a.PIN || '')));
