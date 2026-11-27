@@ -556,7 +556,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-27c';
+const APP_VERSION = '2026-11-27d';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1607,7 +1607,8 @@ function mySummaryHtml(items) {
 function snapCalHtml(items) {
   const colOf = [0, 0, 1, 1, 2, 2, 2];
   const weeks = {};
-  items.slice().sort((a, b) => (a.key < b.key ? -1 : 1)).forEach((x) => {
+  const isT = (x) => (x.html.indexOf(TOURN_ICON) !== -1 ? 0 : 1); // tournaments above that day's groups (Tom 2026-11-27)
+  items.slice().sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : isT(a) - isT(b))).forEach((x) => {
     const d = keyDate(x.key), wk = addDays(x.key, -d.getUTCDay());
     (weeks[wk] = weeks[wk] || [[], [], []])[colOf[d.getUTCDay()]].push(x.html);
   });
@@ -1903,7 +1904,8 @@ function schedItems() {
   const items = board.dates.map((d) => ({ key: d.DateKey, type: 'day', d }));
   (board.events || []).filter((e) => e.DateKey >= board.today && String(e.Active).toUpperCase() !== 'FALSE').forEach((e) => items.push({ key: e.DateKey, type: 'event', e }));
   tournUpcoming().forEach((t) => items.push({ key: t.DateKey, type: 'tourn', t }));
-  const rank = { day: 0, tourn: 1, event: 2 };
+  // a tournament goes above that day's regular groups: the Five Dollar tees off before the Nassau group (Tom 2026-11-27)
+  const rank = { tourn: 0, day: 1, event: 2 };
   return items.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : rank[a.type] - rank[b.type]));
 }
 function personOn(it, pid) {
