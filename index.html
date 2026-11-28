@@ -194,6 +194,8 @@ table.swap-tbl tr.swap-picked td:first-child b { color:var(--green, #2d5a3d); }
   .snap-cal-c { border-bottom:1px dashed #e7dfc9; padding:2px 0; min-height:8px; }
   .snap-cal-c .snap-row { flex-wrap:wrap; border-bottom:none; padding:6px 0; }
   .snap-cal-c .snap-row + .snap-row { border-top:1px dotted #e7dfc9; }
+  .snap-cal-c .snap-row, .snap-cal-c .snap-text, .snap-cal-c .duty-cell { box-sizing:border-box; }
+  .snap-cal-c .snap-row { align-content:flex-start; margin:3px 0; }
   .snap-cal-c .snap-row.snap-mine { background:#e8f3ea; border-left:4px solid var(--green-dark); border-radius:6px; padding-left:6px; margin:3px 0; }
   tr.adm-new td { background:#fff6d6; } tr.adm-new td:first-child { box-shadow:inset 4px 0 0 var(--gold); }
   .snap-key { margin:6px 0 4px; display:flex; align-items:center; gap:6px; } .snap-key-box { display:inline-block; width:14px; height:14px; background:#e8f3ea; border-left:4px solid var(--green-dark); border-radius:3px; }
@@ -557,7 +559,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-27g';
+const APP_VERSION = '2026-11-28b';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1635,8 +1637,30 @@ function snapCalHtml(items) {
     (weeks[wk] = weeks[wk] || [[], [], []])[colOf[d.getUTCDay()]].push(x.html);
   });
   return `<div class="snap-cal"><div class="snap-cal-h">Monday</div><div class="snap-cal-h">Wednesday</div><div class="snap-cal-h">Friday</div>${Object.keys(weeks).sort()
-    .map((wk) => weeks[wk].map((c) => `<div class="snap-cal-c${c.length ? '' : ' empty'}">${c.join('')}</div>`).join('')).join('')}</div>`;
+    .map((wk) => weeks[wk].map((c) => `<div class="snap-cal-c${c.length ? '' : ' empty'}" data-wk="${wk}">${c.join('')}</div>`).join('')).join('')}</div>`;
 }
+// (Tom 2026-11-28) Line up the buttons across a week's three columns: the n-th box in each
+// column gets the same height above its button. Only while the calendar shows three columns.
+function alignSnapCal(root) {
+  (root || document).querySelectorAll('.snap-cal').forEach((cal) => {
+    const cells = [...cal.querySelectorAll('.snap-cal-c')];
+    cells.forEach((c) => c.querySelectorAll('.snap-row, .snap-text, .duty-cell').forEach((t) => { t.style.minHeight = ''; }));
+    if (getComputedStyle(cal).gridTemplateColumns.split(' ').length < 3) return;
+    const byWk = {}; cells.forEach((c) => { (byWk[c.dataset.wk] = byWk[c.dataset.wk] || []).push(c); });
+    Object.values(byWk).forEach((cs) => {
+      // each box: first the text above the button, then the whole box, so the next boxes start level too
+      const boxes = cs.map((c) => [...c.querySelectorAll(':scope > .snap-row, :scope > .duty-cell')]);
+      const n = Math.max(0, ...boxes.map((l) => l.length));
+      const level = (els) => { const h = Math.max(...els.map((t) => t.getBoundingClientRect().height)); els.forEach((t) => { t.style.minHeight = h + 'px'; }); };
+      for (let i = 0; i < n; i++) {
+        const row = boxes.map((l) => l[i]).filter(Boolean);
+        level(row.map((b) => b.querySelector(':scope > .snap-text')).filter(Boolean));
+        level(row);
+      }
+    });
+  });
+}
+window.addEventListener('resize', () => { clearTimeout(window.__snapAl); window.__snapAl = setTimeout(() => alignSnapCal(document.getElementById('snapshotBody')), 150); });
 function dateLongPlain(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]}, ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()]} ${d.getUTCDate()}`; }
 // ====================== SIGN-UPS: "Upcoming Dates" (same layout as the Gibson Group app) ======================
 // Each date is a card that expands to show who's signed up. The big toggle on the
@@ -1647,6 +1671,8 @@ try { schedView = localStorage.getItem('legends_sched_view') || 'date'; } catch 
 let schedFilter = '';
 const schedExpanded = {};      // per-card overrides of the default below
 let schedAllOpen = true;         // dates start expanded; Expand All / Collapse All reset this
+// (Tom 2026-11-28) remembered on this device, like the view
+try { schedAllOpen = localStorage.getItem('legends_sched_open') !== 'collapsed'; } catch (e) {}
 function schedIsOpen(k) { return k in schedExpanded ? !!schedExpanded[k] : schedAllOpen; }
 const TEE_LIST = () => String(board.settings.TeeOptions || '').split(',').map((t) => t.trim()).filter(Boolean);
 const HOLES_PILLS = [['18', '18'], ['F9', 'Front 9'], ['B9', 'Back 9']];
@@ -1943,6 +1969,7 @@ function renderSnapshot() {
   const body = session ? mySummaryHtml(schedItems())
     : '<div class="card"><p class="hint" style="margin:0;">You are signed in as an admin only, so there is no personal snapshot. Sign in with your member PIN to see your tee time duty, sign-ups and events here.</p></div>';
   el.innerHTML = awayBannerHtml() + swapIncomingHtml() + newsCardHtml() + head + body;
+  requestAnimationFrame(() => alignSnapCal(el));
   wireSchedule(el);
   wireNews(el);
   wireSignups(el);
@@ -1955,7 +1982,7 @@ function renderEvents() {
   const items = schedItems().filter((it) => it.type === 'event');
   el.innerHTML = `<div class="ts-section-title-row no-print"><h2 class="ts-section-title">Events <span>${items.length} coming up</span></h2>
       <button class="ts-print-btn" data-print>🖨️ Print</button></div>
-    ${items.length ? `<div class="ts-duty-sort no-print"><button class="ts-duty-sort-btn" id="schedExpandAll">Expand All</button><button class="ts-duty-sort-btn" id="schedCollapseAll">Collapse All</button></div>` : ''}
+    ${items.length ? `<div class="ts-duty-sort no-print"><button class="ts-duty-sort-btn ${schedAllOpen ? 'active' : ''}" id="schedExpandAll">Expand All</button><button class="ts-duty-sort-btn ${schedAllOpen ? '' : 'active'}" id="schedCollapseAll">Collapse All</button></div>` : ''}
     <div id="eventsList">${items.map((it) => schedEventCardHtml(it.e)).join('') || '<div class="card"><p class="hint" style="margin:0;">No upcoming events right now.</p></div>'}</div>`;
   wireSchedule(el);
   wireSignups(el);
@@ -2148,7 +2175,7 @@ function renderSignups() {
     ${schedView === 'date' || schedView === 'person' ? `<div class="ts-filter-row no-print"><select id="schedFilter">
         <option value="">All players</option>${session ? `<option value="__me__" ${schedFilter === '__me__' ? 'selected' : ''}>Just my dates</option>` : ''}
         ${roster.map((r) => `<option value="${escapeHtml(r.PlayerID)}" ${schedFilter === String(r.PlayerID) ? 'selected' : ''}>${escapeHtml(r.Name)}</option>`).join('')}</select></div>` : ''}
-    ${schedView === 'date' || schedView === 'calendar' ? `<div class="ts-duty-sort no-print"><button class="ts-duty-sort-btn" id="schedExpandAll">Expand All</button><button class="ts-duty-sort-btn" id="schedCollapseAll">Collapse All</button></div>` : ''}`;
+    ${schedView === 'date' || schedView === 'calendar' ? `<div class="ts-duty-sort no-print"><button class="ts-duty-sort-btn ${schedAllOpen ? 'active' : ''}" id="schedExpandAll">Expand All</button><button class="ts-duty-sort-btn ${schedAllOpen ? '' : 'active'}" id="schedCollapseAll">Collapse All</button></div>` : ''}`;
   let body = '';
   if (schedView === 'date') {
     const shown = filterId ? items.filter((it) => personOn(it, filterId)) : items;
@@ -2192,8 +2219,8 @@ function wireSchedule(el) {
   const pr = document.getElementById('schedPrint'); if (pr) pr.onclick = () => window.print();
   el.querySelectorAll('[data-print]').forEach((b) => b.onclick = () => window.print());
   el.querySelectorAll('[data-goto-tab]').forEach((a) => a.onclick = (e) => { e.preventDefault(); selectTab(a.dataset.gotoTab); window.scrollTo(0, 0); });
-  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = true; renderCurrent(); };
-  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = false; renderCurrent(); };
+  const ea = document.getElementById('schedExpandAll'); if (ea) ea.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = true; try { localStorage.setItem('legends_sched_open', 'expanded'); } catch (e) {} renderCurrent(); };
+  const ca = document.getElementById('schedCollapseAll'); if (ca) ca.onclick = () => { Object.keys(schedExpanded).forEach((k) => delete schedExpanded[k]); schedAllOpen = false; try { localStorage.setItem('legends_sched_open', 'collapsed'); } catch (e) {} renderCurrent(); };
   el.querySelectorAll('[data-expand]').forEach((row) => row.addEventListener('click', (e) => {
     if (e.target.closest && e.target.closest('.ts-toggle-wrap, select, button, input, a')) return;
     const k = row.dataset.expand; schedExpanded[k] = !schedIsOpen(k); renderCurrent();
