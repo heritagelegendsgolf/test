@@ -559,7 +559,7 @@ const envParam = new URLSearchParams(location.search).get('env');
 const ENV = (envParam === 'test' || envParam === 'live') ? envParam : (location.href.toLowerCase().includes('test') ? 'test' : 'live');
 const CFG = CONFIG[ENV];
 // Bumped by hand every time this file changes.
-const APP_VERSION = '2026-11-28b';
+const APP_VERSION = '2026-11-28c';
 
 const SESSION_KEY = 'legends_member_' + ENV;   // { token, member } — remembered on this device
 const ADMIN_KEY = 'legends_appadmin_' + ENV;   // { name, pin } — this browser tab only
@@ -1660,7 +1660,22 @@ function alignSnapCal(root) {
     });
   });
 }
-window.addEventListener('resize', () => { clearTimeout(window.__snapAl); window.__snapAl = setTimeout(() => alignSnapCal(document.getElementById('snapshotBody')), 150); });
+// (Tom 2026-11-28) Same idea for the Sign-ups calendar view: in each row of three dates, the text
+// above the button gets the same height, so the buttons line up across the row.
+function alignSchedCal(root) {
+  (root || document).querySelectorAll('.ts-cal-grid').forEach((grid) => {
+    const cells = [...grid.querySelectorAll(':scope > .ts-cal-cell')];
+    cells.forEach((c) => c.querySelectorAll('.ts-card-mid').forEach((m) => { m.style.minHeight = ''; }));
+    if (getComputedStyle(grid).gridTemplateColumns.split(' ').length < 3) return;
+    for (let i = 0; i < cells.length; i += 3) {
+      const mids = cells.slice(i, i + 3).map((c) => c.querySelector('.ts-card-row > .ts-card-mid')).filter(Boolean);
+      // the first line of a card is the date block and the text beside it, whichever is taller
+      const h = Math.max(0, ...mids.map((m) => { const db = m.parentElement.querySelector(':scope > .ts-date-block'); return Math.max(m.getBoundingClientRect().height, db ? db.getBoundingClientRect().height : 0); }));
+      mids.forEach((m) => { m.style.minHeight = h + 'px'; });
+    }
+  });
+}
+window.addEventListener('resize', () => { clearTimeout(window.__snapAl); window.__snapAl = setTimeout(() => { alignSnapCal(document.getElementById('snapshotBody')); alignSchedCal(document.getElementById('schedBody')); }, 150); });
 function dateLongPlain(key) { const d = keyDate(key); return `${DOW_LONG[d.getUTCDay()]}, ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()]} ${d.getUTCDate()}`; }
 // ====================== SIGN-UPS: "Upcoming Dates" (same layout as the Gibson Group app) ======================
 // Each date is a card that expands to show who's signed up. The big toggle on the
@@ -2212,6 +2227,7 @@ function renderSignups() {
   el.innerHTML = controls + `<div id="schedBody">${body}</div><p class="hint no-print" style="margin-top:12px;">Tournaments are here on their dates, and all of them are on the <a href="#" data-goto-tab="tournament">Tournaments</a> tab. Events are on the <a href="#" data-goto-tab="events">Events</a> tab. Your own duty, sign-ups and events are on <a href="#" data-goto-tab="snapshot">My SUN Snapshot</a>.</p>`;
   wireSchedule(el);
   wireSignups(el);
+  if (schedView === 'calendar') requestAnimationFrame(() => alignSchedCal(el));
 }
 function wireSchedule(el) {
   el.querySelectorAll('[data-sched-view]').forEach((b) => b.onclick = () => { schedView = b.dataset.schedView; try { localStorage.setItem('legends_sched_view', schedView); } catch (e) {} renderCurrent(); });
